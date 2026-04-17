@@ -1,0 +1,62 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - paragraph [ref=e5]: IPL trader observer
+      - heading "Market Engine Terminal" [level=1] [ref=e6]
+    - button "Refresh" [ref=e8] [cursor=pointer]
+  - generic [ref=e9]:
+    - article [ref=e10]:
+      - paragraph [ref=e11]: System
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: Ready
+          - generic [ref=e15]: "YES"
+        - generic [ref=e16]:
+          - generic [ref=e17]: Live Fixtures
+          - generic [ref=e18]: "0"
+        - generic [ref=e19]:
+          - generic [ref=e20]: Actionable
+          - generic [ref=e21]: "0"
+        - generic [ref=e22]:
+          - generic [ref=e23]: Attention
+          - generic [ref=e24]: "1"
+    - article [ref=e25]:
+      - paragraph [ref=e26]: Engine
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - generic [ref=e29]: Odds Event Age
+          - generic [ref=e30]: 4s ago
+        - generic [ref=e31]:
+          - generic [ref=e32]: Poly Event Age
+          - generic [ref=e33]: 0s ago
+        - generic [ref=e34]:
+          - generic [ref=e35]: Mapped Fixtures
+          - generic [ref=e36]: "9"
+        - generic [ref=e37]:
+          - generic [ref=e38]: Reference Blends
+          - generic [ref=e39]: "0"
+  - generic [ref=e40]:
+    - article [ref=e41]:
+      - generic [ref=e42]:
+        - heading "Live Fixtures" [level=2] [ref=e43]
+        - generic [ref=e44]: "0"
+      - generic [ref=e46]: No live IPL fixtures currently tracked.
+    - article [ref=e47]:
+      - generic [ref=e48]:
+        - heading "Actionable Opportunities" [level=2] [ref=e49]
+        - generic [ref=e50]: "0"
+      - generic [ref=e52]: No current opportunities pass the engine filters.
+    - article [ref=e53]:
+      - generic [ref=e54]:
+        - heading "Attention / Degradation" [level=2] [ref=e55]
+        - generic [ref=e56]: "1"
+      - article [ref=e58]:
+        - generic [ref=e60]:
+          - generic [ref=e61]: UPCOMING
+          - heading "Gujarat Titans vs Kolkata Knight Riders" [level=3] [ref=e62]
+        - generic [ref=e64]: no-usable-reference-books
+    - article [ref=e65]:
+      - generic [ref=e66]:
+        - heading "Live Tape" [level=2] [ref=e67]
+        - generic [ref=e68]: "0"
+      - generic [ref=e70]: No live operator tape entries right now.

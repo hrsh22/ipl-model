@@ -1,0 +1,34 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - paragraph [ref=e5]: IPL trader observer
+      - heading "Market Engine Terminal" [level=1] [ref=e6]
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: Observer token
+        - textbox "Observer token" [ref=e10]:
+          - /placeholder: Optional bearer token
+        - button "Save" [ref=e11] [cursor=pointer]
+      - button "Refresh" [ref=e12] [cursor=pointer]
+  - generic [ref=e13]:
+    - article [ref=e14]:
+      - paragraph [ref=e15]: System
+    - article [ref=e16]:
+      - paragraph [ref=e17]: Engine
+  - generic [ref=e18]:
+    - article [ref=e19]:
+      - generic [ref=e20]:
+        - heading "Live Fixtures" [level=2] [ref=e21]
+        - generic [ref=e22]: "0"
+    - article [ref=e23]:
+      - generic [ref=e24]:
+        - heading "Actionable Opportunities" [level=2] [ref=e25]
+        - generic [ref=e26]: "0"
+    - article [ref=e27]:
+      - generic [ref=e28]:
+        - heading "Attention / Degradation" [level=2] [ref=e29]
+        - generic [ref=e30]: "0"
+    - article [ref=e31]:
+      - generic [ref=e32]:
+        - heading "Signal Tape" [level=2] [ref=e33]
+        - generic [ref=e34]: "0"

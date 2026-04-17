@@ -1,0 +1,64 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - paragraph [ref=e5]: IPL trader observer
+      - heading "Market Engine Terminal" [level=1] [ref=e6]
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: Observer token
+        - textbox "Observer token" [ref=e10]:
+          - /placeholder: Optional bearer token
+        - button "Save" [ref=e11] [cursor=pointer]
+      - button "Refresh" [ref=e12] [cursor=pointer]
+  - generic [ref=e13]:
+    - article [ref=e14]:
+      - paragraph [ref=e15]: System
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]: Ready
+          - generic [ref=e19]: "YES"
+        - generic [ref=e20]:
+          - generic [ref=e21]: Live Fixtures
+          - generic [ref=e22]: "0"
+        - generic [ref=e23]:
+          - generic [ref=e24]: Actionable
+          - generic [ref=e25]: "0"
+        - generic [ref=e26]:
+          - generic [ref=e27]: Attention
+          - generic [ref=e28]: "0"
+    - article [ref=e29]:
+      - paragraph [ref=e30]: Engine
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - generic [ref=e33]: Odds Event Age
+          - generic [ref=e34]: 2s ago
+        - generic [ref=e35]:
+          - generic [ref=e36]: Poly Event Age
+          - generic [ref=e37]: 0s ago
+        - generic [ref=e38]:
+          - generic [ref=e39]: Mapped Fixtures
+          - generic [ref=e40]: "9"
+        - generic [ref=e41]:
+          - generic [ref=e42]: Reference Blends
+          - generic [ref=e43]: "1"
+  - generic [ref=e44]:
+    - article [ref=e45]:
+      - generic [ref=e46]:
+        - heading "Live Fixtures" [level=2] [ref=e47]
+        - generic [ref=e48]: "0"
+      - generic [ref=e50]: No live IPL fixtures currently tracked.
+    - article [ref=e51]:
+      - generic [ref=e52]:
+        - heading "Actionable Opportunities" [level=2] [ref=e53]
+        - generic [ref=e54]: "0"
+      - generic [ref=e56]: No current opportunities pass the engine filters.
+    - article [ref=e57]:
+      - generic [ref=e58]:
+        - heading "Attention / Degradation" [level=2] [ref=e59]
+        - generic [ref=e60]: "0"
+      - generic [ref=e62]: No fixtures currently need operator attention.
+    - article [ref=e63]:
+      - generic [ref=e64]:
+        - heading "Live Tape" [level=2] [ref=e65]
+        - generic [ref=e66]: "0"
+      - generic [ref=e68]: No live operator tape entries right now.
