@@ -12,6 +12,9 @@ import { config } from "./config.js"
 import { checkDatabaseConnection } from "./database.js"
 import logger from "./logger.js"
 import { observerService } from "./observer/service.js"
+import { loadCricsheetData } from "./ipl/data-loader.js"
+import { generatePredictions, type PredictionRequest } from "./ipl/prediction-service.js"
+import { getAggregatedOdds } from "./ipl/odds-service.js"
 
 const sendJson = <A>(res: Response, program: Effect.Effect<A, unknown>) => {
   void Effect.runPromise(
@@ -69,6 +72,9 @@ const requireObserverAuth = (req: Request, res: Response, next: NextFunction) =>
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 const publicDirectory = join(currentDirectory, "..", "public")
 
+// Load historical data once at startup
+let historicalMatches: Awaited<ReturnType<typeof loadCricsheetData>> | null = null
+
 const createApp = Effect.sync((): Express => {
   const app = express()
 
@@ -100,6 +106,7 @@ const createApp = Effect.sync((): Express => {
             "/observer/tape/live",
             "/observer/history/signals",
             "/observer/signals",
+            "/predict/ipl",
           ],
         }
       }),
@@ -329,6 +336,65 @@ const createApp = Effect.sync((): Express => {
         },
         catch: (error) =>
           error instanceof Error ? error : new Error(String(error)),
+      }),
+    )
+  })
+
+  // IPL Prediction Endpoint
+  app.post("/predict/ipl", (req, res) => {
+    sendJson(
+      res,
+      Effect.gen(function* () {
+        const body = req.body as Record<string, unknown>
+
+        logger.debug("Handled POST /predict/ipl", { body })
+
+        // Validate request
+        if (!body.matchId || !body.team1 || !body.team2 || !body.venue || !body.matchDate) {
+          res.status(400)
+          return {
+            error: "Missing required fields: matchId, team1, team2, venue, matchDate",
+          }
+        }
+
+        // Load historical data if not already loaded
+        if (!historicalMatches) {
+          historicalMatches = loadCricsheetData("./data/cricsheet")
+        }
+
+        // Get aggregated odds
+        const aggregatedOdds = yield* getAggregatedOdds(
+          body.team1 as string,
+          body.team2 as string
+        )
+
+        // Create prediction request
+        const predictionRequest: PredictionRequest = {
+          matchId: body.matchId as string,
+          season: (body.season as number) || 2026,
+          matchDate: new Date(body.matchDate as string),
+          venue: body.venue as string,
+          team1: body.team1 as string,
+          team2: body.team2 as string,
+          tossWinner: (body.tossWinner as string | null) || null,
+          tossDecision: (body.tossDecision as string | null) || null,
+          bookmakersOdds: aggregatedOdds.averageTeam1Odds,
+          polymarketOdds: aggregatedOdds.averageTeam1Odds,
+        }
+
+        // Generate predictions
+        const { team1Prediction, team2Prediction } = generatePredictions(
+          predictionRequest,
+          historicalMatches
+        )
+
+        return {
+          matchId: body.matchId,
+          team1: team1Prediction,
+          team2: team2Prediction,
+          odds: aggregatedOdds,
+          timestamp: new Date().toISOString(),
+        }
       }),
     )
   })
