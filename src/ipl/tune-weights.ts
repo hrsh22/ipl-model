@@ -21,7 +21,13 @@ const calculateLogit = (
     weights.tossBias * features.tossBias +
     weights.bookmakersImpliedProb * features.bookmakersImpliedProb +
     weights.polymarketImpliedProb * features.polymarketImpliedProb +
-    weights.klDivergence * features.klDivergence
+    weights.klDivergence * features.klDivergence +
+    weights.starPlayerForm * features.starPlayerForm +
+    weights.keyBowlerForm * features.keyBowlerForm +
+    weights.resourceIndex * features.resourceIndex +
+    weights.wicketPressure * features.wicketPressure +
+    weights.battingDepth * features.battingDepth +
+    weights.bowlingStrength * features.bowlingStrength
   )
 }
 
@@ -80,51 +86,54 @@ export const tuneWeights = (dataDir: string): ModelWeights => {
     bookmakersImpliedProb: 0.6,
     polymarketImpliedProb: 0.3,
     klDivergence: -0.1,
+    starPlayerForm: 0.5,
+    keyBowlerForm: 0.3,
+    resourceIndex: 0.4,
+    wicketPressure: -0.2,
+    battingDepth: 0.3,
+    bowlingStrength: 0.3,
   }
 
   let bestAccuracy = calculateAccuracy(allMatches, testMatches, bestWeights)
   logger.info(`Initial accuracy: ${(bestAccuracy * 100).toFixed(2)}%`)
 
   // Grid search over key weights
-  const formEmaValues = [0.2, 0.4, 0.6, 0.8, 1.0]
+  const formEmaValues = [0.2, 0.3, 0.4, 0.5, 0.6]
   const h2hValues = [0.1, 0.2, 0.3, 0.4, 0.5]
-  const venueValues = [0.1, 0.2, 0.3, 0.4]
-  const bookmakersValues = [0.4, 0.5, 0.6, 0.7, 0.8]
-
-  let iterations = 0
-  const maxIterations = 100
+  const playerFormValues = [0.3, 0.5, 0.7, 0.9]
 
   for (const formEma of formEmaValues) {
     for (const h2h of h2hValues) {
-      for (const venue of venueValues) {
-        for (const bookmakers of bookmakersValues) {
-          if (iterations++ > maxIterations) break
+      for (const playerForm of playerFormValues) {
+        const weights: ModelWeights = {
+          intercept: 0,
+          formEma,
+          h2hWinRate: h2h,
+          venueWinRate: 0.2,
+          tossBias: 0.1,
+          bookmakersImpliedProb: 0.6,
+          polymarketImpliedProb: 0.3,
+          klDivergence: -0.1,
+          starPlayerForm: playerForm,
+          keyBowlerForm: 0.3,
+          resourceIndex: 0.4,
+          wicketPressure: -0.2,
+          battingDepth: 0.3,
+          bowlingStrength: 0.3,
+        }
 
-          const weights: ModelWeights = {
-            intercept: 0,
-            formEma,
-            h2hWinRate: h2h,
-            venueWinRate: venue,
-            tossBias: 0.1,
-            bookmakersImpliedProb: bookmakers,
-            polymarketImpliedProb: 0.3,
-            klDivergence: -0.1,
-          }
-
-          const accuracy = calculateAccuracy(allMatches, testMatches, weights)
-
-          if (accuracy > bestAccuracy) {
-            bestAccuracy = accuracy
-            Object.assign(bestWeights, weights)
-            logger.info(`New best: ${(accuracy * 100).toFixed(2)}% with formEma=${formEma}, h2h=${h2h}, venue=${venue}, bookmakers=${bookmakers}`)
-          }
+        const accuracy = calculateAccuracy(allMatches, testMatches, weights)
+        if (accuracy > bestAccuracy) {
+          bestAccuracy = accuracy
+          Object.assign(bestWeights, weights)
+          logger.info(
+            `New best: ${(accuracy * 100).toFixed(2)}% (formEma=${formEma}, h2h=${h2h}, playerForm=${playerForm})`
+          )
         }
       }
     }
   }
 
-  logger.info(`Best accuracy found: ${(bestAccuracy * 100).toFixed(2)}%`)
-  logger.info(`Best weights:`, bestWeights)
-
+  logger.info(`Final best accuracy: ${(bestAccuracy * 100).toFixed(2)}%`)
   return bestWeights
 }
