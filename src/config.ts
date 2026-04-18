@@ -16,6 +16,9 @@ const optionalEnv = (name: string) => {
   return value ? value : null
 }
 
+const parseBooleanEnv = (value: string | undefined) =>
+  value ? ["1", "true", "yes", "on"].includes(value.trim().toLowerCase()) : false
+
 const parsePort = (value: string) => {
   const port = Number(value)
 
@@ -26,10 +29,13 @@ const parsePort = (value: string) => {
   return port
 }
 
+const predictorOnlyMode = parseBooleanEnv(process.env.PREDICTOR_ONLY)
+
 export const config = {
   port: parsePort(requireEnv("PORT")),
   logLevel: requireEnv("LOG_LEVEL"),
-  databaseUrl: requireEnv("DATABASE_URL"),
+  predictorOnlyMode,
+  databaseUrl: predictorOnlyMode ? optionalEnv("DATABASE_URL") : requireEnv("DATABASE_URL"),
   opticOddsApiKey: requireEnv("OPTICODDS_API_KEY"),
   observerApiToken: optionalEnv("OBSERVER_API_TOKEN"),
 }

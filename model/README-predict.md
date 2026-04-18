@@ -156,3 +156,19 @@ Confirmed XI is now auto-fetched in `post_toss` mode from the IPL official match
 - Market prices are auto-fetched only as an overlay/comparison layer outside the model probability.
 - If no matching Polymarket market exists, `market_overlay` will be `null` while `sportsbook_overlay` can still be populated from OpticOdds.
 - In `post_toss` mode, official toss + confirmed XI are applied before any file or CLI overrides; file overrides can still replace them if needed.
+
+## Predictor-only server mode
+
+If you want to expose only the predictor UI/API on a VM, you can start the Node server with:
+
+```env
+PREDICTOR_ONLY=true
+```
+
+In this mode:
+
+- `DATABASE_URL` is not required
+- observer startup is skipped
+- observer JSON routes return `503`
+- `/predictor` and `/predictor/api/*` still work
+- `OPTICODDS_API_KEY` is still required for predictor live-data refresh

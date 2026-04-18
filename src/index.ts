@@ -11,9 +11,7 @@ import express, {
 } from "express"
 import { Effect } from "effect"
 import { config } from "./config.js"
-import { checkDatabaseConnection } from "./database.js"
 import logger from "./logger.js"
-import { observerService } from "./observer/service.js"
 import { loadCricsheetData } from "./ipl/data-loader.js"
 import { generatePredictions, type PredictionRequest } from "./ipl/prediction-service.js"
 import { getAggregatedOdds } from "./ipl/odds-service.js"
@@ -38,6 +36,32 @@ const sendJson = <A>(res: Response, program: Effect.Effect<A, unknown>) => {
 
 const formatError = (error: unknown) =>
   error instanceof Error ? error.message : "Unknown error"
+
+const observerDisabledError = (res: Response) => {
+  res.status(503)
+  return { error: "Observer routes are disabled in predictor-only mode" }
+}
+
+const loadDatabaseModule = () =>
+  Effect.tryPromise<typeof import("./database.js"), Error>({
+    try: () => import("./database.js"),
+    catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+  })
+
+const loadObserverService = () =>
+  Effect.tryPromise<typeof import("./observer/service.js"), Error>({
+    try: () => import("./observer/service.js"),
+    catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+  }).pipe(Effect.map((module) => module.observerService))
+
+const checkDatabaseConnectionIfEnabled = () =>
+  config.predictorOnlyMode || !config.databaseUrl
+    ? Effect.succeed("disabled" as const)
+    : Effect.gen(function* () {
+        const { checkDatabaseConnection } = yield* loadDatabaseModule()
+        yield* checkDatabaseConnection
+        return "reachable" as const
+      })
 
 const parseNumberQuery = (value: unknown, fallback: number) => {
   const firstValue = Array.isArray(value) ? value[0] : value
@@ -159,16 +183,22 @@ const createApp = Effect.sync((): Express => {
           logger.debug("Handled GET /")
         })
 
-        return {
-          message: "IPL Trader API is running",
-          endpoints: [
-            "/",
-            "/health",
+        const endpoints = [
+          "/",
+          "/health",
+          "/predictor",
+          "/predictor/api/fixtures",
+          "/predictor/api/context",
+          "/predictor/api/predict",
+          "/predict/ipl",
+        ]
+
+        if (!config.predictorOnlyMode) {
+          endpoints.push(
             "/observer/status",
             "/observer/diagnostics",
             "/observer/metrics",
             "/observer/dashboard",
-            "/predictor",
             "/observer/fixtures",
             "/observer/fixtures/live",
             "/observer/fixtures/:fixtureId",
@@ -177,8 +207,13 @@ const createApp = Effect.sync((): Express => {
             "/observer/tape/live",
             "/observer/history/signals",
             "/observer/signals",
-            "/predict/ipl",
-          ],
+          )
+        }
+
+        return {
+          message: "IPL Trader API is running",
+          mode: config.predictorOnlyMode ? "predictor_only" : "full_app",
+          endpoints,
         }
       }),
     )
@@ -192,13 +227,20 @@ const createApp = Effect.sync((): Express => {
           logger.debug("Handled GET /health")
         })
 
-        yield* checkDatabaseConnection
+        const database = yield* checkDatabaseConnectionIfEnabled()
+        const observer = config.predictorOnlyMode
+          ? {
+              enabled: false,
+              mode: "predictor_only" as const,
+            }
+          : (yield* loadObserverService()).getStatus()
 
         return {
           status: "ok" as const,
           uptimeSeconds: Math.round(process.uptime()),
-          database: "reachable" as const,
-          observer: observerService.getStatus(),
+          mode: config.predictorOnlyMode ? "predictor_only" : "full_app",
+          database,
+          observer,
         }
       }),
     )
@@ -212,8 +254,17 @@ const createApp = Effect.sync((): Express => {
           logger.debug("Handled GET /ready")
         })
 
-        yield* checkDatabaseConnection
-        const readiness = observerService.getReadiness()
+        if (config.predictorOnlyMode) {
+          return {
+            ready: true,
+            mode: "predictor_only" as const,
+            database: "disabled" as const,
+            observer: "disabled" as const,
+          }
+        }
+
+        yield* checkDatabaseConnectionIfEnabled()
+        const readiness = (yield* loadObserverService()).getReadiness()
 
         if (!readiness.ready) {
           res.status(503)
@@ -225,6 +276,11 @@ const createApp = Effect.sync((): Express => {
   })
 
   app.get("/observer/dashboard", (_req, res) => {
+    if (config.predictorOnlyMode) {
+      res.status(503).send("Observer dashboard is disabled in predictor-only mode")
+      return
+    }
+
     res.sendFile(join(publicDirectory, "observer-dashboard.html"))
   })
 
@@ -324,11 +380,15 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
+        if (config.predictorOnlyMode) {
+          return observerDisabledError(res)
+        }
+
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/status")
         })
 
-        return observerService.getStatus()
+        return (yield* loadObserverService()).getStatus()
       }),
     )
   })
@@ -337,11 +397,15 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
+        if (config.predictorOnlyMode) {
+          return observerDisabledError(res)
+        }
+
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/diagnostics")
         })
 
-        return observerService.getDiagnostics()
+        return (yield* loadObserverService()).getDiagnostics()
       }),
     )
   })
@@ -350,11 +414,15 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
+        if (config.predictorOnlyMode) {
+          return observerDisabledError(res)
+        }
+
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/metrics")
         })
 
-        return observerService.getMetrics()
+        return (yield* loadObserverService()).getMetrics()
       }),
     )
   })
@@ -364,8 +432,12 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
           logger.debug("Handled GET /observer/fixtures")
-          return observerService.getRecentFixtures(20)
+          return (await Effect.runPromise(loadObserverService())).getRecentFixtures(20)
         },
         catch: (error) =>
           error instanceof Error ? error : new Error(String(error)),
@@ -377,11 +449,15 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
+        if (config.predictorOnlyMode) {
+          return observerDisabledError(res)
+        }
+
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/fixtures/live")
         })
 
-        return observerService.getLiveFixtures()
+        return (yield* loadObserverService()).getLiveFixtures()
       }),
     )
   })
@@ -391,6 +467,10 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
           const fixtureId = Array.isArray(req.params.fixtureId)
             ? req.params.fixtureId[0]
             : req.params.fixtureId
@@ -404,7 +484,7 @@ const createApp = Effect.sync((): Express => {
             fixtureId,
           })
 
-          const detail = await observerService.getFixtureDetail(fixtureId)
+          const detail = await (await Effect.runPromise(loadObserverService())).getFixtureDetail(fixtureId)
 
           if (!detail) {
             res.status(404)
@@ -424,6 +504,10 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
           const minEdgeBps = parseNumberQuery(req.query.minEdgeBps, 100)
           const minConfidence = parseConfidenceQuery(req.query.minConfidence) ?? "medium"
 
@@ -432,7 +516,7 @@ const createApp = Effect.sync((): Express => {
             minConfidence,
           })
 
-          return observerService.getLiveOpportunities({
+          return (await Effect.runPromise(loadObserverService())).getLiveOpportunities({
             minEdgeBps,
             minConfidence,
           })
@@ -448,13 +532,17 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
           const minEdgeBps = parseNumberQuery(req.query.minEdgeBps, 100)
 
           logger.debug("Handled GET /observer/opportunities/diagnostics", {
             minEdgeBps,
           })
 
-          return observerService.getOpportunityDiagnostics(minEdgeBps)
+          return (await Effect.runPromise(loadObserverService())).getOpportunityDiagnostics(minEdgeBps)
         },
         catch: (error) =>
           error instanceof Error ? error : new Error(String(error)),
@@ -466,11 +554,15 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
+        if (config.predictorOnlyMode) {
+          return observerDisabledError(res)
+        }
+
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/tape/live")
         })
 
-        return observerService.getLiveTape()
+        return (yield* loadObserverService()).getLiveTape()
       }),
     )
   })
@@ -480,8 +572,12 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
           logger.debug("Handled GET /observer/signals")
-          return observerService.getRecentSignals(50)
+          return (await Effect.runPromise(loadObserverService())).getRecentSignals(50)
         },
         catch: (error) =>
           error instanceof Error ? error : new Error(String(error)),
@@ -494,8 +590,12 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
           logger.debug("Handled GET /observer/history/signals")
-          return observerService.getRecentSignals(50)
+          return (await Effect.runPromise(loadObserverService())).getRecentSignals(50)
         },
         catch: (error) =>
           error instanceof Error ? error : new Error(String(error)),
@@ -589,20 +689,35 @@ const listen = (app: Express, port: number) =>
 
 const program = Effect.gen(function* () {
   const app = yield* createApp
-  yield* checkDatabaseConnection
 
-  yield* Effect.sync(() => {
-    logger.debug("Database connection check succeeded")
-  })
+  if (config.predictorOnlyMode) {
+    yield* Effect.sync(() => {
+      logger.warn(
+        "Starting in predictor-only mode; database checks and observer startup are disabled",
+      )
+    })
+  } else {
+    yield* checkDatabaseConnectionIfEnabled()
+
+    yield* Effect.sync(() => {
+      logger.debug("Database connection check succeeded")
+    })
+  }
+
   yield* listen(app, config.port)
   yield* Effect.sync(() => {
     logger.info(`Server listening on http://localhost:${config.port}`)
   })
-  yield* Effect.sync(() => {
-    void observerService.start().catch((error) => {
-      logger.error("Failed to start IPL observer", { error })
+
+  if (!config.predictorOnlyMode) {
+    const observerService = yield* loadObserverService()
+    yield* Effect.sync(() => {
+      void observerService.start().catch((error) => {
+        logger.error("Failed to start IPL observer", { error })
+      })
     })
-  })
+  }
+
   yield* Effect.never
 })
 

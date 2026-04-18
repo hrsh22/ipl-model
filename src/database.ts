@@ -5,7 +5,7 @@ import { config } from "./config.js"
 import * as schema from "./db/schema.js"
 
 export const pool = new Pool({
-  connectionString: config.databaseUrl,
+  connectionString: config.databaseUrl ?? undefined,
 })
 
 export const db = drizzle(pool, { schema })
@@ -14,7 +14,7 @@ export const checkDatabaseConnection = Effect.acquireUseRelease(
   Effect.tryPromise({
     try: async () => {
       const client = new Client({
-        connectionString: config.databaseUrl,
+        connectionString: config.databaseUrl ?? undefined,
         connectionTimeoutMillis: 5000,
       })
 
