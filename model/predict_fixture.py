@@ -8,7 +8,7 @@ import re
 import sys
 import urllib.parse
 import urllib.request
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 import pandas as pd
@@ -21,11 +21,12 @@ from train_baselines import (
 )
 
 
-ROOT = Path.cwd()
-DATA_DIR = ROOT / "model" / "data"
+MODEL_DIR = Path(__file__).resolve().parent
+ROOT = MODEL_DIR.parent
+DATA_DIR = MODEL_DIR / "data"
 LIVE_DIR = DATA_DIR / "live"
 FEATURES_DIR = DATA_DIR / "features"
-FINAL_MODELS_DIR = ROOT / "model" / "final_models"
+FINAL_MODELS_DIR = MODEL_DIR / "final_models"
 MODEL_MATRIX_MANIFEST_PATH = DATA_DIR / "metadata" / "model_matrix_manifest.json"
 FIXTURE_OVERRIDES_PATH = LIVE_DIR / "fixture_overrides.json"
 RAW_MATCH_INFO_PATH = DATA_DIR / "raw" / "cricsheet_match_info.csv"
@@ -59,6 +60,40 @@ def load_local_env() -> None:
         key = key.strip()
         value = value.strip().strip('"').strip("'")
         os.environ.setdefault(key, value)
+
+
+def resolve_repo_path(path_value: str | Path) -> Path:
+    candidate = Path(path_value)
+    if candidate.exists():
+        return candidate
+
+    if not candidate.is_absolute():
+        for base in (ROOT, MODEL_DIR, FINAL_MODELS_DIR, DATA_DIR):
+            rebased = (base / candidate).resolve()
+            if rebased.exists():
+                return rebased
+        return (ROOT / candidate).resolve()
+
+    parts = PurePath(candidate).parts
+    if "model" in parts:
+        model_index = parts.index("model")
+        rebased = (ROOT / Path(*parts[model_index:])).resolve()
+        if rebased.exists():
+            return rebased
+
+    if "final_models" in parts:
+        final_models_index = parts.index("final_models")
+        rebased = (FINAL_MODELS_DIR / Path(*parts[final_models_index + 1 :])).resolve()
+        if rebased.exists():
+            return rebased
+
+    if "data" in parts:
+        data_index = parts.index("data")
+        rebased = (DATA_DIR / Path(*parts[data_index + 1 :])).resolve()
+        if rebased.exists():
+            return rebased
+
+    return candidate
 
 
 TEAM_ALIASES = {
@@ -2102,7 +2137,7 @@ def predict_component(
     )
     x = feature_view.frame[component_manifest["featureColumns"]]
     model = CatBoostClassifier()
-    model.load_model(component_manifest["modelPath"])
+    model.load_model(str(resolve_repo_path(component_manifest["modelPath"])))
     return float(model.predict_proba(x)[0, 1])
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 import numpy as np
@@ -17,9 +17,9 @@ from train_baselines import (
 )
 
 
-ROOT = Path.cwd()
-MODEL_DIR = ROOT / "model"
-DATA_MANIFEST_PATH = ROOT / "model" / "data" / "metadata" / "model_matrix_manifest.json"
+MODEL_DIR = Path(__file__).resolve().parent
+ROOT = MODEL_DIR.parent
+DATA_MANIFEST_PATH = MODEL_DIR / "data" / "metadata" / "model_matrix_manifest.json"
 FINAL_MODELS_DIR = MODEL_DIR / "final_models"
 
 
@@ -94,6 +94,31 @@ COMPONENT_CONFIG = {
 }
 
 
+def to_repo_relative(path: Path) -> str:
+    return str(path.resolve().relative_to(ROOT))
+
+
+def resolve_repo_path(path_value: str | Path) -> Path:
+    candidate = Path(path_value)
+    if candidate.exists():
+        return candidate
+
+    if not candidate.is_absolute():
+        rebased = (ROOT / candidate).resolve()
+        if rebased.exists():
+            return rebased
+        return rebased
+
+    parts = PurePath(candidate).parts
+    if "model" in parts:
+        model_index = parts.index("model")
+        rebased = (ROOT / Path(*parts[model_index:])).resolve()
+        if rebased.exists():
+            return rebased
+
+    return candidate
+
+
 def choose_params(tuning_path: Path) -> dict[str, Any]:
     tuning = pd.read_csv(tuning_path)
     grouped = (
@@ -124,7 +149,7 @@ def fit_component(
     config: dict[str, Any], data_manifest: dict[str, Any], matrix_name: str
 ) -> dict[str, Any]:
     matrix_manifest = data_manifest[config["matrix_manifest_key"]]
-    matrix_path = Path(matrix_manifest["matrixPath"])
+    matrix_path = resolve_repo_path(matrix_manifest["matrixPath"])
     dataframe = pd.read_csv(matrix_path)
     feature_columns: list[str] = list(matrix_manifest["featureColumns"])
     categorical_columns: list[str] = list(matrix_manifest["categoricalFeatureColumns"])
@@ -165,14 +190,14 @@ def fit_component(
         "matrix": matrix_name,
         "component": config["name"],
         "weight": config["weight"],
-        "matrixPath": str(matrix_path),
+        "matrixPath": to_repo_relative(matrix_path),
         "featureMode": config["feature_mode"],
         "featureAllowlist": allowlist,
         "featureColumns": feature_view.feature_columns,
         "categoricalColumns": feature_view.categorical_columns,
         "numericColumns": feature_view.numeric_columns,
         "params": params,
-        "modelPath": str(model_path),
+        "modelPath": to_repo_relative(model_path),
     }
     (component_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest
