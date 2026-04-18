@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-04-17T19:54:29.400Z",
+  "importedRows": 929,
+  "finalRows": 947,
+  "sourceMapRows": 947,
+  "registerPeopleRows": 0,
+  "playerMetaRows": 16101,
+  "matchStrategies": {
+    "cricsheet_id": 929,
+    "existing_espncricinfo": 3,
+    "existing_ipl.com": 15
+  }
+}

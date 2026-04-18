@@ -1,0 +1,948 @@
+player_name,cricsheet_person_id,source_name,source_player_id,batting_style_raw,bowling_style_raw,identified_roles_raw,playing_role_raw,needs_manual_review,notes
+A Ashish Reddy,1c2a64cd,cricketdata::player_meta,389605,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+A Badoni,872b03f7,cricketdata::player_meta,1151270,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+A Bengeri,c109497d,cricketdata::player_meta,527897,,,,,false,cricsheet_id
+A Chandila,99b202b3,cricketdata::player_meta,27783,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+A Chopra,e249fdaa,cricketdata::player_meta,27639,Right hand Bat,"Right arm Medium, Right arm Offbreak",Batter,Batter,false,cricsheet_id
+A Choudhary,18e6906e,cricketdata::player_meta,527299,Right hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+A Dananjaya,5b16a806,cricketdata::player_meta,574178,Left hand Bat,"Right arm Offbreak, Legbreak",Allrounder,Allrounder,false,cricsheet_id
+A Deshmukh,6fda55cc,cricketdata::player_meta,412593,,,,,false,cricsheet_id
+A Flintoff,ddc0828d,cricketdata::player_meta,12856,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+A Kamboj,fcc21ace,cricketdata::player_meta,1175428,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+A Kripal Singh,8f559207,cricketdata::player_meta,30198,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+A Kumble,0c2730df,cricketdata::player_meta,30176,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+A Manohar,0890552f,cricketdata::player_meta,778963,Right hand Bat,Legbreak Googly,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+A Mhatre,b2b4f545,espncricinfo,,Right-handed,Right-arm off-break,Batter,Batter,false,https://www.espncricinfo.com/cricketers/ayush-mhatre-1452455
+A Mishra,6b19d823,cricketdata::player_meta,31107,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+A Mithun,66cf56a5,cricketdata::player_meta,310958,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+A Mukund,6165bca6,cricketdata::player_meta,302582,Left hand Bat,Legbreak Googly,Top order Batter,Top order Batter,false,cricsheet_id
+A Nand Kishore,84424f4f,cricketdata::player_meta,31917,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+A Nehra,96fd40ae,cricketdata::player_meta,31820,Right hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+A Nel,2503e881,cricketdata::player_meta,46569,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+A Nortje,acdc62f5,cricketdata::player_meta,481979,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+A Raghuvanshi,d7017798,cricketdata::player_meta,1292495,Right-hand bat,Slow left-arm orthodox,,,false,cricsheet_id
+A Singh,5b040b81,cricketdata::player_meta,26789,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+A Symonds,bd77eb62,cricketdata::player_meta,7702,Right hand Bat,"Right arm Medium, Right arm Offbreak",Allrounder,Allrounder,false,cricsheet_id
+A Tomar,aa5d8c9e,cricketdata::player_meta,1081183,Right hand Bat,Right arm Offbreak,Opening Batter,Opening Batter,false,cricsheet_id
+A Totre,b1d7d7bc,cricketdata::player_meta,961323,,,,,false,cricsheet_id
+A Uniyal,fdcb08c2,cricketdata::player_meta,35586,Left hand Bat,Left arm Medium,,,false,cricsheet_id
+A Zampa,14f96089,cricketdata::player_meta,379504,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+AA Bilakhia,bff458c6,cricketdata::player_meta,26946,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+AA Chavan,29d72eb2,cricketdata::player_meta,337913,Left hand Bat,Slow Left arm Orthodox,Batter,Batter,false,cricsheet_id
+AA Jhunjhunwala,2815fe50,cricketdata::player_meta,29702,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+AA Kazi,16605a1b,cricketdata::player_meta,422106,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+AA Kulkarni,2d140b79,cricketdata::player_meta,1403153,Right-hand bat,Right-arm medium,,,false,cricsheet_id
+AA Noffke,b69e69ed,cricketdata::player_meta,6938,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+AB Agarkar,fa463154,cricketdata::player_meta,26184,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+AB Barath,d3a3e82d,cricketdata::player_meta,274926,Right hand Bat,Right arm Offbreak,Opening Batter,Opening Batter,false,cricsheet_id
+AB de Villiers,c4487b84,cricketdata::player_meta,44936,Right hand Bat,Right arm Medium,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+AB Dinda,66b30f71,cricketdata::player_meta,227712,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+AB McDonald,16043342,cricketdata::player_meta,6553,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+Abdul Basith,cc777ffa,cricketdata::player_meta,1287067,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+Abdul Samad,8e514b4c,cricketdata::player_meta,1175485,Right hand Bat,Legbreak,Batter,Batter,false,cricsheet_id
+Abdur Razzak,888e32bf,cricketdata::player_meta,56283,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+Abhijit Bhattacharya,59ec9638,cricketdata::player_meta,733337,,,,,false,cricsheet_id
+Abhinandan Singh,82c10dac,espncricinfo,,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,https://www.espncricinfo.com/cricketers/abhinandan-singh-1449085
+Abhishek Sharma,f29185a1,cricketdata::player_meta,1070183,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+Abishek Porel,ad3b6e95,cricketdata::player_meta,1277545,Left hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+AC Blizzard,1efb8a28,cricketdata::player_meta,4498,Left hand Bat,Left arm Medium,Batter,Batter,false,cricsheet_id
+AC Gilchrist,2b6e6dec,cricketdata::player_meta,5390,Left hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+AC Thomas,b552a935,cricketdata::player_meta,47569,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+AC Voges,864c199e,cricketdata::player_meta,8119,Right hand Bat,Slow Left arm Orthodox,Top order Batter,Top order Batter,false,cricsheet_id
+AD Hales,92aeac25,cricketdata::player_meta,249866,Right hand Bat,Right arm Medium,Opening Batter,Opening Batter,false,cricsheet_id
+AD Mascarenhas,3edb58fc,cricketdata::player_meta,16932,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+AD Mathews,896d78ad,cricketdata::player_meta,49764,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+AD Nath,f10e94c4,cricketdata::player_meta,500360,Right hand Bat,Right arm Medium fast,Middle order Batter,Middle order Batter,false,cricsheet_id
+AD Russell,bbd41817,cricketdata::player_meta,276298,Right hand Bat,Right arm Fast,Allrounder,Allrounder,false,cricsheet_id
+AF Milne,350bb1b1,cricketdata::player_meta,450860,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+AG Murtaza,ef5da05c,cricketdata::player_meta,26490,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+AG Paunikar,3a02626a,cricketdata::player_meta,324444,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+AG Wharf,2e0fcc58,cricketdata::player_meta,22380,Right hand Bat,Right arm Medium fast,,,false,cricsheet_id
+AJ Finch,b8d490fd,cricketdata::player_meta,5334,Right hand Bat,Slow Left arm Orthodox,Top order Batter,Top order Batter,false,cricsheet_id
+AJ Hosein,4d7f517e,cricketdata::player_meta,530812,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+AJ Pycroft,685d3f80,cricketdata::player_meta,55700,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+AJ Turner,ff1e12a0,cricketdata::player_meta,500268,Right hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+AJ Tye,7c7d63a2,cricketdata::player_meta,459508,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+AK Argal,0ee78cf3,cricketdata::player_meta,26432,Right-hand bat,Right-arm medium,,,false,cricsheet_id
+AK Chaudhary,fdcc6236,cricketdata::player_meta,265839,,,,,false,cricsheet_id
+AK Markram,6a26221c,cricketdata::player_meta,600498,Right hand Bat,Right arm Offbreak,Opening Batter,Opening Batter,false,cricsheet_id
+AK Mitra,4e11e004,cricketdata::player_meta,31320,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+Akash Deep,0a67aec0,cricketdata::player_meta,1176959,Right hand Bat,Right arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Akash Madhwal,4bd09374,cricketdata::player_meta,1206039,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+Akash Singh,b483905d,cricketdata::player_meta,1175458,Right hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+AL Hill,4165ced0,cricketdata::player_meta,37274,,,,,false,cricsheet_id
+AL Menaria,8291f939,cricketdata::player_meta,371150,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+Aleem Dar,f02778d1,cricketdata::player_meta,39157,Right hand Bat,Legbreak,,,false,cricsheet_id
+AM Ghazanfar,9ca68676,cricketdata::player_meta,1326798,Right-hand bat,Right-arm offbreak,,,false,cricsheet_id
+AM Nayar,a45a5e8d,cricketdata::player_meta,32091,Left hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+AM Rahane,29e95537,cricketdata::player_meta,277916,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+AM Saheba,883e3818,cricketdata::player_meta,34544,Right hand Bat,,,,false,cricsheet_id
+AM Salvi,260fd380,cricketdata::player_meta,34264,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+Aman Hakim Khan,378daa89,cricketdata::player_meta,1254269,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+Amit Rana,f5db088b,espncricinfo,,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,https://www.espncricinfo.com/cricketers/amit-rana-1084472
+Amit Sharma,7ea3e0cc,cricketdata::player_meta,34228,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+AN Ahmed,2af1b6d2,cricketdata::player_meta,228430,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+AN Ghosh,7023d182,cricketdata::player_meta,220435,Right hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+Anand Rajan,d2340a43,cricketdata::player_meta,26797,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+Aniket Verma,a3b0600d,cricketdata::player_meta,1409976,Right-hand bat,Right-arm medium-fast,,,false,cricsheet_id
+Anirudh Singh,7bb62642,cricketdata::player_meta,26252,Left hand Bat,Right arm Medium,,,false,cricsheet_id
+Anish Sahasrabudhe,2892df67,cricketdata::player_meta,428190,,,,,false,cricsheet_id
+Ankit Sharma,24d94623,cricketdata::player_meta,422992,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+Ankit Soni,f18ba07f,cricketdata::player_meta,1083128,Right hand Bat,Legbreak,Allrounder,Allrounder,false,cricsheet_id
+Anmolpreet Singh,1399b39c,cricketdata::player_meta,851261,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+Anuj Rawat,c8f5f961,cricketdata::player_meta,1123073,Left hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+Anureet Singh,69be866a,cricketdata::player_meta,376324,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+AP Dole,dbc50253,cricketdata::player_meta,236694,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+AP Majumdar,f4cb4f53,cricketdata::player_meta,31750,Right hand Bat,Legbreak Googly,,,false,cricsheet_id
+AP Tare,855a210c,cricketdata::player_meta,333904,Right hand Bat,,Wicketkeeper,Wicketkeeper,false,cricsheet_id
+AR Bawne,afe3355a,cricketdata::player_meta,327123,Right hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+AR Patel,2e171977,cricketdata::player_meta,554691,Left hand Bat,Slow Left arm Orthodox,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Arjun Tendulkar,44aac2f0,cricketdata::player_meta,1148776,Left hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+Arshad Khan,12314277,cricketdata::player_meta,1244751,Left hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+Arshad Khan (2),12314277,cricketdata::player_meta,1244751,Left hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+Arshdeep Singh,244048f6,cricketdata::player_meta,1125976,Left hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+AS Joseph,b0946605,cricketdata::player_meta,670031,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+AS Pathania,bf6c251d,cricketdata::player_meta,32272,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+AS Rajpoot,db31895a,cricketdata::player_meta,591650,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+AS Raut,c69a7b5c,cricketdata::player_meta,230593,Right hand Bat,Legbreak Googly,Allrounder,Allrounder,false,cricsheet_id
+AS Roy,e4cdf230,cricketdata::player_meta,1079839,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+AS Yadav,b9be6507,cricketdata::player_meta,36110,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+Asad Rauf,861606b7,cricketdata::player_meta,39219,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+Ashok Sharma,50c09020,ipl.com,,Right Handed Bat,Right-arm medium-fast,Bowler,Bowler,false,https://www.ipl.com/cricket/series/ashok-sharma/
+Ashutosh Sharma,84d9c311,cricketdata::player_meta,1131978,Right hand Bat,,,,false,cricsheet_id
+Ashwani Kumar,d45c29b1,cricketdata::player_meta,1209126,Left hand Bat,Left arm Medium,,,false,cricsheet_id
+AT Carey,69d03465,cricketdata::player_meta,326434,Left hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+AT Holdstock,6fa3258c,cricketdata::player_meta,45448,Right hand Bat,Right arm Fast medium,,,false,cricsheet_id
+AT Rayudu,70d205c9,cricketdata::player_meta,33141,Right hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+Atharva Taide,1ac746c8,cricketdata::player_meta,1125958,Left hand Bat,Slow Left arm Orthodox,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+AU Rashid,249d60c9,cricketdata::player_meta,244497,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+AUK Pathan,3ae3f034,cricketdata::player_meta,430401,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+Auqib Nabi,7c3c0337,cricketdata::player_meta,1159732,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+AV Jayaprakash,bde6e9ef,cricketdata::player_meta,29691,,,,,false,cricsheet_id
+AV Wankhade,5708d0b6,cricketdata::player_meta,505773,Right hand Bat,Right arm Medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+Avesh Khan,eef2536f,cricketdata::player_meta,694211,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+AY Dandekar,2efc430e,cricketdata::player_meta,27986,,,,,false,cricsheet_id
+Azhar Mahmood,9a158001,cricketdata::player_meta,39024,Right hand Bat,Right arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Azmatullah Omarzai,8f6dd463,cricketdata::player_meta,819429,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+B Akhil,af7dadf7,cricketdata::player_meta,26206,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+B Aparajith,5b627626,cricketdata::player_meta,477071,Right hand Bat,Right arm Offbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+B Chipli,5451a2c1,cricketdata::player_meta,27685,Right hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+B Geeves,50758325,cricketdata::player_meta,5472,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+B Indrajith,ff1e68fa,cricketdata::player_meta,477069,Right hand Bat,Legbreak Googly,Top order Batter,Top order Batter,false,cricsheet_id
+B Kumar,2e81a32d,cricketdata::player_meta,326016,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+B Laughlin,b2a79f17,cricketdata::player_meta,315623,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+B Lee,dd09ff8e,cricketdata::player_meta,6278,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+B Muzarabani,449f4e3c,cricketdata::player_meta,827051,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+B Sai Sudharsan,d5130a30,cricketdata::player_meta,1151288,Left hand Bat,Legbreak,Top order Batter,Top order Batter,false,cricsheet_id
+B Stanlake,6834d1f2,cricketdata::player_meta,533042,Left hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+B Sumanth,f4f0fafd,cricketdata::player_meta,253798,Right hand Bat,Right arm Medium fast,Middle order Batter,Middle order Batter,false,cricsheet_id
+B Vij,470050ff,cricketdata::player_meta,35796,Right hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+BA Bhatt,dc4686e6,cricketdata::player_meta,433410,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+BA Stokes,e087956b,cricketdata::player_meta,311158,Left hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+Basil Thampi,871e9faf,cricketdata::player_meta,732291,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+BAW Mendis,ea0cdc12,cricketdata::player_meta,268739,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+BB McCullum,b8a55852,cricketdata::player_meta,37737,Right hand Bat,"Right arm Medium, Right arm Offbreak",Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+BB Samantray,53f27a35,cricketdata::player_meta,430125,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+BB Sran,d8b2f218,cricketdata::player_meta,537126,Left hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+BCJ Cutting,2e11c706,cricketdata::player_meta,230371,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+BE Hendricks,b56dc5f7,cricketdata::player_meta,379927,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+BF Bowden,efc0a862,cricketdata::player_meta,36339,,,,,false,cricsheet_id
+BG Jerling,26457e41,cricketdata::player_meta,45726,,,,,false,cricsheet_id
+Bhavesh Patel,ee03dc30,cricketdata::player_meta,1344419,,,,,false,cricsheet_id
+Bipul Sharma,c18496e1,cricketdata::player_meta,35928,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+BJ Haddin,b0c772ee,cricketdata::player_meta,5560,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+BJ Hodge,b57f8a9a,cricketdata::player_meta,5674,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+BJ Rohrer,27af6414,cricketdata::player_meta,7547,Left hand Bat,,Middle order Batter,Middle order Batter,false,cricsheet_id
+BK Ravi,ff8c3cfb,cricketdata::player_meta,30712,Right hand Bat,Left arm Medium,,,false,cricsheet_id
+BKG Mendis,5d1e7582,cricketdata::player_meta,629074,Right hand Bat,Legbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+BMAJ Mendis,9868bc75,cricketdata::player_meta,49700,Left hand Bat,Legbreak,Allrounder,Allrounder,false,cricsheet_id
+BNJ Oxenford,c1add349,cricketdata::player_meta,7029,Right hand Bat,Legbreak Googly,,,false,cricsheet_id
+BR Doctrove,cbebf805,cricketdata::player_meta,51662,Right hand Bat,,,,false,cricsheet_id
+BR Dunk,272d796e,cricketdata::player_meta,388678,Left hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+BR Sharath,c2dd89ea,cricketdata::player_meta,917231,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+Brijesh Sharma,133bbd61,ipl.com,,Right-handed,Right-arm medium-fast,All-Rounder,All-Rounder,true,https://www.ipl.com/cricket/series/brijesh-sharma/ ; public text suggests bowling-heavy all-rounder but kept generic pending verification
+BW Hilfenhaus,f3171936,cricketdata::player_meta,5941,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+C Bosch,172dff15,cricketdata::player_meta,594322,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+C Connolly,fe366f34,cricketdata::player_meta,1210488,Left hand Bat,Slow Left arm Orthodox,Top order Batter,Top order Batter,false,cricsheet_id
+C de Grandhomme,94d7f855,cricketdata::player_meta,55395,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+C Ganapathy,798934ea,cricketdata::player_meta,28764,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+C Green,eaa76d3c,cricketdata::player_meta,1076713,Right hand Bat,Right arm Fast medium,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+C Madan,2eeb4370,cricketdata::player_meta,31104,Right hand Bat,,Wicketkeeper,Wicketkeeper,false,cricsheet_id
+C Munro,af2c687b,cricketdata::player_meta,232359,Left hand Bat,Right arm Medium fast,Opening Batter,Opening Batter,false,cricsheet_id
+C Nanda,f24ca2ba,cricketdata::player_meta,32093,Right hand Bat,Legbreak,,,false,cricsheet_id
+C Sakariya,2cdce1be,cricketdata::player_meta,1131754,Left hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+C Shamshuddin,0f9d921b,cricketdata::player_meta,340535,,,,,false,cricsheet_id
+CA Ingram,c995d726,cricketdata::player_meta,45705,Left hand Bat,Legbreak,Top order Batter,Top order Batter,false,cricsheet_id
+CA Lynn,45eda7c8,cricketdata::player_meta,326637,Right hand Bat,Slow Left arm Orthodox,Batter,Batter,false,cricsheet_id
+CA Pujara,d4f9dbd4,cricketdata::player_meta,32540,Right hand Bat,Legbreak,Top order Batter,Top order Batter,false,cricsheet_id
+CB Gaffaney,d5ac41d8,cricketdata::player_meta,37097,Right hand Bat,,,,false,cricsheet_id
+CH Gayle,db584dad,cricketdata::player_meta,51880,Left hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+CH Lloyd,5b445db0,cricketdata::player_meta,52345,Left hand Bat,Right arm Medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+CH Morris,fb66ce1f,cricketdata::player_meta,439952,Right hand Bat,Right arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Chinmay Sharma,83250fea,cricketdata::player_meta,34631,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+Chirra Ravikanthreddy,8b680f55,cricketdata::player_meta,391442,,,,,false,cricsheet_id
+CJ Anderson,8abdf100,cricketdata::player_meta,277662,Left hand Bat,Left arm Medium fast,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+CJ Dala,1cb14aa4,cricketdata::player_meta,545467,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+CJ Ferguson,9b4935c8,cricketdata::player_meta,5236,Right hand Bat,Right arm Medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+CJ Green,19b9f399,cricketdata::player_meta,787073,Right hand Bat,Right arm Offbreak,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+CJ Jordan,ffe699c0,cricketdata::player_meta,288992,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+CJ McKay,94eac556,cricketdata::player_meta,6903,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+CK Kapugedera,cfad138c,cricketdata::player_meta,209457,Right hand Bat,Right arm Medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+CK Langeveldt,d1c94b25,cricketdata::player_meta,45963,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+CK Nandan,012de9c4,cricketdata::player_meta,31919,,,,,false,cricsheet_id
+CL White,d0513f63,cricketdata::player_meta,8291,Right hand Bat,Legbreak Googly,Middle order Batter,Middle order Batter,false,cricsheet_id
+CM Gautam,30a2649b,cricketdata::player_meta,302208,Right hand Bat,,Wicketkeeper,Wicketkeeper,false,cricsheet_id
+CR Brathwaite,e342e5fb,cricketdata::player_meta,457249,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+CR Woakes,4c5d73db,cricketdata::player_meta,247235,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+CRD Fernando,342d8ade,cricketdata::player_meta,48835,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+CV Varun,5b7ab5a9,cricketdata::player_meta,1108375,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+D Brevis,844e79d1,cricketdata::player_meta,1070665,Right hand Bat,Legbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+D du Preez,d7a57f75,cricketdata::player_meta,44938,Right hand Bat,Right arm Fast medium,,,false,cricsheet_id
+D Ferreira,f0af99a7,cricketdata::player_meta,698315,Right hand Bat,,Allrounder,Allrounder,false,cricsheet_id
+D Govindjee,8b4c4069,cricketdata::player_meta,45356,Left hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+D Jansen,8dc152d1,cricketdata::player_meta,595954,Right hand Bat,Left arm Fast,Bowler,Bowler,false,cricsheet_id
+D Kalyankrishna,94bc776b,cricketdata::player_meta,30719,Right hand Bat,Right arm Medium fast,,,false,cricsheet_id
+D Padikkal,2c25d4f5,cricketdata::player_meta,1119026,Left hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+D Pretorius,11614d87,cricketdata::player_meta,327830,Right hand Bat,Right arm Medium fast,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+D Salunkhe,0264c10e,cricketdata::player_meta,278482,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+D Wiese,aa8d28ae,cricketdata::player_meta,221140,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+DA Miller,d67d5f00,cricketdata::player_meta,321777,Left hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+DA Payne,6c79c098,cricketdata::player_meta,362710,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+DA Warner,dcce6f09,cricketdata::player_meta,219889,Left hand Bat,Legbreak,Opening Batter,Opening Batter,false,cricsheet_id
+DAJ Bracewell,2e9fdf9b,cricketdata::player_meta,362541,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+DB Das,7050a1e7,cricketdata::player_meta,328163,Right hand Bat,Legbreak Googly,Top order Batter,Top order Batter,false,cricsheet_id
+DB Ravi Teja,b720a5d6,cricketdata::player_meta,237701,Right hand Bat,Legbreak Googly,Batter,Batter,false,cricsheet_id
+DC Boon,e79a1fe3,cricketdata::player_meta,4169,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+DE Bollinger,45c2196c,cricketdata::player_meta,4508,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+DG Nalkande,cd8d2859,cricketdata::player_meta,1111917,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+DH Yagnik,063b3673,cricketdata::player_meta,36071,Left hand Bat,,Wicketkeeper,Wicketkeeper,false,cricsheet_id
+Dhruv Jurel,bcf325d2,cricketdata::player_meta,1175488,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+DJ Bravo,87e562a9,cricketdata::player_meta,51439,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+DJ Harper,0ec08b27,cricketdata::player_meta,5578,Right hand Bat,,,,false,cricsheet_id
+DJ Harris,39f82db3,cricketdata::player_meta,5583,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+DJ Hooda,73ad96ed,cricketdata::player_meta,497121,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+DJ Hussey,fd835ab3,cricketdata::player_meta,5766,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+DJ Jacobs,a84468fe,cricketdata::player_meta,45782,Right hand Bat,Right arm Medium,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+DJ Malan,ad9c32a2,cricketdata::player_meta,236489,Left hand Bat,Legbreak,Top order Batter,Top order Batter,false,cricsheet_id
+DJ Mitchell,eade4650,cricketdata::player_meta,381743,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+DJ Muthuswami,2c76b512,cricketdata::player_meta,528985,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+DJ Thornely,7d3937ed,cricketdata::player_meta,8002,Right hand Bat,"Right arm Medium, Right arm Offbreak",Top order Batter,Top order Batter,false,cricsheet_id
+DJ Willey,7f048519,cricketdata::player_meta,308251,Left hand Bat,Left arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+DJG Sammy,c03c6200,cricketdata::player_meta,53115,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+DJM Short,1a156c88,cricketdata::player_meta,308798,Left hand Bat,Left arm Wrist spin,Opening Batter,Opening Batter,false,cricsheet_id
+DL Chahar,23eeb873,cricketdata::player_meta,447261,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+DL Vettori,d7c6af50,cricketdata::player_meta,38710,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+DM Bravo,14b14cd8,cricketdata::player_meta,277472,Left hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+DNT Zoysa,e0351c86,cricketdata::player_meta,51050,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+DP Conway,df5a6881,cricketdata::player_meta,379140,Left hand Bat,Right arm Medium,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+DP Nannes,c404f58a,cricketdata::player_meta,6981,Right hand Bat,Left arm Fast,Bowler,Bowler,false,cricsheet_id
+DP Vijaykumar,acd4f5dc,cricketdata::player_meta,272949,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+DPMD Jayawardene,d18f9182,cricketdata::player_meta,49289,Right hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+DR Martyn,69762509,cricketdata::player_meta,6513,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+DR Sams,caf69bf7,cricketdata::player_meta,826901,Right hand Bat,Left arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+DR Shorey,faa7365d,cricketdata::player_meta,590327,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+DR Smith,35205dfc,cricketdata::player_meta,53118,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+DS Kulkarni,d2a989fc,cricketdata::player_meta,277955,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+DS Lehmann,53fe6ee4,cricketdata::player_meta,6285,Left hand Bat,Slow Left arm Orthodox,Top order Batter,Top order Batter,false,cricsheet_id
+DS Manohar,b35f3ac8,cricketdata::player_meta,30900,Left hand Bat,Right arm Medium,,,false,cricsheet_id
+DS Rathi,13fc5c6d,ipl.com,,Right Handed Bat,Right-arm Legbreak,Bowler,Bowler,false,https://www.ipl.com/cricket/series/digvesh-rathi/
+DT Christian,2a2e6343,cricketdata::player_meta,4864,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+DT Patil,f48cf4da,cricketdata::player_meta,32389,Right hand Bat,,,,false,cricsheet_id
+DW Steyn,8fd1a8f5,cricketdata::player_meta,47492,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+E Lewis,0ebfb1ad,cricketdata::player_meta,431901,Left hand Bat,,Opening Batter,Opening Batter,false,cricsheet_id
+E Malinga,5750bcb4,cricketdata::player_meta,1306214,Left-hand bat,Right-arm fast-medium,,,false,cricsheet_id
+EC Hendrikse,3f2996c9,cricketdata::player_meta,45688,,,,,false,cricsheet_id
+EJG Morgan,d2a6c0e6,cricketdata::player_meta,24598,Left hand Bat,Right arm Medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+ER Dwivedi,b274dbbd,cricketdata::player_meta,340841,Right hand Bat,,Wicketkeeper,Wicketkeeper,false,cricsheet_id
+F Behardien,dce2019b,cricketdata::player_meta,44410,Right hand Bat,Right arm Fast medium,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+F du Plessis,3355b542,cricketdata::player_meta,44828,Right hand Bat,Legbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+F Gomes,3134d083,cricketdata::player_meta,28845,,,,,false,cricsheet_id
+FA Allen,b52ffbbd,cricketdata::player_meta,670013,Right hand Bat,Slow Left arm Orthodox,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Fazalhaq Farooqi,e9c7f0d0,cricketdata::player_meta,974175,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+FH Allen,bf74b130,cricketdata::player_meta,959759,Right hand Bat,,Top order Batter,Top order Batter,false,cricsheet_id
+FH Edwards,a7c226e1,cricketdata::player_meta,51782,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+FM Engineer,6529ee42,cricketdata::player_meta,28624,Right hand Bat,Legbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+FY Fazal,c15e2193,cricketdata::player_meta,28671,Left hand Bat,Right arm Medium,Opening Batter,Opening Batter,false,cricsheet_id
+G Coetzee,3204c99f,cricketdata::player_meta,596010,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+G Gambhir,bb345e0b,cricketdata::player_meta,28763,Left hand Bat,Legbreak,Top order Batter,Top order Batter,false,cricsheet_id
+GA Pratapkumar,cf7c5778,cricketdata::player_meta,32299,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+Gagandeep Singh,890de8cb,cricketdata::player_meta,28758,Right hand Bat,Right arm Medium fast,,,false,cricsheet_id
+GAV Baxter,cb4b3ab0,cricketdata::player_meta,36337,,,,,false,cricsheet_id
+GB Hogg,f708a0bc,cricketdata::player_meta,5681,Left hand Bat,Left arm Wrist spin,Allrounder,Allrounder,false,cricsheet_id
+GC Smith,72861603,cricketdata::player_meta,47270,Left hand Bat,Right arm Offbreak,Opening Batter,Opening Batter,false,cricsheet_id
+GC Viljoen,a316d663,cricketdata::player_meta,375126,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+GD McGrath,ee7d0c82,cricketdata::player_meta,6565,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+GD Phillips,9a46c4e5,cricketdata::player_meta,823509,Right hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+GF Labrooy,8e088dbc,cricketdata::player_meta,49552,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+GF Linde,e5437608,cricketdata::player_meta,481875,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+GH Vihari,94253925,cricketdata::player_meta,452044,Right hand Bat,Right arm Offbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+GHS Garton,be869ccf,cricketdata::player_meta,643433,Left hand Bat,Left arm Fast,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+GJ Bailey,5056011d,cricketdata::player_meta,4451,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+GJ Maxwell,b681e71e,cricketdata::player_meta,325026,Right hand Bat,Right arm Offbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+GR Napier,611926bc,cricketdata::player_meta,17991,Right hand Bat,Right arm Medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+GR Sadashiv Iyer,0be62e31,cricketdata::player_meta,29549,Right hand Bat,,,,false,cricsheet_id
+GR Viswanath,9333bc07,cricketdata::player_meta,35712,Right hand Bat,Legbreak,Top order Batter,Top order Batter,false,cricsheet_id
+GS Sandhu,1558d83b,cricketdata::player_meta,499660,Left hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Gulbadin Naib,9f77963a,cricketdata::player_meta,352048,Right hand Bat,Right arm Medium fast,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+Gurjapneet Singh,cc61ee8f,ipl.com,,Right Handed Bat,Left-arm medium-fast,Bowler,Bowler,false,https://www.ipl.com/cricket/series/gurjapneet-singh/
+Gurkeerat Singh,6eb146d2,cricketdata::player_meta,537124,Right hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+Gurnoor Brar,99258814,cricketdata::player_meta,1287033,Left hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+H Das,0ed0cdbf,cricketdata::player_meta,236810,Right hand Bat,,,,false,cricsheet_id
+H Klaasen,235c2bb6,cricketdata::player_meta,436757,Right hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+H Sharma,52294a79,cricketdata::player_meta,1350761,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+Harbhajan Singh,8b5b6769,cricketdata::player_meta,29264,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+Harmeet Singh,2a72fd4f,cricketdata::player_meta,391128,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+Harmeet Singh (2),0bf15e52,cricketdata::player_meta,422847,Left hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+Harpreet Brar,c05edf8e,cricketdata::player_meta,1168641,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+Harpreet Singh,28c78fb3,cricketdata::player_meta,340854,Left hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+Harsh Dubey,25228673,cricketdata::player_meta,1216159,Left hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+Harshit Rana,77b1aa15,cricketdata::player_meta,1312645,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+HAS Khalid,291ded7c,cricketdata::player_meta,30196,Right hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+HC Brook,4ae1755b,cricketdata::player_meta,911707,Right hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+HDPK Dharmasena,323e4c16,cricketdata::player_meta,48469,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+HE van der Dussen,9948e262,cricketdata::player_meta,337790,Right hand Bat,Legbreak,Top order Batter,Top order Batter,false,cricsheet_id
+HF Gurney,e412cb64,cricketdata::player_meta,244639,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+HH Gibbs,e1d1b294,cricketdata::player_meta,45224,Right hand Bat,Right arm Bowler,Opening Batter,Opening Batter,false,cricsheet_id
+HH Pandya,dbe50b21,cricketdata::player_meta,625371,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+Himmat Singh,ebcfef83,cricketdata::player_meta,805235,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+HM Amla,e798611a,cricketdata::player_meta,43906,Right hand Bat,"Right arm Medium, Right arm Offbreak",Top order Batter,Top order Batter,false,cricsheet_id
+HR Shokeen,0c9652b0,cricketdata::player_meta,1175423,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+HS Sekhon,58b66172,cricketdata::player_meta,33893,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+HV Patel,f986ca1a,cricketdata::player_meta,390481,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+I Malhotra,943fd425,cricketdata::player_meta,31088,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+I Sharma,5bb1a1c4,cricketdata::player_meta,236779,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+I Shivram,85143097,cricketdata::player_meta,35290,,,,,false,cricsheet_id
+I Udana,ac5ae4af,cricketdata::player_meta,328026,Right hand Bat,Left arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+IC Pandey,e0407c01,cricketdata::player_meta,447439,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+IC Porel,fdf7491e,cricketdata::player_meta,967603,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+IJ Gould,a9dfdf6c,cricketdata::player_meta,13414,Left hand Bat,,Wicketkeeper,Wicketkeeper,false,cricsheet_id
+IK Pathan,5fa06777,cricketdata::player_meta,32685,Left hand Bat,Left arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+IL Howell,c1cd91c3,cricketdata::player_meta,45454,Left hand Bat,Left arm Medium,,,false,cricsheet_id
+Imran Tahir,acee4cc4,cricketdata::player_meta,40618,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+Iqbal Abdulla,85aae393,cricketdata::player_meta,277237,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+IR Jaggi,dded65e7,cricketdata::player_meta,279554,Right hand Bat,Legbreak Googly,Batter,Batter,false,cricsheet_id
+IR Siddiqui,6436f803,cricketdata::player_meta,34026,Right hand Bat,Right arm Medium fast,,,false,cricsheet_id
+IS Sodhi,641ac5ff,cricketdata::player_meta,559066,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+Ishan Kishan,752f7486,cricketdata::player_meta,720471,Left hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+J Arunkumar,f663ef00,cricketdata::player_meta,26291,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+J Botha,7c503806,cricketdata::player_meta,44149,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+J Fraser-McGurk,9b6e1b3f,cricketdata::player_meta,1168049,Right hand Bat,Legbreak Googly,Batter,Batter,false,cricsheet_id
+J Little,9061a703,cricketdata::player_meta,928067,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+J Madanagopal,8275b04a,cricketdata::player_meta,31282,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+J Overton,59559bc2,cricketdata::player_meta,510530,Right hand Bat,Right arm Fast,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+J Srinath,bad31fac,cricketdata::player_meta,34105,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+J Suchith,4125d931,cricketdata::player_meta,527663,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+J Syed Mohammad,c64c2443,cricketdata::player_meta,35261,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+J Theron,dec8e038,cricketdata::player_meta,223642,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+J Yadav,81049310,cricketdata::player_meta,447587,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+JA Duffy,dadbdb68,cricketdata::player_meta,547766,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+JA Morkel,c3d35165,cricketdata::player_meta,46248,Left hand Bat,Right arm Medium fast,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+JA Richardson,1ee08e9a,cricketdata::player_meta,774223,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+Jalaj S Saxena,249abedf,cricketdata::player_meta,237199,Right hand Bat,"Right arm Offbreak, Legbreak Googly",Allrounder,Allrounder,false,cricsheet_id
+Jasbir Singh,6043dfe7,cricketdata::player_meta,29681,Right hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+Jaskaran Singh,d7b3a420,cricketdata::player_meta,376102,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+JC Archer,5574750c,cricketdata::player_meta,669855,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+JC Buttler,99b75528,cricketdata::player_meta,308967,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+JD Cloete,b0419f8c,cricketdata::player_meta,44449,,,,,false,cricsheet_id
+JD Ryder,91ffa6c6,cricketdata::player_meta,38373,Left hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+JD Unadkat,1e66c162,cricketdata::player_meta,390484,Right hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+JDP Oram,3eac9d95,cricketdata::player_meta,38062,Left hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+JDS Neesham,9219eff0,cricketdata::player_meta,355269,Left hand Bat,Right arm Medium fast,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+JE Root,a343262c,cricketdata::player_meta,303669,Right hand Bat,"Right arm Offbreak, Legbreak",Top order Batter,Top order Batter,false,cricsheet_id
+JE Taylor,4180d897,cricketdata::player_meta,53191,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+JEC Franklin,cf73ad76,cricketdata::player_meta,37004,Left hand Bat,Left arm Medium,Allrounder,Allrounder,false,cricsheet_id
+JG Bethell,3c55c703,cricketdata::player_meta,1194959,Left hand Bat,Slow Left arm Orthodox,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+JH Kallis,86dc8f2e,cricketdata::player_meta,45789,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+JJ Bumrah,462411b3,cricketdata::player_meta,625383,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+JJ Roy,d1c36f5c,cricketdata::player_meta,298438,Right hand Bat,,Opening Batter,Opening Batter,false,cricsheet_id
+JJ van der Wath,6821ac10,cricketdata::player_meta,47693,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+JL Denly,bdadf7da,cricketdata::player_meta,12454,Right hand Bat,Legbreak,Top order Batter,Top order Batter,false,cricsheet_id
+JL Pattinson,f752db61,cricketdata::player_meta,272465,Left hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+JM Bairstow,abb83e27,cricketdata::player_meta,297433,Right hand Bat,Right arm Medium,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+JM Kemp,6581d753,cricketdata::player_meta,45797,Right hand Bat,Right arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+JM Sharma,800d2d97,cricketdata::player_meta,721867,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+JO Holder,0f721006,cricketdata::player_meta,391485,Right hand Bat,Right arm Medium fast,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Joginder Sharma,9f961c14,cricketdata::player_meta,29976,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+JP Behrendorff,4933f499,cricketdata::player_meta,272477,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+JP Duminy,2e8994e7,cricketdata::player_meta,44932,Left hand Bat,Right arm Offbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+JP Faulkner,808f425a,cricketdata::player_meta,270484,Right hand Bat,Left arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+JP Inglis,989889ff,cricketdata::player_meta,662235,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+JPR Scantlebury-Searles,99ed60f8,cricketdata::player_meta,230554,Right hand Bat,Right arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+JR Hazlewood,03806cf8,cricketdata::player_meta,288284,Left hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+JR Hopes,2498e163,cricketdata::player_meta,5702,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+JR Philippe,39086549,cricketdata::player_meta,1124282,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+JW Hastings,012829ff,cricketdata::player_meta,228622,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+K Bharatan,7e47c743,cricketdata::player_meta,27190,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+K Goel,a1f1829d,cricketdata::player_meta,28997,Left hand Bat,Right arm Offbreak,Opening Batter,Opening Batter,false,cricsheet_id
+K Gowtham,90de905a,cricketdata::player_meta,424377,Right hand Bat,Right arm Offbreak,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+K Hariharan,2386ccff,cricketdata::player_meta,29271,,,,,false,cricsheet_id
+K Kartikeya,f6d8a7ab,cricketdata::player_meta,1159843,Right hand Bat,"Slow Left arm Orthodox, Left arm Wrist spin",Bowler,Bowler,false,cricsheet_id
+K Kelkar,1d88908d,cricketdata::player_meta,1351779,,,,,false,cricsheet_id
+K Khejroliya,fa2f1dde,cricketdata::player_meta,1083033,Left hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+K Rabada,e62dd25d,cricketdata::player_meta,550215,Left hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+K Santokie,531f0278,cricketdata::player_meta,314622,Left hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+K Sharma,661b0266,cricketdata::player_meta,30012,Right hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+K Srinath,8ab5da97,cricketdata::player_meta,34243,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+K Srinivasan,042a8b69,cricketdata::player_meta,34685,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+K Swaroopanand,aa2a4962,cricketdata::player_meta,961269,,,,,false,cricsheet_id
+K Upadhyay,27e71d47,cricketdata::player_meta,431876,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+K Yadav,030f3089,cricketdata::player_meta,1206495,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+KA Jamieson,68c56d09,cricketdata::player_meta,625960,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+KA Maharaj,0b60eb09,cricketdata::player_meta,267724,Right hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+KA Pollard,a757b0d8,cricketdata::player_meta,230559,Right hand Bat,Right arm Medium,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+KAJ Roach,78eb4223,cricketdata::player_meta,230553,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Kamran Akmal,ff077124,cricketdata::player_meta,41028,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+Kamran Khan,6ef60d3a,cricketdata::player_meta,391121,Left hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+Karanveer Singh,1647bd37,cricketdata::player_meta,322535,Right hand Bat,Legbreak Googly,,,false,cricsheet_id
+Karim Janat,62175638,cricketdata::player_meta,793467,Right hand Bat,Right arm Medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Kartik Sharma,7b679de5,ipl.com,,Right Handed Bat,,WK-Batsman,WK-Batsman,true,https://www.ipl.com/cricket/series/kartik-sharma/ ; bowling style missing on checked public sources
+Kartik Tyagi,5d2eea49,cricketdata::player_meta,1122918,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+KB Arun Karthik,7daedf2f,cricketdata::player_meta,319745,Right hand Bat,Legbreak Googly,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+KC Cariappa,edb3d4f8,cricketdata::player_meta,777537,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+KC Sangakkara,6b71e6cf,cricketdata::player_meta,50710,Left hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+KD Karthik,c03f1114,cricketdata::player_meta,30045,Right hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+KH Devdhar,62e07f92,cricketdata::player_meta,340063,Right hand Bat,,Wicketkeeper,Wicketkeeper,false,cricsheet_id
+KH Hurter,bda8cca8,cricketdata::player_meta,45462,,,,,false,cricsheet_id
+KH Pandya,5b8c830e,cricketdata::player_meta,471342,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+KJ Abbott,a9da7784,cricketdata::player_meta,297583,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+KK Ahmed,a2f46292,cricketdata::player_meta,942645,Right hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+KK Cooper,557153ca,cricketdata::player_meta,371814,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+KK Nair,944533a5,cricketdata::player_meta,398439,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+KL Nagarkoti,b4f5c2d9,cricketdata::player_meta,1070188,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+KL Rahul,b17e2f24,cricketdata::player_meta,422108,Right hand Bat,,Opening Batter,Opening Batter,false,cricsheet_id
+KM Asif,798cc28e,cricketdata::player_meta,1083030,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+KM Gandhi,a9421c64,cricketdata::player_meta,419670,Right-hand bat,Right-arm offbreak,,,false,cricsheet_id
+KM Jadhav,99d63244,cricketdata::player_meta,290716,Right hand Bat,Right arm Offbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+KMA Paul,75224f22,cricketdata::player_meta,677081,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+KMDN Kulasekara,469ea22b,cricketdata::player_meta,49535,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+KN Ananthapadmanabhan,3144063a,cricketdata::player_meta,26241,Right hand Bat,Legbreak Googly,,,false,cricsheet_id
+KP Appanna,d92e42f5,cricketdata::player_meta,269170,Right hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+KP Pietersen,39f01cdb,cricketdata::player_meta,19296,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+KR Mayers,73c18486,cricketdata::player_meta,348056,Left hand Bat,Right arm Medium,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+KR Sen,2e78f685,cricketdata::player_meta,1163695,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+KS Bharat,44a89551,cricketdata::player_meta,529436,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+KS Rathore,e3851766,cricketdata::player_meta,1339031,Left hand Bat,,,,false,cricsheet_id
+KS Sharma,39ed0d2f,cricketdata::player_meta,1246518,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+KS Williamson,d027ba9f,cricketdata::player_meta,277906,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+KT Maphaka,107c26fb,cricketdata::player_meta,1294342,Left-hand bat,Left-arm fast,,,false,cricsheet_id
+Kuldeep Yadav,8d2c70ad,cricketdata::player_meta,559235,Left hand Bat,Left arm Wrist spin,Bowler,Bowler,false,cricsheet_id
+Kumar Kushagra,57ca01b3,cricketdata::player_meta,1207295,Right hand Bat,,,,false,cricsheet_id
+KV Sharma,119678fd,cricketdata::player_meta,30288,Left hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+KW Richardson,dfc4d8b5,cricketdata::player_meta,272262,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+L Ablish,8b9704ae,cricketdata::player_meta,26236,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+L Balaji,b2b50355,cricketdata::player_meta,26829,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+L Ngidi,f834dcfc,cricketdata::player_meta,542023,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+L Ronchi,0fa5042b,cricketdata::player_meta,7502,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+L Wood,65b6943c,cricketdata::player_meta,573170,Left hand Bat,Left arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+LA Carseldine,d872f52a,cricketdata::player_meta,4541,Left hand Bat,Left arm Medium,Allrounder,Allrounder,false,cricsheet_id
+LA Pomersbach,b63ab531,cricketdata::player_meta,232284,Left hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+Lalit Yadav,ad427b5c,cricketdata::player_meta,930189,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+LB Williams,a1d95bd8,cricketdata::player_meta,379887,Left hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+LE Plunkett,9a963804,cricketdata::player_meta,19264,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+LG Pretorius,60aa2db3,cricketdata::player_meta,1385640,Left-hand bat,,,,false,cricsheet_id
+LH Ferguson,2f9d0389,cricketdata::player_meta,493773,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+LI Meriwala,d3611425,cricketdata::player_meta,573930,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Liton Das,0404d43c,cricketdata::player_meta,536936,Right hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+LJ Wright,cca50cd6,cricketdata::player_meta,23460,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+LMP Simmons,89f64c19,cricketdata::player_meta,53116,Right hand Bat,Right arm Medium fast,Top order Batter,Top order Batter,false,cricsheet_id
+LPC Silva,1be70c88,cricketdata::player_meta,50431,Right hand Bat,Legbreak,Batter,Batter,false,cricsheet_id
+LR Shukla,b1451597,cricketdata::player_meta,34019,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+LRPL Taylor,b61a3e1a,cricketdata::player_meta,38699,Right hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+LS Livingstone,50c6bc2b,cricketdata::player_meta,403902,Right hand Bat,Legbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+M Ashwin,e2db2409,cricketdata::player_meta,528067,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+M de Lange,d4eef961,cricketdata::player_meta,393279,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+M Erasmus,15d3c895,cricketdata::player_meta,44971,Right hand Bat,Right arm Fast medium,,,false,cricsheet_id
+M Jansen,81c36ee9,cricketdata::player_meta,696401,Right hand Bat,Left arm Fast,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+M Kaif,d84378a4,cricketdata::player_meta,29990,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+M Kartik,abfeb126,cricketdata::player_meta,30049,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+M Klinger,b970a03f,cricketdata::player_meta,6161,Right hand Bat,,Batter,Batter,false,cricsheet_id
+M Krishnadas,e298c588,cricketdata::player_meta,918287,,,,,false,cricsheet_id
+M Kuppuraj,aa4063d0,cricketdata::player_meta,723589,,,,,false,cricsheet_id
+M Manhas,c42aaf71,cricketdata::player_meta,31001,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+M Markande,a9fd84fb,cricketdata::player_meta,1081442,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+M Morkel,5bb5a915,cricketdata::player_meta,46538,Left hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+M Muralitharan,4ba44e19,cricketdata::player_meta,49636,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+M Nayyar,b7bccddb,cricketdata::player_meta,31909,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+M Ntini,20a941bb,cricketdata::player_meta,46592,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+M Pathirana,64839cb3,cricketdata::player_meta,1194795,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+M Prasidh Krishna,85e0cf10,cricketdata::player_meta,917159,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+M Rawat,de8d3876,cricketdata::player_meta,33440,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+M Shahrukh Khan,7dcb9bc9,cricketdata::player_meta,719719,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+M Siddharth,cf0ccafa,cricketdata::player_meta,1151286,Right hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+M Theekshana,f24c6701,cricketdata::player_meta,1138316,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+M Tiwari,fb5f69e4,ipl.com,,Right Handed Bat,Right-arm medium-fast,Bowling Allrounder,Bowling Allrounder,false,https://www.ipl.com/cricket/series/madhav-tiwari/
+M Vijay,4b57e452,cricketdata::player_meta,237095,Right hand Bat,Right arm Offbreak,Opening Batter,Opening Batter,false,cricsheet_id
+M Vohra,c03e2850,cricketdata::player_meta,532856,Right hand Bat,Right arm Medium,Opening Batter,Opening Batter,false,cricsheet_id
+MA Agarwal,00ea847a,cricketdata::player_meta,398438,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+MA Gough,76752ac8,cricketdata::player_meta,13413,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+MA Khote,0d232ffd,cricketdata::player_meta,30220,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+MA Starc,3fb19989,cricketdata::player_meta,311592,Left hand Bat,Left arm Fast,Bowler,Bowler,false,cricsheet_id
+MA Wood,8d92a2c3,cricketdata::player_meta,351588,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+Mandeep Singh,c3a96caf,cricketdata::player_meta,398506,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+Mashrafe Mortaza,e186f49c,cricketdata::player_meta,56007,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Mayank Dagar,a457cfb5,cricketdata::player_meta,942367,Right hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+MB Parmar,86ae8ef2,cricketdata::player_meta,240734,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+MC Henriques,32198ae0,cricketdata::player_meta,5961,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+MC Juneja,605b7efa,cricketdata::player_meta,390480,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+MD Choudhary,1c84109e,ipl.com,,Right Handed Bat,,WK-Batsman,WK-Batsman,true,https://www.ipl.com/cricket/series/mukul-choudhary/ ; bowling style missing on checked public sources
+MD Mishra,6afb26d6,cricketdata::player_meta,31028,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+MD Shanaka,3ff033bb,cricketdata::player_meta,437316,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+MDKJ Perera,f21043a5,cricketdata::player_meta,300631,Left hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+MEK Hussey,48fd7349,cricketdata::player_meta,5939,Left hand Bat,Right arm Medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+MF Maharoof,ab89348d,cricketdata::player_meta,49638,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+MG Bracewell,e38bce7a,cricketdata::player_meta,326968,Left hand Bat,Right arm Offbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+MG Johnson,f5180fe6,cricketdata::player_meta,6033,Left hand Bat,Left arm Fast,Bowler,Bowler,false,cricsheet_id
+MG Neser,0164b064,cricketdata::player_meta,376169,Right hand Bat,Right arm Medium fast,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Milind Kumar,b4296080,cricketdata::player_meta,451947,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+Misbah-ul-Haq,7eae4418,cricketdata::player_meta,41378,Right hand Bat,Legbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+MJ Clarke,f842c2cf,cricketdata::player_meta,4578,Right hand Bat,Slow Left arm Orthodox,Middle order Batter,Middle order Batter,false,cricsheet_id
+MJ Guptill,2be41edb,cricketdata::player_meta,226492,Right hand Bat,Right arm Offbreak,Opening Batter,Opening Batter,false,cricsheet_id
+MJ Henry,e84ac20c,cricketdata::player_meta,506612,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+MJ Lumb,11df3dc8,cricketdata::player_meta,16406,Left hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+MJ McClenaghan,51a3c5ef,cricketdata::player_meta,319439,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+MJ Owen,f2c936d7,cricketdata::player_meta,1213979,Right hand Bat,Right arm Medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+MJ Santner,e4a0deae,cricketdata::player_meta,502714,Left hand Bat,Slow Left arm Orthodox,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+MJ Suthar,025c4400,cricketdata::player_meta,1175426,Left hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+MK Lomror,da934ee8,cricketdata::player_meta,853265,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+MK Pandey,93b4fc78,cricketdata::player_meta,290630,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+MK Tiwary,26e5cabf,cricketdata::player_meta,35565,Right hand Bat,Legbreak Googly,Batter,Batter,false,cricsheet_id
+ML Hayden,d8699ab7,cricketdata::player_meta,5616,Left hand Bat,Right arm Medium,Opening Batter,Opening Batter,false,cricsheet_id
+MM Ali,bb351c23,cricketdata::player_meta,8917,Left hand Bat,Right arm Offbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+MM Patel,f0f628c7,cricketdata::player_meta,32965,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+MM Sharma,759ac88f,cricketdata::player_meta,537119,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+MN Samuels,f846de6a,cricketdata::player_meta,52983,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+MN van Wyk,710dd98c,cricketdata::player_meta,47711,Right hand Bat,Slow Left arm Orthodox,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+Mohamad Rafi,0479de6b,cricketdata::player_meta,961285,,,,,false,cricsheet_id
+Mohammad Ashraful,2bb09eb2,cricketdata::player_meta,55988,Right hand Bat,"Right arm Offbreak, Legbreak",Middle order Batter,Middle order Batter,false,cricsheet_id
+Mohammad Asif,e03b66ec,cricketdata::player_meta,41411,Left hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Mohammad Hafeez,9ab63e7b,cricketdata::player_meta,41434,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+Mohammad Nabi,62af8546,cricketdata::player_meta,25913,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+Mohammed Shami,8cf9814c,cricketdata::player_meta,481896,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+Mohammed Siraj,2f49c897,cricketdata::player_meta,940973,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+Mohit Rathee,9a5f2863,cricketdata::player_meta,1349361,Right hand Bat,Legbreak,Allrounder,Allrounder,false,cricsheet_id
+Mohsin Khan,c33d8116,cricketdata::player_meta,1132005,Left hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+Monu Kumar,fb24e76c,cricketdata::player_meta,694209,Right hand Bat,Right arm Medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+MP Breetzke,35f173a0,cricketdata::player_meta,595267,Right hand Bat,,Batter,Batter,false,cricsheet_id
+MP Stoinis,d9273ee7,cricketdata::player_meta,325012,Right hand Bat,Right arm Medium,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+MP Yadav,b1ad996b,cricketdata::player_meta,1292563,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+MR Benson,790e14d3,cricketdata::player_meta,9074,Left hand Bat,Right arm Offbreak,,,false,cricsheet_id
+MR Marsh,3d8feaf8,cricketdata::player_meta,272450,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+MR Singh,5d58ac60,cricketdata::player_meta,34051,,,,,false,cricsheet_id
+MS Bhandage,e96801ea,cricketdata::player_meta,1057399,Left hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+MS Bisla,5afd4539,cricketdata::player_meta,27280,Right hand Bat,,Wicketkeeper,Wicketkeeper,false,cricsheet_id
+MS Dhoni,4a8a2e3b,cricketdata::player_meta,28081,Right hand Bat,Right arm Medium,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+MS Gony,ae78bc32,cricketdata::player_meta,317293,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+MS Mahal,50a7e89b,cricketdata::player_meta,30886,Right hand Bat,Legbreak,,,false,cricsheet_id
+MS Wade,afa7e784,cricketdata::player_meta,230193,Left hand Bat,Right arm Medium,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+MSS Ranawat,8048c698,cricketdata::player_meta,33614,,,,,false,cricsheet_id
+Mujeeb Ur Rahman,7d92277a,cricketdata::player_meta,974109,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+Mukesh Choudhary,765a4731,cricketdata::player_meta,1125688,Left hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+Mukesh Kumar,2cffab74,cricketdata::player_meta,926851,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+Musheer Khan,d621b427,ipl.com,,Right Handed Bat,Left-arm orthodox spinner,Batting Allrounder,Batting Allrounder,false,https://www.ipl.com/cricket/series/musheer-khan/
+Mustafizur Rahman,0a8fce53,cricketdata::player_meta,330902,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+MV Boucher,f3cb53a1,cricketdata::player_meta,44111,Right hand Bat,Right arm Medium,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+MV Saidharshan Kumar,54b6007b,cricketdata::player_meta,777551,,,,,false,cricsheet_id
+MW Brown,d83d7796,cricketdata::player_meta,44397,,,,,false,cricsheet_id
+MW Short,a90e53ec,cricketdata::player_meta,605575,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+N Burger,465aa633,cricketdata::player_meta,971349,Left hand Bat,Left arm Medium fast,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+N Jagadeesan,bd54eef5,cricketdata::player_meta,1048813,Right hand Bat,,Opening Batter,Opening Batter,false,cricsheet_id
+N Pandit,4947c258,cricketdata::player_meta,391525,,,,,false,cricsheet_id
+N Pooran,3241e3fd,cricketdata::player_meta,604302,Left hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+N Rana,fb2d1dda,cricketdata::player_meta,604527,Left hand Bat,"Right arm Medium, Right arm Offbreak",Middle order Batter,Middle order Batter,false,cricsheet_id
+N Saini,addbde6c,cricketdata::player_meta,274785,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+N Thushara,ee1b6c27,cricketdata::player_meta,955235,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+N Wadhera,d1a60072,cricketdata::player_meta,1151273,Left hand Bat,Legbreak,Top order Batter,Top order Batter,false,cricsheet_id
+NA Patwardhan,e6ef687d,cricketdata::player_meta,32213,Right hand Bat,,,,false,cricsheet_id
+NA Saini,21d4e29b,cricketdata::player_meta,700167,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+Naman Dhir,fffa744b,cricketdata::player_meta,1287032,Right-hand bat,Right-arm offbreak,,,false,cricsheet_id
+Navdeep Saini,21d4e29b,cricketdata::player_meta,700167,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+Navdeep Singh,a3e3d8a4,cricketdata::player_meta,31805,Right hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+Naveen-ul-Haq,c0c411cb,cricketdata::player_meta,793447,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+NB Singh,b822e99c,cricketdata::player_meta,853259,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+ND Doshi,6ec424a9,cricketdata::player_meta,12440,Right hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+Niraj Patel,a2870fb7,cricketdata::player_meta,32240,Left hand Bat,,Allrounder,Allrounder,false,cricsheet_id
+Nithish Kumar Reddy,aad0c365,cricketdata::player_meta,1175496,Right hand Bat,Right arm Medium fast,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+Nitin Menon,e1d41d9e,cricketdata::player_meta,30988,Right hand Bat,,,,false,cricsheet_id
+NJ Llong,573fb985,cricketdata::player_meta,16314,Left hand Bat,Right arm Offbreak,,,false,cricsheet_id
+NJ Maddinson,44afbf2d,cricketdata::player_meta,333780,Left hand Bat,Slow Left arm Orthodox,Opening Batter,Opening Batter,false,cricsheet_id
+NJ Rimmington,6042bf26,cricketdata::player_meta,7443,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+NL McCullum,5673a3fc,cricketdata::player_meta,37749,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+NLTC Perera,0f12f9df,cricketdata::player_meta,233514,Left hand Bat,Right arm Medium fast,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+NM Coulter-Nile,56ab442f,cricketdata::player_meta,261354,Right hand Bat,Right arm Fast,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Noor Ahmad,efc04be7,cricketdata::player_meta,1182529,Right hand Bat,Left arm Wrist spin,Bowler,Bowler,false,cricsheet_id
+NS Naik,aedc3b7c,cricketdata::player_meta,554700,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+NT Ellis,9eb1455b,cricketdata::player_meta,826915,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+NV Ojha,890946a0,cricketdata::player_meta,32102,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+O Thomas,c6097d68,cricketdata::player_meta,914567,Left hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+OA Shah,7bf96684,cricketdata::player_meta,20123,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+OC McCoy,529eb9e0,cricketdata::player_meta,906783,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+OF Smith,23cca426,cricketdata::player_meta,820691,Right hand Bat,Right arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+P Amarnath,6ad3a659,cricketdata::player_meta,290629,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+P Awana,1a0c3177,cricketdata::player_meta,323131,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+P Chopra,8ac93ca2,cricketdata::player_meta,500135,Right hand Bat,Legbreak Googly,Opening Batter,Opening Batter,false,cricsheet_id
+P Dharmani,eaa90ab4,cricketdata::player_meta,28067,Right hand Bat,,,,false,cricsheet_id
+P Dogra,2728e7e9,cricketdata::player_meta,28160,Right hand Bat,Legbreak,Batter,Batter,false,cricsheet_id
+P Dubey,ed5a5510,cricketdata::player_meta,777515,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+P Joshi,ffc0e370,cricketdata::player_meta,961273,,,,,false,cricsheet_id
+P Kumar,e938e1bc,cricketdata::player_meta,30732,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+P Negi,f62772e5,cricketdata::player_meta,530773,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+P Nissanka,8ee36b18,cricketdata::player_meta,1028655,Right hand Bat,,Top order Batter,Top order Batter,false,cricsheet_id
+P Parameswaran,0c432afb,cricketdata::player_meta,279562,Right hand Bat,Left arm Medium,,,false,cricsheet_id
+P Prasanth,ddb00822,cricketdata::player_meta,32211,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+P Ray Barman,441c72ae,cricketdata::player_meta,1159712,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+P Sahu,9a0146b3,cricketdata::player_meta,34155,Right hand Bat,Legbreak Googly,Allrounder,Allrounder,false,cricsheet_id
+P Simran Singh,9418198b,cricketdata::player_meta,1161024,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+P Suyal,cedc1d9a,cricketdata::player_meta,431213,Right hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+PA Patel,b5da6c24,cricketdata::player_meta,32242,Left hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+PA Reddy,2461eef2,cricketdata::player_meta,376109,Right hand Bat,Legbreak,Opening Batter,Opening Batter,false,cricsheet_id
+Pankaj Singh,e32d22f6,cricketdata::player_meta,32973,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+Parvez Rasool,9170ff49,cricketdata::player_meta,378496,Right hand Bat,Right arm Offbreak,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+PBB Rajapaksa,6c882e9a,cricketdata::player_meta,342619,Left hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+PC Valthaty,25eeb281,cricketdata::player_meta,35630,Right hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+PD Collingwood,a386e91b,cricketdata::player_meta,10772,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+PD Salt,3d284ca3,cricketdata::player_meta,669365,Right hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+PG Pathak,9f772ec5,cricketdata::player_meta,390895,,,,,false,cricsheet_id
+PH Solanki,c695b423,cricketdata::player_meta,1252337,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+PHKD Mendis,08548b13,cricketdata::player_meta,784373,Left hand Bat,"Right arm Offbreak, Slow Left arm Orthodox",Allrounder,Allrounder,false,cricsheet_id
+PJ Cummins,ded9240e,cricketdata::player_meta,489889,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+PJ Sangwan,9fc0ef64,cricketdata::player_meta,279545,Right hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+PK Garg,bb965e9a,cricketdata::player_meta,1070180,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+PK Khakhar,b7cad41f,cricketdata::player_meta,30072,Right hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+PM Joshi,0dcc9a8c,cricketdata::player_meta,1162437,,,,,false,cricsheet_id
+PM Sarvesh Kumar,4b4d1957,cricketdata::player_meta,327127,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+PN Mankad,663b5e34,cricketdata::player_meta,956871,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+PP Chawla,98ae73b1,cricketdata::player_meta,32966,Left hand Bat,Legbreak,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+PP Hinge,ece7b6b3,ipl.com,,Right Handed Bat,Right-arm medium-fast,Bowler,Bowler,false,https://www.ipl.com/cricket/series/praful-hinge/
+PP Ojha,6c6591ab,cricketdata::player_meta,32130,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+PP Shaw,8b3e9c7c,cricketdata::player_meta,1070168,Right hand Bat,Right arm Offbreak,Opening Batter,Opening Batter,false,cricsheet_id
+PR Reiffel,c9354f29,cricketdata::player_meta,7326,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+PR Shah,0aadc906,cricketdata::player_meta,34282,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+PR Veer,e148e6bd,cricketdata::player_meta,1403197,Right-hand bat,Slow left-arm orthodox,,,false,cricsheet_id
+Prakash Bhatt,f848ab0b,cricketdata::player_meta,26923,Right hand Bat,,,,false,cricsheet_id
+Premdip Chatterjee,489fb760,cricketdata::player_meta,560278,,,,,false,cricsheet_id
+Prince Yadav,80b2fb19,cricketdata::player_meta,1350768,Right-hand bat,Right-arm fast,,,false,cricsheet_id
+Priyansh Arya,b5797845,cricketdata::player_meta,1175456,Left hand Bat,Right arm Offbreak,,,false,cricsheet_id
+PSP Handscomb,ada15e88,cricketdata::player_meta,334337,Right hand Bat,,Batter,Batter,false,cricsheet_id
+PV Tambe,6aed7e79,cricketdata::player_meta,587152,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+PVD Chameera,327b58d3,cricketdata::player_meta,552152,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+PVSN Raju,c27b5a0e,ipl.com,,Right Handed Bat,Right-arm fast-medium,Bowler,Bowler,false,https://www.ipl.com/cricket/series/satyanarayana-raju/
+PWA Mulder,c96f6ac5,cricketdata::player_meta,698189,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+PWH de Silva,a97c8ec2,cricketdata::player_meta,784379,Right hand Bat,Legbreak,Allrounder,Allrounder,false,cricsheet_id
+Q de Kock,372455c4,cricketdata::player_meta,379143,Left hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+R Ashwin,495d42a5,cricketdata::player_meta,26421,Right hand Bat,Right arm Offbreak,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+R Bhatia,33a364a6,cricketdata::player_meta,26907,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+R Bishnoi,4d5a1617,cricketdata::player_meta,236766,Right hand Bat,Right arm Medium fast,Middle order Batter,Middle order Batter,false,cricsheet_id
+R Dhawan,26a85969,cricketdata::player_meta,290727,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+R Dravid,0184dc35,cricketdata::player_meta,28114,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+R Goyal,266849c1,cricketdata::player_meta,1350770,Left hand Bat,Left arm Wrist spin,Bowler,Bowler,false,cricsheet_id
+R McLaren,c654af19,cricketdata::player_meta,46393,Left hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+R Minz,bafd0398,ipl.com,,Left Handed Bat,Slow left-arm orthodox,WK-Batsman,WK-Batsman,false,https://www.ipl.com/cricket/series/robin-minz/
+R Ninan,ce4cc4d5,cricketdata::player_meta,353669,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+R Pandit,8a604384,cricketdata::player_meta,537232,,,,,false,cricsheet_id
+R Parag,04a418e8,cricketdata::player_meta,1079434,Right hand Bat,Legbreak,Top order Batter,Top order Batter,false,cricsheet_id
+R Powell,650d5e49,cricketdata::player_meta,820351,Right hand Bat,Right arm Medium fast,Middle order Batter,Middle order Batter,false,cricsheet_id
+R Rajesh Kannan,c9062c3e,cricketdata::player_meta,33208,Right-hand bat,Right-arm offbreak,,,false,cricsheet_id
+R Rampaul,d68e7f48,cricketdata::player_meta,52912,Left hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+R Ravindra,ba5e1069,cricketdata::player_meta,959767,Left hand Bat,Slow Left arm Orthodox,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+R Risodkar,3de870ce,cricketdata::player_meta,33176,,,,,false,cricsheet_id
+R Sai Kishore,c7a995d3,cricketdata::player_meta,1048739,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+R Sanjay Yadav,33ffc3dd,cricketdata::player_meta,1048841,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+R Sathish,626c5379,cricketdata::player_meta,33870,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+R Seth,540a44ba,cricketdata::player_meta,34621,Right hand Bat,Right arm Fast medium,,,false,cricsheet_id
+R Shankar,82f0b62e,cricketdata::player_meta,277744,,,,,false,cricsheet_id
+R Sharma,5d9a1a73,cricketdata::player_meta,272994,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+R Shepherd,c5aef772,cricketdata::player_meta,677077,Right hand Bat,Right arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+R Shukla,de4b0555,cricketdata::player_meta,390547,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+R Subramanian,7c32b886,cricketdata::player_meta,34132,,,,,false,cricsheet_id
+R Tewatia,39a2dfa8,cricketdata::player_meta,423838,Left hand Bat,Legbreak,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+R Vinay Kumar,41eb4a4f,cricketdata::player_meta,35731,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+RA Bawa,ba6b2f91,cricketdata::player_meta,1292502,Left hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+RA Jadeja,fe93fd9d,cricketdata::player_meta,234675,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+RA Shaikh,7c390b03,cricketdata::player_meta,279460,Left hand Bat,Left arm Medium,,,false,cricsheet_id
+RA Tripathi,77255a9e,cricketdata::player_meta,446763,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+Rahmanullah Gurbaz,0bacade8,cricketdata::player_meta,974087,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+Raju Mukherjee,7a3244b5,cricketdata::player_meta,31727,Right hand Bat,,,,false,cricsheet_id
+Ramandeep Singh,be24ead0,cricketdata::player_meta,1079470,Right hand Bat,Right arm Medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+Rashid Khan,5f547c8b,cricketdata::player_meta,793463,Right hand Bat,Legbreak Googly,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Rasikh Salam,b8527c3d,cricketdata::player_meta,1161489,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+Ravi Bishnoi,df064e1a,cricketdata::player_meta,1175441,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+RB Richardson,410e2f12,cricketdata::player_meta,52810,Right hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+RB Tiffin,89087a0d,cricketdata::player_meta,55795,Right hand Bat,,,,false,cricsheet_id
+RD Chahar,2ed569a0,cricketdata::player_meta,1064812,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+RD Gaikwad,45a43fe2,cricketdata::player_meta,1060380,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+RD Rickelton,e66732f8,cricketdata::player_meta,605661,Left hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+RE Koertzen,0265fab2,cricketdata::player_meta,45830,,,,,false,cricsheet_id
+RE Levi,18c78b11,cricketdata::player_meta,46148,Right hand Bat,Right arm Medium,Opening Batter,Opening Batter,false,cricsheet_id
+RE van der Merwe,05c2ca46,cricketdata::player_meta,47850,Right hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+RG More,b2b23612,cricketdata::player_meta,424219,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+RG Sharma,740742ef,cricketdata::player_meta,34102,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+RJ Gleeson,402f8494,cricketdata::player_meta,473191,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+RJ Harris,12eddf28,cricketdata::player_meta,5779,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+RJ Peterson,26ff4c29,cricketdata::player_meta,46750,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+RJ Quiney,23ac69e6,cricketdata::player_meta,211854,Left hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+RJ Tucker,38810cfc,cricketdata::player_meta,7986,Left hand Bat,Right arm Medium,,,false,cricsheet_id
+RJW Topley,8db7f47f,cricketdata::player_meta,461632,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+RK Bhui,b63e358a,cricketdata::player_meta,642531,Right hand Bat,Legbreak Googly,Top order Batter,Top order Batter,false,cricsheet_id
+RK Illingworth,20672246,cricketdata::player_meta,15383,Right hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+RK Singh,0a509d6b,cricketdata::player_meta,723105,Left hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+RM Deshpande,7d2a4250,cricketdata::player_meta,262599,,,,,false,cricsheet_id
+RM Patidar,c740ea83,cricketdata::player_meta,823703,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+RN ten Doeschate,4ec07775,cricketdata::player_meta,47660,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+RP Meredith,64775749,cricketdata::player_meta,961713,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+RP Singh,c3d1402f,cricketdata::player_meta,35280,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+RR Bhatkal,7d3720ba,cricketdata::player_meta,27150,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+RR Bose,21ac077a,cricketdata::player_meta,27572,Right hand Bat,Right arm Fast medium,,,false,cricsheet_id
+RR Jadeja,053de19b,cricketdata::player_meta,29831,Right hand Bat,Right arm Fast medium,,,false,cricsheet_id
+RR Pant,919a3be2,cricketdata::player_meta,931581,Left hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+RR Powar,5d096f3d,cricketdata::player_meta,32391,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+RR Raje,5f4e9e8f,cricketdata::player_meta,290713,Right hand Bat,Right arm Fast medium,,,false,cricsheet_id
+RR Rossouw,cad00a4d,cricketdata::player_meta,318845,Left hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+RR Sarwan,36d33dd0,cricketdata::player_meta,52969,Right hand Bat,Legbreak,Batter,Batter,false,cricsheet_id
+RS Bopara,7ca5e05d,cricketdata::player_meta,10582,Right hand Bat,Right arm Medium,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+RS Gavaskar,9ff100a6,cricketdata::player_meta,28792,Left hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+RS Hangargekar,c3c92b42,cricketdata::player_meta,1175429,Right hand Bat,Right arm Medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+RS Madugalle,766b5798,cricketdata::player_meta,49623,Right hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+RS Mahanama,57910393,cricketdata::player_meta,49626,Right hand Bat,,Batter,Batter,false,cricsheet_id
+RS Sodhi,a3ecf01f,cricketdata::player_meta,34078,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+RT Ponting,7d415ea5,cricketdata::player_meta,7133,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+RV Gomez,b2570b38,cricketdata::player_meta,28846,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+RV Patel,60500956,cricketdata::player_meta,1201520,Right hand Bat,Right arm Medium fast,Middle order Batter,Middle order Batter,false,cricsheet_id
+RV Pawar,c9d33ef5,cricketdata::player_meta,32305,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+RV Uthappa,1c17e270,cricketdata::player_meta,35582,Right hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+RW Price,67af6f81,cricketdata::player_meta,55698,Right hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+S Anirudha,95a2ea61,cricketdata::player_meta,26798,Right hand Bat,,Top order Batter,Top order Batter,false,cricsheet_id
+S Aravind,957532de,cricketdata::player_meta,290632,Left hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+S Arora,d7423da1,ipl.com,,Right Handed Bat,Right Arm Medium Seam,WK-Batsman,WK-Batsman,true,https://www.ipl.com/cricket/series/salil-arora/ ; other free sources left bowling blank
+S Asnani,b04524bc,cricketdata::player_meta,26314,,,,,false,cricsheet_id
+S Badree,76388dc8,cricketdata::player_meta,51433,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+S Badrinath,3576e47e,cricketdata::player_meta,26806,Right hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+S Banerjee,abde8fb9,cricketdata::player_meta,26854,,,,,false,cricsheet_id
+S Chanderpaul,881a9bdd,cricketdata::player_meta,51469,Left hand Bat,Legbreak,Batter,Batter,false,cricsheet_id
+S Chaturvedi,c8ec02e1,cricketdata::player_meta,27791,Right hand Bat,,,,false,cricsheet_id
+S Das,475e38b6,cricketdata::player_meta,515928,,,,,false,cricsheet_id
+S Dhawan,0a476045,cricketdata::player_meta,28235,Left hand Bat,Right arm Offbreak,Opening Batter,Opening Batter,false,cricsheet_id
+S Dua,f1375866,cricketdata::player_meta,28115,,,,,false,cricsheet_id
+S Dube,a4e37e47,cricketdata::player_meta,714451,Left hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+S George,6d9e5a54,cricketdata::player_meta,45389,,,,,false,cricsheet_id
+S Gopal,7a8bd078,cricketdata::player_meta,344580,Right hand Bat,Legbreak,Allrounder,Allrounder,false,cricsheet_id
+S Joseph,97290faf,cricketdata::player_meta,1356971,Left-hand bat,Right-arm fast,,,false,cricsheet_id
+S Kaul,dcf81436,cricketdata::player_meta,326017,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+S Kaushik,1da489ff,cricketdata::player_meta,917213,Right hand Bat,Left arm Wrist spin,Bowler,Bowler,false,cricsheet_id
+S Ladda,fb693839,cricketdata::player_meta,317292,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+S Lamichhane,b410bd3d,cricketdata::player_meta,960361,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+S Midhun,ade90de7,cricketdata::player_meta,1131619,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+S Nadeem,9d80c5e1,cricketdata::player_meta,31872,Right hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+S Narwal,287686fd,cricketdata::player_meta,32084,Left hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+S Rana,90edaaa9,cricketdata::player_meta,33757,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+S Randiv,f5f18a18,cricketdata::player_meta,50438,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+S Ravi,9b9ee0df,cricketdata::player_meta,33135,,,,,false,cricsheet_id
+S Sandeep Warrier,cdc6bdba,cricketdata::player_meta,592735,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+S Sohal,3fca55af,cricketdata::player_meta,228943,Right hand Bat,Legbreak,Batter,Batter,false,cricsheet_id
+S Sreesanth,6b8eb6e5,cricketdata::player_meta,34274,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+S Sriram,64a4c383,cricketdata::player_meta,34118,Left hand Bat,Slow Left arm Orthodox,Middle order Batter,Middle order Batter,false,cricsheet_id
+S Tyagi,c24a2c5d,cricketdata::player_meta,317784,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+S Venkataraghavan,12453319,cricketdata::player_meta,35656,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+S Vidyut,756389bd,cricketdata::player_meta,35619,Left hand Bat,Slow Left arm Orthodox,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+SA Abbott,1a2676c5,cricketdata::player_meta,398666,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+SA Asnodkar,ae091d39,cricketdata::player_meta,26782,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+SA Satbhai,1b80ebeb,cricketdata::player_meta,35294,Right hand Bat,,,,false,cricsheet_id
+SA Yadav,271f83cd,cricketdata::player_meta,446507,Right hand Bat,"Right arm Medium, Right arm Offbreak",Batter,Batter,false,cricsheet_id
+Sachin Baby,dc9dd038,cricketdata::player_meta,432783,Left hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+Sakib Hussain,280fff14,cricketdata::player_meta,1340422,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+Salman Butt,4d6d6280,cricketdata::player_meta,42683,Left hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+Sameer Rizvi,f89d3b11,cricketdata::player_meta,1175489,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+Sandeep Sharma,ce820073,cricketdata::player_meta,438362,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+Sanjay Verma,bc19a37f,cricketdata::player_meta,35807,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+Sanvir Singh,b0f2baf4,cricketdata::player_meta,1132219,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+Saurav Chauhan,9e7225b0,cricketdata::player_meta,1287369,Left hand Bat,Right arm Offbreak,,,false,cricsheet_id
+SB Bangar,0604ef16,cricketdata::player_meta,27225,Right hand Bat,Right arm Medium fast,,,false,cricsheet_id
+SB Dubey,6b2ff18f,cricketdata::player_meta,1252585,Left hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+SB Jakati,c8179c68,cricketdata::player_meta,29655,Left hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+SB Joshi,670709ec,cricketdata::player_meta,29725,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+SB Styris,57efa3be,cricketdata::player_meta,38407,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+SB Wagh,dddca1d6,cricketdata::player_meta,279552,Left hand Bat,Left arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+SC Ganguly,725529bc,cricketdata::player_meta,28779,Left hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+SC Kuggeleijn,fef92afc,cricketdata::player_meta,539548,Right hand Bat,Right arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+SD Chitnis,facb9086,cricketdata::player_meta,337916,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+SD Fry,6b725ed1,cricketdata::player_meta,5341,,,,,false,cricsheet_id
+SD Hope,1fc6ef83,cricketdata::player_meta,581379,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+SD Lad,9601c534,cricketdata::player_meta,422342,Right hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+SD Ranade,369c85c1,cricketdata::player_meta,33079,,,,,false,cricsheet_id
+SE Bond,4f629497,cricketdata::player_meta,36326,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+SE Marsh,508a1ea7,cricketdata::player_meta,6683,Left hand Bat,Slow Left arm Orthodox,Top order Batter,Top order Batter,false,cricsheet_id
+SE Rutherford,d014d5ac,cricketdata::player_meta,914541,Left hand Bat,Right arm Fast medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+Sediqullah Atal,3c28853f,cricketdata::player_meta,1161050,Left hand Bat,,Opening Batter,Opening Batter,false,cricsheet_id
+SH Johnson,83c3e8e3,cricketdata::player_meta,1123718,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Shahbaz Ahmed,f9e6e7ef,cricketdata::player_meta,1159711,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+Shahid Afridi,0dc00542,cricketdata::player_meta,42639,Right hand Bat,Legbreak Googly,Allrounder,Allrounder,false,cricsheet_id
+Shakib Al Hasan,7dc35884,cricketdata::player_meta,56143,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+Shakti Singh,eb90d319,cricketdata::player_meta,33922,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+Shashank Singh,26989d80,cricketdata::player_meta,377534,Right hand Bat,"Right arm Medium, Right arm Offbreak",Batting Allrounder,Batting Allrounder,false,cricsheet_id
+Shivam Mavi,c38d3503,cricketdata::player_meta,1079848,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Shivam Sharma,6f49cc6e,cricketdata::player_meta,717201,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+Shivam Singh,e1d9ae9c,cricketdata::player_meta,1380113,Right-hand bat,Right-arm offbreak,,,false,cricsheet_id
+Shivang Kumar,7b44eb3e,ipl.com,,Right Handed Bat,Slow Left-arm Orthodox,All-Rounder,All-Rounder,true,https://www.ipl.com/cricket/series/shivang-kumar/ ; public sources conflict on primary role
+Shoaib Ahmed,8a668774,cricketdata::player_meta,317709,Right hand Bat,Right arm Fast medium,,,false,cricsheet_id
+Shoaib Akhtar,10a91f35,cricketdata::player_meta,42655,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+Shoaib Malik,64c34cd0,cricketdata::player_meta,42657,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+Shubman Gill,b4b99816,cricketdata::player_meta,1070173,Right hand Bat,Right arm Offbreak,Opening Batter,Opening Batter,false,cricsheet_id
+Sikandar Raza,26d041c4,cricketdata::player_meta,299572,Right hand Bat,Right arm Offbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+Simarjeet Singh,30df8c66,cricketdata::player_meta,1159722,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+SJ Davis,bc71b0b2,cricketdata::player_meta,4922,,,,,false,cricsheet_id
+SJ Srivastava,2049f3a0,cricketdata::player_meta,34245,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+SJA Taufel,4b43d5ac,cricketdata::player_meta,7918,,,,,false,cricsheet_id
+SK Porel,350a07a7,cricketdata::player_meta,32897,Right hand Bat,Right arm Fast medium,,,false,cricsheet_id
+SK Raina,1dc12ab9,cricketdata::player_meta,33335,Left hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+SK Rasheed,cbf58a86,cricketdata::player_meta,1292497,Right hand Bat,Legbreak,,,false,cricsheet_id
+SK Tarapore,62a824b4,cricketdata::player_meta,35314,Right hand Bat,Legbreak,,,false,cricsheet_id
+SK Trivedi,3d7e087f,cricketdata::player_meta,35353,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+SK Warne,bb18be76,cricketdata::player_meta,8166,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+SL Malinga,a12e1d51,cricketdata::player_meta,49758,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+SL Shastri,53ef012d,cricketdata::player_meta,33977,Right hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+SM Boland,d167edd3,cricketdata::player_meta,446548,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+SM Curran,e94915e6,cricketdata::player_meta,662973,Left hand Bat,Left arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+SM Harwood,63bff7f9,cricketdata::player_meta,5605,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+SM Katich,fdedb37c,cricketdata::player_meta,6128,Left hand Bat,Left arm Wrist spin,Batter,Batter,false,cricsheet_id
+SM Pollock,88fccd6c,cricketdata::player_meta,46774,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+SMSM Senanayake,4c4fa80b,cricketdata::player_meta,273439,Right hand Bat,Right arm Offbreak,Bowler,Bowler,false,cricsheet_id
+SN Bandekar,350528bb,cricketdata::player_meta,26846,,,,,false,cricsheet_id
+SN Khan,f088b960,cricketdata::player_meta,642525,Right hand Bat,Legbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+SN Thakur,1abb78f8,cricketdata::player_meta,475281,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+SO Hetmyer,48a1d7b7,cricketdata::player_meta,670025,Left hand Bat,,Top order Batter,Top order Batter,false,cricsheet_id
+Sohail Tanvir,64d43928,cricketdata::player_meta,43265,Left hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+Sonu Yadav,6ab96cc2,cricketdata::player_meta,1048867,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+SP Fleming,eea6b7f1,cricketdata::player_meta,37000,Left hand Bat,,Top order Batter,Top order Batter,false,cricsheet_id
+SP Goswami,541f85c9,cricketdata::player_meta,302579,Left hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+SP Jackson,acc1aeda,cricketdata::player_meta,237696,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+SP Narine,9d430b40,cricketdata::player_meta,230558,Left hand Bat,Right arm Offbreak,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+SPD Smith,30a45b23,cricketdata::player_meta,267192,Right hand Bat,Legbreak Googly,Middle order Batter,Middle order Batter,false,cricsheet_id
+SR Tendulkar,d2c2b2d5,cricketdata::player_meta,35320,Right hand Bat,"Right arm Offbreak, Legbreak Googly",Top order Batter,Top order Batter,false,cricsheet_id
+SR Watson,4329fbb5,cricketdata::player_meta,8180,Right hand Bat,Right arm Fast medium,Allrounder,Allrounder,false,cricsheet_id
+SS Agarwal,b51f72a5,cricketdata::player_meta,1079668,Right hand Bat,Legbreak Googly,,,false,cricsheet_id
+SS Cottrell,a1d053dd,cricketdata::player_meta,495551,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+SS Hazare,166e5081,cricketdata::player_meta,29400,Right hand Bat,Legbreak Googly,,,false,cricsheet_id
+SS Iyer,85ec8e33,cricketdata::player_meta,642519,Right hand Bat,"Right arm Offbreak, Legbreak Googly",Top order Batter,Top order Batter,false,cricsheet_id
+SS Mundhe,0af3426f,cricketdata::player_meta,279862,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+SS Prabhudessai,9385de2e,cricketdata::player_meta,1083851,Right hand Bat,Right arm Medium,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+SS Raul,4cfdf1d0,cricketdata::player_meta,33129,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+SS Sarkar,caa89a48,cricketdata::player_meta,34402,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+SS Shaikh,5f5d3ad4,cricketdata::player_meta,377437,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+SS Tiwary,709b0bac,cricketdata::player_meta,35390,Left hand Bat,,Top order Batter,Top order Batter,false,cricsheet_id
+SSB Magala,8361e524,cricketdata::player_meta,379776,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+ST Jayasuriya,f233bbb4,cricketdata::player_meta,49209,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+STR Binny,bd17b45f,cricketdata::player_meta,27223,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+Subhransu Senapati,0edcb652,cricketdata::player_meta,1059577,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+Subroto Das,e66066be,cricketdata::player_meta,28318,Right hand Bat,,,,false,cricsheet_id
+Sumit Kumar,8998a68f,cricketdata::player_meta,1159734,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+Sunny Gupta,ee3dfa89,cricketdata::player_meta,271315,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+Sunny Singh,30e37810,cricketdata::player_meta,35282,Right hand Bat,Right arm Medium fast,Batter,Batter,false,cricsheet_id
+Suryansh Shedge,970ddd24,cricketdata::player_meta,1339698,Right hand Bat,,,,false,cricsheet_id
+Suyash Sharma,9440ef41,cricketdata::player_meta,1350792,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+SV Samson,a4cc73aa,cricketdata::player_meta,425943,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+SW Billings,c16d4035,cricketdata::player_meta,297628,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+SW Tait,addfb70e,cricketdata::player_meta,8076,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+Swapnil Singh,983f2f61,cricketdata::player_meta,232292,Right hand Bat,Slow Left arm Orthodox,Bowler,Bowler,false,cricsheet_id
+SZ Mulani,9d704f6f,cricketdata::player_meta,1131607,Left hand Bat,Slow Left arm Orthodox,Allrounder,Allrounder,false,cricsheet_id
+T Banton,25f7b7d6,cricketdata::player_meta,877051,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+T Henderson,0a4ebc61,cricketdata::player_meta,45434,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+T Kohler-Cadmore,f836b33d,cricketdata::player_meta,470633,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+T Kohli,40caa465,cricketdata::player_meta,331855,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+T Mishra,c9cac448,cricketdata::player_meta,24790,Right hand Bat,Right arm Fast medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+T Natarajan,ce794613,cricketdata::player_meta,802575,Left hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+T Shamsi,a03bba42,cricketdata::player_meta,379145,Right hand Bat,Left arm Wrist spin,Bowler,Bowler,false,cricsheet_id
+T Stubbs,85b3fab2,cricketdata::player_meta,595978,Right hand Bat,Right arm Offbreak,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+T Taibu,75de770f,cricketdata::player_meta,55805,Right hand Bat,Right arm Medium,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+T Thushara,b2ae53f5,cricketdata::player_meta,49677,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+T Vijay,51ec3919,cricketdata::player_meta,1292527,Right-hand bat,Right-arm offbreak,,,false,cricsheet_id
+TA Boult,a818c1be,cricketdata::player_meta,277912,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Talat Ali,1df4131e,cricketdata::player_meta,43273,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+Tanay Thyagarajan,f1809c03,cricketdata::player_meta,1080008,Left hand Bat,Slow Left arm Orthodox,,,false,cricsheet_id
+Tanush Kotian,5724e517,cricketdata::player_meta,1125960,Right hand Bat,Right arm Offbreak,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+Tapan Sharma,b9aa2b6e,cricketdata::player_meta,390973,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+TD Paine,5748e866,cricketdata::player_meta,7252,Right hand Bat,Right arm Medium,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+Tejas Baroka,c28e9f12,cricketdata::player_meta,1082859,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+TG Southee,13c35c9e,cricketdata::player_meta,232364,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+TH David,f1f99156,cricketdata::player_meta,892749,Right hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+TH Wijewardene,6a6be119,cricketdata::player_meta,50987,Left hand Bat,Left arm Medium fast,,,false,cricsheet_id
+Tilak Varma,b0482a1d,cricketdata::player_meta,1170265,Left hand Bat,Right arm Offbreak,Batting Allrounder,Batting Allrounder,false,cricsheet_id
+TK Curran,e86754b2,cricketdata::player_meta,550235,Right hand Bat,Right arm Fast medium,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+TL Seifert,4663bd23,cricketdata::player_meta,625964,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+TL Suman,aaa1b522,cricketdata::player_meta,34281,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+TM Dilshan,5bdcdb72,cricketdata::player_meta,48472,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+TM Head,12b610c2,cricketdata::player_meta,530011,Left hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+TM Srivastava,a76d10ba,cricketdata::player_meta,35401,Left hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+TP Sudhindra,2f3817ce,cricketdata::player_meta,34139,Left hand Bat,Right arm Fast,,,false,cricsheet_id
+TR Birt,d2d4bb0a,cricketdata::player_meta,4292,Left hand Bat,Right arm Medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+TS Mills,245c97cb,cricketdata::player_meta,459257,Right hand Bat,Left arm Fast,Bowler,Bowler,false,cricsheet_id
+TU Deshpande,46a9bea1,cricketdata::player_meta,822553,Left hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+U Kaul,622cc511,cricketdata::player_meta,30235,Left hand Bat,,Wicketkeeper,Wicketkeeper,false,cricsheet_id
+UA Birla,91b9300b,cricketdata::player_meta,262533,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+UBT Chand,0c94f480,cricketdata::player_meta,446499,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+UL Dubey,b2ef796b,cricketdata::player_meta,28116,,,,,false,cricsheet_id
+Umar Gul,16dfcc19,cricketdata::player_meta,43524,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Umran Malik,81c08fa3,cricketdata::player_meta,1246528,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+Urvil Patel,cf59b3f0,cricketdata::player_meta,1131570,Right hand Bat,,,,false,cricsheet_id
+UT Khawaja,331ea488,cricketdata::player_meta,215155,Left hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+UT Yadav,cc1e8c68,cricketdata::player_meta,376116,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+UV Gandhe,43dd4011,cricketdata::player_meta,28768,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+V Kaverappa,d4d929b0,cricketdata::player_meta,1155262,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+V Kohli,ba607b88,cricketdata::player_meta,253802,Right hand Bat,Right arm Medium,Top order Batter,Top order Batter,false,cricsheet_id
+V Narayan Kutty,4bacee3d,cricketdata::player_meta,31899,Right hand Bat,,,,false,cricsheet_id
+V Nigam,5ffc0565,cricketdata::player_meta,1449074,Right-hand bat,Legbreak,,,false,cricsheet_id
+V Pratap Singh,d718440b,cricketdata::player_meta,528967,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+V Puthur,1e030637,ipl.com,,Right-handed,Left-arm wrist spin,All-Rounder,All-Rounder,true,https://www.ipl.com/cricket/series/vignesh-puthur/ ; public sources conflict between wrist spin and orthodox but both imply spin family
+V Sehwag,8ba8195d,cricketdata::player_meta,35263,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+V Shankar,0994d0ae,cricketdata::player_meta,477021,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+V Suryavanshi,470f446b,ipl.com,,Left Handed Bat,Slow left-arm spinner,Batsman,Batsman,false,https://www.ipl.com/cricket/series/vaibhav-sooryavanshi/
+V Viyaskanth,03a83c50,cricketdata::player_meta,1153149,Right hand Bat,Legbreak,Bowler,Bowler,false,cricsheet_id
+VA Kulkarni,8fe0c4f8,cricketdata::player_meta,391584,,,,,false,cricsheet_id
+VD Nerurkar,8647d51d,cricketdata::player_meta,265853,,,,,false,cricsheet_id
+VG Arora,7c3b3b78,cricketdata::player_meta,1209292,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+VH Zol,6dbcf855,cricketdata::player_meta,554699,Left hand Bat,Right arm Offbreak,,,false,cricsheet_id
+Vijaykumar Vyshak,54e52590,cricketdata::player_meta,777815,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+Vinod Seshan,a3357a27,cricketdata::player_meta,723245,,,,,false,cricsheet_id
+Virat Singh,26d76ad9,cricketdata::player_meta,720465,Left hand Bat,Legbreak Googly,Top order Batter,Top order Batter,false,cricsheet_id
+Vishnu Vinod,0494fa6e,cricketdata::player_meta,732293,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+Vivrant Sharma,1b7b0fa7,cricketdata::player_meta,1252370,Left hand Bat,Legbreak Googly,,,false,cricsheet_id
+VK Sharma,a7a49df4,cricketdata::player_meta,33933,Right hand Bat,,,,false,cricsheet_id
+VM Bandiwadekar,e236db6b,cricketdata::player_meta,281112,,,,,false,cricsheet_id
+VM Dhokre,67df71c9,cricketdata::player_meta,961265,,,,,false,cricsheet_id
+VN Kulkarni,0b126008,cricketdata::player_meta,30302,,,,,false,cricsheet_id
+VR Aaron,0a3d54b9,cricketdata::player_meta,360911,Right hand Bat,Right arm Fast,Bowler,Bowler,false,cricsheet_id
+VR Iyer,a24be938,cricketdata::player_meta,851403,Left hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+VRV Singh,034b4b7d,cricketdata::player_meta,35281,Right hand Bat,Right arm Medium fast,,,false,cricsheet_id
+VS Malik,5f26df4f,cricketdata::player_meta,31738,Right hand Bat,Right arm Medium,Bowler,Bowler,false,cricsheet_id
+VS Yeligati,38f2c66c,cricketdata::player_meta,307448,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+VVS Laxman,de8cce37,cricketdata::player_meta,30750,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+VY Mahesh,93a17209,cricketdata::player_meta,31732,Right hand Bat,Right arm Medium fast,Allrounder,Allrounder,false,cricsheet_id
+W Jaffer,619aa81f,cricketdata::player_meta,29646,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+W O'Rourke,cb9b8664,cricketdata::player_meta,1211825,Right hand Bat,Right arm Fast medium,,,false,cricsheet_id
+WA Mota,3dba85c2,cricketdata::player_meta,31041,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+Washington Sundar,f19ccfad,cricketdata::player_meta,719715,Left hand Bat,Right arm Offbreak,Bowling Allrounder,Bowling Allrounder,false,cricsheet_id
+WD Parnell,3a60e0b5,cricketdata::player_meta,265564,Left hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+WG Jacks,9caf69a1,cricketdata::player_meta,897549,Right hand Bat,Right arm Offbreak,Batter,Batter,false,cricsheet_id
+WP Saha,fe11caa6,cricketdata::player_meta,279810,Right hand Bat,,Wicketkeeper Batter,Wicketkeeper Batter,false,cricsheet_id
+WPUJC Vaas,bcce309e,cricketdata::player_meta,50804,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+X Thalaivan Sargunam,1763bc6c,cricketdata::player_meta,319744,Right hand Bat,Right arm Offbreak,,,false,cricsheet_id
+XC Bartlett,3b53243a,cricketdata::player_meta,1050545,Right hand Bat,Right arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Y Gnaneswara Rao,bae11797,cricketdata::player_meta,28830,Right hand Bat,Right arm Medium,Allrounder,Allrounder,false,cricsheet_id
+Y Nagar,662c47a6,cricketdata::player_meta,317786,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+Y Prithvi Raj,cfa4bd2b,cricketdata::player_meta,1121579,Left hand Bat,Left arm Medium,Bowler,Bowler,false,cricsheet_id
+Y Venugopal Rao,fe763256,cricketdata::player_meta,35805,Right hand Bat,Right arm Offbreak,Middle order Batter,Middle order Batter,false,cricsheet_id
+YA Abdulla,4353bba5,cricketdata::player_meta,224367,Left hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Yash Dayal,7210d461,cricketdata::player_meta,1159720,Right hand Bat,Left arm Medium fast,Bowler,Bowler,false,cricsheet_id
+Yash Thakur,4b31f3a3,cricketdata::player_meta,1070196,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+Yashpal Sharma,e22d7ccb,cricketdata::player_meta,36075,Right hand Bat,Right arm Medium,Middle order Batter,Middle order Batter,false,cricsheet_id
+Yashpal Singh,297b26da,cricketdata::player_meta,36130,Right hand Bat,Right arm Medium,Batter,Batter,false,cricsheet_id
+YBK Jaiswal,6c19c6e5,cricketdata::player_meta,1151278,Left hand Bat,Legbreak,Opening Batter,Opening Batter,false,cricsheet_id
+YC Barde,b90f3346,cricketdata::player_meta,26861,Right hand Bat,Right arm Medium,,,false,cricsheet_id
+YK Pathan,3c6ffae8,cricketdata::player_meta,32498,Right hand Bat,Right arm Offbreak,Allrounder,Allrounder,false,cricsheet_id
+Younis Khan,33cb3411,cricketdata::player_meta,43652,Right hand Bat,"Right arm Medium, Legbreak",Middle order Batter,Middle order Batter,false,cricsheet_id
+YS Chahal,57ee1fde,cricketdata::player_meta,430246,Right hand Bat,Legbreak Googly,Bowler,Bowler,false,cricsheet_id
+Yudhvir Singh,4885bbe6,cricketdata::player_meta,1206052,Right hand Bat,Right arm Medium fast,Bowler,Bowler,false,cricsheet_id
+Yuvraj Singh,1c914163,cricketdata::player_meta,36084,Left hand Bat,Slow Left arm Orthodox,Middle order Batter,Middle order Batter,false,cricsheet_id
+YV Dhull,dd7e9b3b,cricketdata::player_meta,1292498,Right hand Bat,Right arm Offbreak,Top order Batter,Top order Batter,false,cricsheet_id
+YV Takawale,4e04666c,cricketdata::player_meta,35357,Right hand Bat,,,,false,cricsheet_id
+Z Khan,91a4a398,cricketdata::player_meta,30102,Right hand Bat,Left arm Fast medium,Bowler,Bowler,false,cricsheet_id
+Zeeshan Ansari,36619795,cricketdata::player_meta,942371,Right hand Bat,Legbreak Googly,,,false,cricsheet_id
+ZTA Ndamane,545cc6db,cricketdata::player_meta,46669,,,,,false,cricsheet_id

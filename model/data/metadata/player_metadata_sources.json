@@ -1,0 +1,67 @@
+{
+  "generatedManually": true,
+  "purpose": "Recommended free source stack for player role and bowling-style enrichment.",
+  "selectedPrimarySource": "cricketdata::player_meta",
+  "selectedFallbackSource": "Cricsheet Register + manual overrides",
+  "recommendedPrimarySource": {
+    "name": "cricketdata::player_meta",
+    "reason": "Best free practical structured source for batting style, bowling style, and playing role, already designed around Cricsheet/Cricinfo identity linkage.",
+    "requiresApiKey": false,
+    "fields": [
+      "cricsheet_id",
+      "cricinfo_id",
+      "name",
+      "unique_name",
+      "full_name",
+      "batting_style",
+      "bowling_style",
+      "playing_role"
+    ]
+  },
+  "supportingSources": [
+    {
+      "name": "Cricsheet Register",
+      "reason": "Best free identity bridge via Cricsheet identifier plus external ids such as Cricinfo; required to join free metadata reliably.",
+      "requiresApiKey": false
+    },
+    {
+      "name": "IPL official site",
+      "reason": "Useful for squad validation and coarse specialization labels, but not strong enough as the sole structured source of batting/bowling style.",
+      "requiresApiKey": false
+    },
+    {
+      "name": "Wikidata",
+      "reason": "Open fallback for some bowling-style / role gaps, but coverage is incomplete and inconsistent.",
+      "requiresApiKey": false
+    },
+    {
+      "name": "Direct Cricinfo public pages",
+      "reason": "Rich metadata source, but better treated as a fragile fallback or manual check than as the default pipeline.",
+      "requiresApiKey": false
+    }
+  ],
+  "avoidAsPrimary": [
+    {
+      "name": "Paid subscription APIs",
+      "reason": "User cannot rely on subscriptions right now, so they should not be the default source path."
+    },
+    {
+      "name": "Cricbuzz scraping / unofficial wrappers",
+      "reason": "Fragile and not backed by a public official developer API in the current research pass."
+    },
+    {
+      "name": "IPL official site scraping as sole source",
+      "reason": "Useful as a supplement, but not reliable enough as the only structured source for batting/bowling style."
+    }
+  ],
+  "freeJoinStrategy": {
+    "step1": "Use local person_id from model/data/staged/player_registry.csv",
+    "step2": "Join to full Cricsheet Register people.csv via identifier/cricsheet_id",
+    "step3": "Use Cricsheet Register key_cricinfo to bridge into cricketdata::player_meta or other Cricinfo-derived metadata",
+    "step4": "Use names.csv and manual overrides only for fallback resolution"
+  },
+  "notes": [
+    "The current local player_registry.csv is too slim by itself; full Cricsheet Register people.csv is needed for the strongest free ID-based join.",
+    "cricketdata::player_meta is the best free practical metadata source for V1, even though it is a packaged derivative rather than an official API."
+  ]
+}

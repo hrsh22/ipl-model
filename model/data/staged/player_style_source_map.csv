@@ -1,0 +1,948 @@
+player_name,cricsheet_person_id,source_name,source_player_id,source_full_name,match_strategy,match_confidence,needs_manual_review
+A Ashish Reddy,1c2a64cd,cricketdata::player_meta,389605,Ammana Ashish Reddy,cricsheet_id,high,false
+A Badoni,872b03f7,cricketdata::player_meta,1151270,Ayush Badoni,cricsheet_id,high,false
+A Bengeri,c109497d,cricketdata::player_meta,527897,Abhijit Uday Kumar Bengeri,cricsheet_id,high,false
+A Chandila,99b202b3,cricketdata::player_meta,27783,Ajit  Chandila,cricsheet_id,high,false
+A Chopra,e249fdaa,cricketdata::player_meta,27639,Aakash Chopra,cricsheet_id,high,false
+A Choudhary,18e6906e,cricketdata::player_meta,527299,Aniket Vinod Choudhary,cricsheet_id,high,false
+A Dananjaya,5b16a806,cricketdata::player_meta,574178,Mahamarakkala Kurukulasooriya Patabendige Akila Dananjaya Perera,cricsheet_id,high,false
+A Deshmukh,6fda55cc,cricketdata::player_meta,412593,Abhijit Deshmukh,cricsheet_id,high,false
+A Flintoff,ddc0828d,cricketdata::player_meta,12856,Andrew Flintoff,cricsheet_id,high,false
+A Kamboj,fcc21ace,cricketdata::player_meta,1175428,Anshul Kamboj,cricsheet_id,high,false
+A Kripal Singh,8f559207,cricketdata::player_meta,30198,Arjan Kripal Singh,cricsheet_id,high,false
+A Kumble,0c2730df,cricketdata::player_meta,30176,Anil Kumble,cricsheet_id,high,false
+A Manohar,0890552f,cricketdata::player_meta,778963,Abhinav Manohar,cricsheet_id,high,false
+A Mhatre,b2b4f545,espncricinfo,,A Mhatre,existing_espncricinfo,manual,false
+A Mishra,6b19d823,cricketdata::player_meta,31107,Amit Mishra,cricsheet_id,high,false
+A Mithun,66cf56a5,cricketdata::player_meta,310958,Abhimanyu Mithun,cricsheet_id,high,false
+A Mukund,6165bca6,cricketdata::player_meta,302582,Abhinav Mukund,cricsheet_id,high,false
+A Nand Kishore,84424f4f,cricketdata::player_meta,31917,Ammanabrole Nand Kishore,cricsheet_id,high,false
+A Nehra,96fd40ae,cricketdata::player_meta,31820,Ashish Nehra,cricsheet_id,high,false
+A Nel,2503e881,cricketdata::player_meta,46569,Andre Nel,cricsheet_id,high,false
+A Nortje,acdc62f5,cricketdata::player_meta,481979,Anrich Arno Nortje,cricsheet_id,high,false
+A Raghuvanshi,d7017798,cricketdata::player_meta,1292495,Angkrish Raghuvanshi,cricsheet_id,high,false
+A Singh,5b040b81,cricketdata::player_meta,26789,Amit Singh,cricsheet_id,high,false
+A Symonds,bd77eb62,cricketdata::player_meta,7702,Andrew Symonds,cricsheet_id,high,false
+A Tomar,aa5d8c9e,cricketdata::player_meta,1081183,Abhijeet Tomar,cricsheet_id,high,false
+A Totre,b1d7d7bc,cricketdata::player_meta,961323,Akshay Totre,cricsheet_id,high,false
+A Uniyal,fdcb08c2,cricketdata::player_meta,35586,Amit Uniyal,cricsheet_id,high,false
+A Zampa,14f96089,cricketdata::player_meta,379504,Adam Zampa,cricsheet_id,high,false
+AA Bilakhia,bff458c6,cricketdata::player_meta,26946,Azharuddin Anjum Bilakhia,cricsheet_id,high,false
+AA Chavan,29d72eb2,cricketdata::player_meta,337913,Ankeet Anil Chavan,cricsheet_id,high,false
+AA Jhunjhunwala,2815fe50,cricketdata::player_meta,29702,Abhishek Arunkumar Jhunjhunwala,cricsheet_id,high,false
+AA Kazi,16605a1b,cricketdata::player_meta,422106,Abrar Anjum Kazi,cricsheet_id,high,false
+AA Kulkarni,2d140b79,cricketdata::player_meta,1403153,Arshin Atul Kulkarni,cricsheet_id,high,false
+AA Noffke,b69e69ed,cricketdata::player_meta,6938,Ashley Allan Noffke,cricsheet_id,high,false
+AB Agarkar,fa463154,cricketdata::player_meta,26184,Ajit Bhalchandra Agarkar,cricsheet_id,high,false
+AB Barath,d3a3e82d,cricketdata::player_meta,274926,Adrian Boris Barath,cricsheet_id,high,false
+AB de Villiers,c4487b84,cricketdata::player_meta,44936,Abraham Benjamin de Villiers,cricsheet_id,high,false
+AB Dinda,66b30f71,cricketdata::player_meta,227712,Ashok Bhimchandra Dinda,cricsheet_id,high,false
+AB McDonald,16043342,cricketdata::player_meta,6553,Andrew Barry McDonald,cricsheet_id,high,false
+Abdul Basith,cc777ffa,cricketdata::player_meta,1287067,Pappanayil Abdul Basith,cricsheet_id,high,false
+Abdul Samad,8e514b4c,cricketdata::player_meta,1175485,Abdul Samad Farooq,cricsheet_id,high,false
+Abdur Razzak,888e32bf,cricketdata::player_meta,56283,Abdur Razzak,cricsheet_id,high,false
+Abhijit Bhattacharya,59ec9638,cricketdata::player_meta,733337,Abhijit Bhattacharya,cricsheet_id,high,false
+Abhinandan Singh,82c10dac,espncricinfo,,Abhinandan Singh,existing_espncricinfo,manual,false
+Abhishek Sharma,f29185a1,cricketdata::player_meta,1070183,Abhishek Sharma,cricsheet_id,high,false
+Abishek Porel,ad3b6e95,cricketdata::player_meta,1277545,Abishek Porel,cricsheet_id,high,false
+AC Blizzard,1efb8a28,cricketdata::player_meta,4498,Aiden Craig Blizzard,cricsheet_id,high,false
+AC Gilchrist,2b6e6dec,cricketdata::player_meta,5390,Adam Craig Gilchrist,cricsheet_id,high,false
+AC Thomas,b552a935,cricketdata::player_meta,47569,Alfonso Clive Thomas,cricsheet_id,high,false
+AC Voges,864c199e,cricketdata::player_meta,8119,Adam Charles Voges,cricsheet_id,high,false
+AD Hales,92aeac25,cricketdata::player_meta,249866,Alexander Daniel Hales,cricsheet_id,high,false
+AD Mascarenhas,3edb58fc,cricketdata::player_meta,16932,Adrian Dimitri Mascarenhas,cricsheet_id,high,false
+AD Mathews,896d78ad,cricketdata::player_meta,49764,Angelo Davis Mathews,cricsheet_id,high,false
+AD Nath,f10e94c4,cricketdata::player_meta,500360,Akshdeep Deependra Nath,cricsheet_id,high,false
+AD Russell,bbd41817,cricketdata::player_meta,276298,Andre Dwayne Russell,cricsheet_id,high,false
+AF Milne,350bb1b1,cricketdata::player_meta,450860,Adam Fraser Milne,cricsheet_id,high,false
+AG Murtaza,ef5da05c,cricketdata::player_meta,26490,Ali Ghulam Murtaza,cricsheet_id,high,false
+AG Paunikar,3a02626a,cricketdata::player_meta,324444,Amit Gajanan Paunikar,cricsheet_id,high,false
+AG Wharf,2e0fcc58,cricketdata::player_meta,22380,Alexander George Wharf,cricsheet_id,high,false
+AJ Finch,b8d490fd,cricketdata::player_meta,5334,Aaron James Finch,cricsheet_id,high,false
+AJ Hosein,4d7f517e,cricketdata::player_meta,530812,Akeal Jerome Hosein,cricsheet_id,high,false
+AJ Pycroft,685d3f80,cricketdata::player_meta,55700,Andrew John Pycroft,cricsheet_id,high,false
+AJ Turner,ff1e12a0,cricketdata::player_meta,500268,Ashton James Turner,cricsheet_id,high,false
+AJ Tye,7c7d63a2,cricketdata::player_meta,459508,Andrew James Tye,cricsheet_id,high,false
+AK Argal,0ee78cf3,cricketdata::player_meta,26432,Ajitesh Kamlesh Argal,cricsheet_id,high,false
+AK Chaudhary,fdcc6236,cricketdata::player_meta,265839,Anil Kumar Chaudhary,cricsheet_id,high,false
+AK Markram,6a26221c,cricketdata::player_meta,600498,Aiden Kyle Markram,cricsheet_id,high,false
+AK Mitra,4e11e004,cricketdata::player_meta,31320,Abhik Kumar Mitra,cricsheet_id,high,false
+Akash Deep,0a67aec0,cricketdata::player_meta,1176959,Akash Deep,cricsheet_id,high,false
+Akash Madhwal,4bd09374,cricketdata::player_meta,1206039,Akash Madhwal,cricsheet_id,high,false
+Akash Singh,b483905d,cricketdata::player_meta,1175458,Akash Maharaj Singh,cricsheet_id,high,false
+AL Hill,4165ced0,cricketdata::player_meta,37274,Anthony Lloyd Hill,cricsheet_id,high,false
+AL Menaria,8291f939,cricketdata::player_meta,371150,Ashok Lakshminarayan Menaria,cricsheet_id,high,false
+Aleem Dar,f02778d1,cricketdata::player_meta,39157,Aleem Sarwar Dar,cricsheet_id,high,false
+AM Ghazanfar,9ca68676,cricketdata::player_meta,1326798,AM Ghazanfar,cricsheet_id,high,false
+AM Nayar,a45a5e8d,cricketdata::player_meta,32091,Abhishek Mohan Nayar,cricsheet_id,high,false
+AM Rahane,29e95537,cricketdata::player_meta,277916,Ajinkya Madhukar Rahane,cricsheet_id,high,false
+AM Saheba,883e3818,cricketdata::player_meta,34544,Amiesh Maheshbhai Saheba,cricsheet_id,high,false
+AM Salvi,260fd380,cricketdata::player_meta,34264,Aavishkar Madhav Salvi,cricsheet_id,high,false
+Aman Hakim Khan,378daa89,cricketdata::player_meta,1254269,Aman Hakim Khan,cricsheet_id,high,false
+Amit Rana,f5db088b,espncricinfo,,Amit Rana,existing_espncricinfo,manual,false
+Amit Sharma,7ea3e0cc,cricketdata::player_meta,34228,Amit Sharma,cricsheet_id,high,false
+AN Ahmed,2af1b6d2,cricketdata::player_meta,228430,Abu Nechim Ahmed,cricsheet_id,high,false
+AN Ghosh,7023d182,cricketdata::player_meta,220435,Arindam Nanigopal Ghosh,cricsheet_id,high,false
+Anand Rajan,d2340a43,cricketdata::player_meta,26797,Anand Rajan,cricsheet_id,high,false
+Aniket Verma,a3b0600d,cricketdata::player_meta,1409976,Aniket Umashankar Verma,cricsheet_id,high,false
+Anirudh Singh,7bb62642,cricketdata::player_meta,26252,Anirudh Singh,cricsheet_id,high,false
+Anish Sahasrabudhe,2892df67,cricketdata::player_meta,428190,Anish Sahasrabudhe,cricsheet_id,high,false
+Ankit Sharma,24d94623,cricketdata::player_meta,422992,Ankit Nagendra Sharma,cricsheet_id,high,false
+Ankit Soni,f18ba07f,cricketdata::player_meta,1083128,Ankit Soni,cricsheet_id,high,false
+Anmolpreet Singh,1399b39c,cricketdata::player_meta,851261,Anmolpreet Singh,cricsheet_id,high,false
+Anuj Rawat,c8f5f961,cricketdata::player_meta,1123073,Anuj Rawat,cricsheet_id,high,false
+Anureet Singh,69be866a,cricketdata::player_meta,376324,Kathuria Anureet Singh,cricsheet_id,high,false
+AP Dole,dbc50253,cricketdata::player_meta,236694,Aditya Pradip Dole,cricsheet_id,high,false
+AP Majumdar,f4cb4f53,cricketdata::player_meta,31750,Anustup Prabir Majumdar,cricsheet_id,high,false
+AP Tare,855a210c,cricketdata::player_meta,333904,Aditya Prakash Tare,cricsheet_id,high,false
+AR Bawne,afe3355a,cricketdata::player_meta,327123,Ankit Ramdas Bawne,cricsheet_id,high,false
+AR Patel,2e171977,cricketdata::player_meta,554691,Axar Rajeshbhai Patel,cricsheet_id,high,false
+Arjun Tendulkar,44aac2f0,cricketdata::player_meta,1148776,Arjun Sachin Tendulkar,cricsheet_id,high,false
+Arshad Khan,12314277,cricketdata::player_meta,1244751,Mohd Arshad Khan,cricsheet_id,high,false
+Arshad Khan (2),12314277,cricketdata::player_meta,1244751,Mohd Arshad Khan,cricsheet_id,high,false
+Arshdeep Singh,244048f6,cricketdata::player_meta,1125976,Arshdeep Singh,cricsheet_id,high,false
+AS Joseph,b0946605,cricketdata::player_meta,670031,Alzarri Shaheim Joseph,cricsheet_id,high,false
+AS Pathania,bf6c251d,cricketdata::player_meta,32272,Amardeep Singh Pathania,cricsheet_id,high,false
+AS Rajpoot,db31895a,cricketdata::player_meta,591650,Ankit Singh Rajpoot,cricsheet_id,high,false
+AS Raut,c69a7b5c,cricketdata::player_meta,230593,Abhishek Santosh Raut,cricsheet_id,high,false
+AS Roy,e4cdf230,cricketdata::player_meta,1079839,Anukul Sudhakar Roy,cricsheet_id,high,false
+AS Yadav,b9be6507,cricketdata::player_meta,36110,Arjun Shivlal Yadav,cricsheet_id,high,false
+Asad Rauf,861606b7,cricketdata::player_meta,39219,Asad Rauf,cricsheet_id,high,false
+Ashok Sharma,50c09020,ipl.com,,Ashok Sharma,existing_ipl.com,manual,false
+Ashutosh Sharma,84d9c311,cricketdata::player_meta,1131978,Ashutosh Rambabu Sharma,cricsheet_id,high,false
+Ashwani Kumar,d45c29b1,cricketdata::player_meta,1209126,Ashwani Kumar,cricsheet_id,high,false
+AT Carey,69d03465,cricketdata::player_meta,326434,Alex Tyson Carey,cricsheet_id,high,false
+AT Holdstock,6fa3258c,cricketdata::player_meta,45448,Adrian Thomas Holdstock,cricsheet_id,high,false
+AT Rayudu,70d205c9,cricketdata::player_meta,33141,Ambati Thirupathi Rayudu,cricsheet_id,high,false
+Atharva Taide,1ac746c8,cricketdata::player_meta,1125958,Atharva Taide,cricsheet_id,high,false
+AU Rashid,249d60c9,cricketdata::player_meta,244497,Adil Usman Rashid,cricsheet_id,high,false
+AUK Pathan,3ae3f034,cricketdata::player_meta,430401,Asad Ullah Khan Pathan,cricsheet_id,high,false
+Auqib Nabi,7c3c0337,cricketdata::player_meta,1159732,Auqib Nabi,cricsheet_id,high,false
+AV Jayaprakash,bde6e9ef,cricketdata::player_meta,29691,Arani Velayudham Jayaprakash,cricsheet_id,high,false
+AV Wankhade,5708d0b6,cricketdata::player_meta,505773,Apoorv Vijay Wankhade,cricsheet_id,high,false
+Avesh Khan,eef2536f,cricketdata::player_meta,694211,Avesh Khan,cricsheet_id,high,false
+AY Dandekar,2efc430e,cricketdata::player_meta,27986,Anil Yashwant Dandekar,cricsheet_id,high,false
+Azhar Mahmood,9a158001,cricketdata::player_meta,39024,Azhar Mahmood Sagar,cricsheet_id,high,false
+Azmatullah Omarzai,8f6dd463,cricketdata::player_meta,819429,Azmatullah Omarzai,cricsheet_id,high,false
+B Akhil,af7dadf7,cricketdata::player_meta,26206,Balachandra Akhil,cricsheet_id,high,false
+B Aparajith,5b627626,cricketdata::player_meta,477071,Baba Aparajith,cricsheet_id,high,false
+B Chipli,5451a2c1,cricketdata::player_meta,27685,Bharat Chipli,cricsheet_id,high,false
+B Geeves,50758325,cricketdata::player_meta,5472,Brett Geeves,cricsheet_id,high,false
+B Indrajith,ff1e68fa,cricketdata::player_meta,477069,Baba Indrajith,cricsheet_id,high,false
+B Kumar,2e81a32d,cricketdata::player_meta,326016,Bhuvneshwar Kumar Singh,cricsheet_id,high,false
+B Laughlin,b2a79f17,cricketdata::player_meta,315623,Ben Laughlin,cricsheet_id,high,false
+B Lee,dd09ff8e,cricketdata::player_meta,6278,Brett Lee,cricsheet_id,high,false
+B Muzarabani,449f4e3c,cricketdata::player_meta,827051,Blessing Muzarabani,cricsheet_id,high,false
+B Sai Sudharsan,d5130a30,cricketdata::player_meta,1151288,Bhardwaj Sai Sudharsan,cricsheet_id,high,false
+B Stanlake,6834d1f2,cricketdata::player_meta,533042,Billy James Stanlake,cricsheet_id,high,false
+B Sumanth,f4f0fafd,cricketdata::player_meta,253798,Bodapati Apparao Sumanth,cricsheet_id,high,false
+B Vij,470050ff,cricketdata::player_meta,35796,Bharati Vij,cricsheet_id,high,false
+BA Bhatt,dc4686e6,cricketdata::player_meta,433410,Bhargav Ashok Bhatt,cricsheet_id,high,false
+BA Stokes,e087956b,cricketdata::player_meta,311158,Benjamin Andrew Stokes,cricsheet_id,high,false
+Basil Thampi,871e9faf,cricketdata::player_meta,732291,Basil Thampi,cricsheet_id,high,false
+BAW Mendis,ea0cdc12,cricketdata::player_meta,268739,Balapuwaduge Ajantha Winslow Mendis,cricsheet_id,high,false
+BB McCullum,b8a55852,cricketdata::player_meta,37737,Brendon Barrie McCullum,cricsheet_id,high,false
+BB Samantray,53f27a35,cricketdata::player_meta,430125,Biplab Bipin Samantray,cricsheet_id,high,false
+BB Sran,d8b2f218,cricketdata::player_meta,537126,Barinder Balbirsingh Sran,cricsheet_id,high,false
+BCJ Cutting,2e11c706,cricketdata::player_meta,230371,Benjamin Colin James Cutting,cricsheet_id,high,false
+BE Hendricks,b56dc5f7,cricketdata::player_meta,379927,Beuran Eric Hendricks,cricsheet_id,high,false
+BF Bowden,efc0a862,cricketdata::player_meta,36339,Brent Fraser Bowden,cricsheet_id,high,false
+BG Jerling,26457e41,cricketdata::player_meta,45726,Brian George Jerling,cricsheet_id,high,false
+Bhavesh Patel,ee03dc30,cricketdata::player_meta,1344419,Bhavesh Patel,cricsheet_id,high,false
+Bipul Sharma,c18496e1,cricketdata::player_meta,35928,Bipul Sharma,cricsheet_id,high,false
+BJ Haddin,b0c772ee,cricketdata::player_meta,5560,Bradley James Haddin,cricsheet_id,high,false
+BJ Hodge,b57f8a9a,cricketdata::player_meta,5674,Bradley John Hodge,cricsheet_id,high,false
+BJ Rohrer,27af6414,cricketdata::player_meta,7547,Ben James Rohrer,cricsheet_id,high,false
+BK Ravi,ff8c3cfb,cricketdata::player_meta,30712,Belur Keshavamurthy Ravi,cricsheet_id,high,false
+BKG Mendis,5d1e7582,cricketdata::player_meta,629074,Balapuwaduge Kusal Gimhan Mendis,cricsheet_id,high,false
+BMAJ Mendis,9868bc75,cricketdata::player_meta,49700,Balapuwaduge Manukulasuriya Amith Jeevan Mendis,cricsheet_id,high,false
+BNJ Oxenford,c1add349,cricketdata::player_meta,7029,Bruce Nicholas James Oxenford,cricsheet_id,high,false
+BR Doctrove,cbebf805,cricketdata::player_meta,51662,Billy Raymond Doctrove,cricsheet_id,high,false
+BR Dunk,272d796e,cricketdata::player_meta,388678,Ben Robert Dunk,cricsheet_id,high,false
+BR Sharath,c2dd89ea,cricketdata::player_meta,917231,Belur Ravi Sharath,cricsheet_id,high,false
+Brijesh Sharma,133bbd61,ipl.com,,Brijesh Sharma,existing_ipl.com,manual_review,true
+BW Hilfenhaus,f3171936,cricketdata::player_meta,5941,Benjamin William Hilfenhaus,cricsheet_id,high,false
+C Bosch,172dff15,cricketdata::player_meta,594322,Corbin Bosch,cricsheet_id,high,false
+C Connolly,fe366f34,cricketdata::player_meta,1210488,Cooper Connolly,cricsheet_id,high,false
+C de Grandhomme,94d7f855,cricketdata::player_meta,55395,Colin de Grandhomme,cricsheet_id,high,false
+C Ganapathy,798934ea,cricketdata::player_meta,28764,Chandrasekar Ganapathy,cricsheet_id,high,false
+C Green,eaa76d3c,cricketdata::player_meta,1076713,Cameron Donald Green,cricsheet_id,high,false
+C Madan,2eeb4370,cricketdata::player_meta,31104,Chandan Madan,cricsheet_id,high,false
+C Munro,af2c687b,cricketdata::player_meta,232359,Colin Munro,cricsheet_id,high,false
+C Nanda,f24ca2ba,cricketdata::player_meta,32093,Chetanya Nanda,cricsheet_id,high,false
+C Sakariya,2cdce1be,cricketdata::player_meta,1131754,Chetan Sakariya,cricsheet_id,high,false
+C Shamshuddin,0f9d921b,cricketdata::player_meta,340535,Chettithody Shamshuddin,cricsheet_id,high,false
+CA Ingram,c995d726,cricketdata::player_meta,45705,Colin Alexander Ingram,cricsheet_id,high,false
+CA Lynn,45eda7c8,cricketdata::player_meta,326637,Christopher Austin Lynn,cricsheet_id,high,false
+CA Pujara,d4f9dbd4,cricketdata::player_meta,32540,Cheteshwar Arvind Pujara,cricsheet_id,high,false
+CB Gaffaney,d5ac41d8,cricketdata::player_meta,37097,Christopher Blair Gaffaney,cricsheet_id,high,false
+CH Gayle,db584dad,cricketdata::player_meta,51880,Christopher Henry Gayle,cricsheet_id,high,false
+CH Lloyd,5b445db0,cricketdata::player_meta,52345,Clive Hubert Lloyd,cricsheet_id,high,false
+CH Morris,fb66ce1f,cricketdata::player_meta,439952,Christopher Henry Morris,cricsheet_id,high,false
+Chinmay Sharma,83250fea,cricketdata::player_meta,34631,Chinmay Sharma,cricsheet_id,high,false
+Chirra Ravikanthreddy,8b680f55,cricketdata::player_meta,391442,Chirra Ravikanthreddy,cricsheet_id,high,false
+CJ Anderson,8abdf100,cricketdata::player_meta,277662,Corey James Anderson,cricsheet_id,high,false
+CJ Dala,1cb14aa4,cricketdata::player_meta,545467,Carl Junior Dala,cricsheet_id,high,false
+CJ Ferguson,9b4935c8,cricketdata::player_meta,5236,Callum James Ferguson,cricsheet_id,high,false
+CJ Green,19b9f399,cricketdata::player_meta,787073,Christopher James Green,cricsheet_id,high,false
+CJ Jordan,ffe699c0,cricketdata::player_meta,288992,Christopher James Jordan,cricsheet_id,high,false
+CJ McKay,94eac556,cricketdata::player_meta,6903,Clinton James McKay,cricsheet_id,high,false
+CK Kapugedera,cfad138c,cricketdata::player_meta,209457,Chamara Kantha Kapugedera,cricsheet_id,high,false
+CK Langeveldt,d1c94b25,cricketdata::player_meta,45963,Charl Kenneth Langeveldt,cricsheet_id,high,false
+CK Nandan,012de9c4,cricketdata::player_meta,31919,CK Nandan,cricsheet_id,high,false
+CL White,d0513f63,cricketdata::player_meta,8291,Cameron Leon White,cricsheet_id,high,false
+CM Gautam,30a2649b,cricketdata::player_meta,302208,Chidhambaram Muralidharen Gautam,cricsheet_id,high,false
+CR Brathwaite,e342e5fb,cricketdata::player_meta,457249,Carlos Ricardo Brathwaite,cricsheet_id,high,false
+CR Woakes,4c5d73db,cricketdata::player_meta,247235,Christopher Roger Woakes,cricsheet_id,high,false
+CRD Fernando,342d8ade,cricketdata::player_meta,48835,Congenige Randhi Dilhara Fernando,cricsheet_id,high,false
+CV Varun,5b7ab5a9,cricketdata::player_meta,1108375,Varun Chakravarthy Vinod,cricsheet_id,high,false
+D Brevis,844e79d1,cricketdata::player_meta,1070665,Dewald Brevis,cricsheet_id,high,false
+D du Preez,d7a57f75,cricketdata::player_meta,44938,Dillon du Preez,cricsheet_id,high,false
+D Ferreira,f0af99a7,cricketdata::player_meta,698315,Donovan Ferreira,cricsheet_id,high,false
+D Govindjee,8b4c4069,cricketdata::player_meta,45356,Devdas Govindjee,cricsheet_id,high,false
+D Jansen,8dc152d1,cricketdata::player_meta,595954,Duan Jansen,cricsheet_id,high,false
+D Kalyankrishna,94bc776b,cricketdata::player_meta,30719,Doddapaneni Kalyankrishna,cricsheet_id,high,false
+D Padikkal,2c25d4f5,cricketdata::player_meta,1119026,Devdutt Padikkal,cricsheet_id,high,false
+D Pretorius,11614d87,cricketdata::player_meta,327830,Dwaine Pretorius,cricsheet_id,high,false
+D Salunkhe,0264c10e,cricketdata::player_meta,278482,Dinesh Salunkhe,cricsheet_id,high,false
+D Wiese,aa8d28ae,cricketdata::player_meta,221140,David Wiese,cricsheet_id,high,false
+DA Miller,d67d5f00,cricketdata::player_meta,321777,David Andrew Miller,cricsheet_id,high,false
+DA Payne,6c79c098,cricketdata::player_meta,362710,David Alan Payne,cricsheet_id,high,false
+DA Warner,dcce6f09,cricketdata::player_meta,219889,David Andrew Warner,cricsheet_id,high,false
+DAJ Bracewell,2e9fdf9b,cricketdata::player_meta,362541,Douglas Andrew John Bracewell,cricsheet_id,high,false
+DB Das,7050a1e7,cricketdata::player_meta,328163,Debabrata Baidya Das,cricsheet_id,high,false
+DB Ravi Teja,b720a5d6,cricketdata::player_meta,237701,Dwaraka Bhamidipati Ravi Teja,cricsheet_id,high,false
+DC Boon,e79a1fe3,cricketdata::player_meta,4169,David Clarence Boon,cricsheet_id,high,false
+DE Bollinger,45c2196c,cricketdata::player_meta,4508,Douglas Erwin Bollinger,cricsheet_id,high,false
+DG Nalkande,cd8d2859,cricketdata::player_meta,1111917,Darshan Girish Nalkande,cricsheet_id,high,false
+DH Yagnik,063b3673,cricketdata::player_meta,36071,Dishant Harendra Yagnik,cricsheet_id,high,false
+Dhruv Jurel,bcf325d2,cricketdata::player_meta,1175488,Dhruv Chand Jurel,cricsheet_id,high,false
+DJ Bravo,87e562a9,cricketdata::player_meta,51439,Dwayne John Bravo,cricsheet_id,high,false
+DJ Harper,0ec08b27,cricketdata::player_meta,5578,Daryl John Harper,cricsheet_id,high,false
+DJ Harris,39f82db3,cricketdata::player_meta,5583,Daniel Joseph Harris,cricsheet_id,high,false
+DJ Hooda,73ad96ed,cricketdata::player_meta,497121,Deepak Jagbir Hooda,cricsheet_id,high,false
+DJ Hussey,fd835ab3,cricketdata::player_meta,5766,David John Hussey,cricsheet_id,high,false
+DJ Jacobs,a84468fe,cricketdata::player_meta,45782,David Johan Jacobs,cricsheet_id,high,false
+DJ Malan,ad9c32a2,cricketdata::player_meta,236489,Dawid Johannes Malan,cricsheet_id,high,false
+DJ Mitchell,eade4650,cricketdata::player_meta,381743,Daryl Joseph Mitchell,cricsheet_id,high,false
+DJ Muthuswami,2c76b512,cricketdata::player_meta,528985,Domnic Joseph Muthuswami,cricsheet_id,high,false
+DJ Thornely,7d3937ed,cricketdata::player_meta,8002,Dominic John Thornely,cricsheet_id,high,false
+DJ Willey,7f048519,cricketdata::player_meta,308251,David Jonathan Willey,cricsheet_id,high,false
+DJG Sammy,c03c6200,cricketdata::player_meta,53115,Daren Julius Garvey Sammy,cricsheet_id,high,false
+DJM Short,1a156c88,cricketdata::player_meta,308798,D'Arcy John Matthew Short,cricsheet_id,high,false
+DL Chahar,23eeb873,cricketdata::player_meta,447261,Deepak Lokandersingh Chahar,cricsheet_id,high,false
+DL Vettori,d7c6af50,cricketdata::player_meta,38710,Daniel Luca Vettori,cricsheet_id,high,false
+DM Bravo,14b14cd8,cricketdata::player_meta,277472,Darren Michael Bravo,cricsheet_id,high,false
+DNT Zoysa,e0351c86,cricketdata::player_meta,51050,Demuni Nuwan Tharanga Zoysa,cricsheet_id,high,false
+DP Conway,df5a6881,cricketdata::player_meta,379140,Devon Philip Conway,cricsheet_id,high,false
+DP Nannes,c404f58a,cricketdata::player_meta,6981,Dirk Peter Nannes,cricsheet_id,high,false
+DP Vijaykumar,acd4f5dc,cricketdata::player_meta,272949,David Paidikalva Vijaykumar,cricsheet_id,high,false
+DPMD Jayawardene,d18f9182,cricketdata::player_meta,49289,Denagamage Proboth Mahela de Silva Jayawardene,cricsheet_id,high,false
+DR Martyn,69762509,cricketdata::player_meta,6513,Damien Richard Martyn,cricsheet_id,high,false
+DR Sams,caf69bf7,cricketdata::player_meta,826901,Daniel Richard Sams,cricsheet_id,high,false
+DR Shorey,faa7365d,cricketdata::player_meta,590327,Dhruv Ranjan Shorey,cricsheet_id,high,false
+DR Smith,35205dfc,cricketdata::player_meta,53118,Dwayne Romel Smith,cricsheet_id,high,false
+DS Kulkarni,d2a989fc,cricketdata::player_meta,277955,Dhawal Sunil Kulkarni,cricsheet_id,high,false
+DS Lehmann,53fe6ee4,cricketdata::player_meta,6285,Darren Scott Lehmann,cricsheet_id,high,false
+DS Manohar,b35f3ac8,cricketdata::player_meta,30900,Daniel Souri Manohar,cricsheet_id,high,false
+DS Rathi,13fc5c6d,ipl.com,,DS Rathi,existing_ipl.com,manual,false
+DT Christian,2a2e6343,cricketdata::player_meta,4864,Daniel Trevor Christian,cricsheet_id,high,false
+DT Patil,f48cf4da,cricketdata::player_meta,32389,Devraj Thyagaraj Patil,cricsheet_id,high,false
+DW Steyn,8fd1a8f5,cricketdata::player_meta,47492,Dale Willem Steyn,cricsheet_id,high,false
+E Lewis,0ebfb1ad,cricketdata::player_meta,431901,Evin Lewis,cricsheet_id,high,false
+E Malinga,5750bcb4,cricketdata::player_meta,1306214,Kiribathgala Kankanamalage Eshan Malinga Dharmasena,cricsheet_id,high,false
+EC Hendrikse,3f2996c9,cricketdata::player_meta,45688,Earl Charles Hendrikse,cricsheet_id,high,false
+EJG Morgan,d2a6c0e6,cricketdata::player_meta,24598,Eoin Joseph Gerard Morgan,cricsheet_id,high,false
+ER Dwivedi,b274dbbd,cricketdata::player_meta,340841,Eklavya Rakesh Dwivedi,cricsheet_id,high,false
+F Behardien,dce2019b,cricketdata::player_meta,44410,Farhaan Behardien,cricsheet_id,high,false
+F du Plessis,3355b542,cricketdata::player_meta,44828,Francois du Plessis,cricsheet_id,high,false
+F Gomes,3134d083,cricketdata::player_meta,28845,Francis Gomes,cricsheet_id,high,false
+FA Allen,b52ffbbd,cricketdata::player_meta,670013,Fabian Anthony Allen,cricsheet_id,high,false
+Fazalhaq Farooqi,e9c7f0d0,cricketdata::player_meta,974175,Fazalhaq Farooqi,cricsheet_id,high,false
+FH Allen,bf74b130,cricketdata::player_meta,959759,Finnley Hugh Allen,cricsheet_id,high,false
+FH Edwards,a7c226e1,cricketdata::player_meta,51782,Fidel Henderson Edwards,cricsheet_id,high,false
+FM Engineer,6529ee42,cricketdata::player_meta,28624,Farokh Maneksha Engineer,cricsheet_id,high,false
+FY Fazal,c15e2193,cricketdata::player_meta,28671,Faiz Yakub Fazal,cricsheet_id,high,false
+G Coetzee,3204c99f,cricketdata::player_meta,596010,Gerald Coetzee,cricsheet_id,high,false
+G Gambhir,bb345e0b,cricketdata::player_meta,28763,Gautam Gambhir,cricsheet_id,high,false
+GA Pratapkumar,cf7c5778,cricketdata::player_meta,32299,GA Pratapkumar,cricsheet_id,high,false
+Gagandeep Singh,890de8cb,cricketdata::player_meta,28758,Gagandeep Singh,cricsheet_id,high,false
+GAV Baxter,cb4b3ab0,cricketdata::player_meta,36337,Gary Arthur Vincent Baxter,cricsheet_id,high,false
+GB Hogg,f708a0bc,cricketdata::player_meta,5681,George Bradley Hogg,cricsheet_id,high,false
+GC Smith,72861603,cricketdata::player_meta,47270,Graeme Craig Smith,cricsheet_id,high,false
+GC Viljoen,a316d663,cricketdata::player_meta,375126,GC Viljoen,cricsheet_id,high,false
+GD McGrath,ee7d0c82,cricketdata::player_meta,6565,Glenn Donald McGrath,cricsheet_id,high,false
+GD Phillips,9a46c4e5,cricketdata::player_meta,823509,Glenn Dominic Phillips,cricsheet_id,high,false
+GF Labrooy,8e088dbc,cricketdata::player_meta,49552,Graeme Fredrick Labrooy,cricsheet_id,high,false
+GF Linde,e5437608,cricketdata::player_meta,481875,George Fredrik Linde,cricsheet_id,high,false
+GH Vihari,94253925,cricketdata::player_meta,452044,Gade Hanuma Vihari,cricsheet_id,high,false
+GHS Garton,be869ccf,cricketdata::player_meta,643433,George Henry Simmons Garton,cricsheet_id,high,false
+GJ Bailey,5056011d,cricketdata::player_meta,4451,George John Bailey,cricsheet_id,high,false
+GJ Maxwell,b681e71e,cricketdata::player_meta,325026,Glenn James Maxwell,cricsheet_id,high,false
+GR Napier,611926bc,cricketdata::player_meta,17991,Graham Richard Napier,cricsheet_id,high,false
+GR Sadashiv Iyer,0be62e31,cricketdata::player_meta,29549,GR Sadashiv Iyer,cricsheet_id,high,false
+GR Viswanath,9333bc07,cricketdata::player_meta,35712,Gundappa Rangnath Viswanath,cricsheet_id,high,false
+GS Sandhu,1558d83b,cricketdata::player_meta,499660,Gurinder Singh Sandhu,cricsheet_id,high,false
+Gulbadin Naib,9f77963a,cricketdata::player_meta,352048,Gulbadin Naib,cricsheet_id,high,false
+Gurjapneet Singh,cc61ee8f,ipl.com,,Gurjapneet Singh,existing_ipl.com,manual,false
+Gurkeerat Singh,6eb146d2,cricketdata::player_meta,537124,Gurkeerat Rupinder Singh,cricsheet_id,high,false
+Gurnoor Brar,99258814,cricketdata::player_meta,1287033,Gurnoor Brar,cricsheet_id,high,false
+H Das,0ed0cdbf,cricketdata::player_meta,236810,Halhadar Das,cricsheet_id,high,false
+H Klaasen,235c2bb6,cricketdata::player_meta,436757,Heinrich Klaasen,cricsheet_id,high,false
+H Sharma,52294a79,cricketdata::player_meta,1350761,Himanshu Sharma,cricsheet_id,high,false
+Harbhajan Singh,8b5b6769,cricketdata::player_meta,29264,Harbhajan Singh,cricsheet_id,high,false
+Harmeet Singh,2a72fd4f,cricketdata::player_meta,391128,Harmeet Singh Bansal,cricsheet_id,high,false
+Harmeet Singh (2),0bf15e52,cricketdata::player_meta,422847,Harmeet Singh,cricsheet_id,high,false
+Harpreet Brar,c05edf8e,cricketdata::player_meta,1168641,Harpreet Brar,cricsheet_id,high,false
+Harpreet Singh,28c78fb3,cricketdata::player_meta,340854,Harpreet Singh Bhatia,cricsheet_id,high,false
+Harsh Dubey,25228673,cricketdata::player_meta,1216159,Harsh Surendra Dubey,cricsheet_id,high,false
+Harshit Rana,77b1aa15,cricketdata::player_meta,1312645,Harshit Pradeep Rana,cricsheet_id,high,false
+HAS Khalid,291ded7c,cricketdata::player_meta,30196,Husen Azizhak Saiyed Khalid,cricsheet_id,high,false
+HC Brook,4ae1755b,cricketdata::player_meta,911707,Harry Cherrington Brook,cricsheet_id,high,false
+HDPK Dharmasena,323e4c16,cricketdata::player_meta,48469,Handunnettige Deepthi Priyantha Kumar Dharmasena,cricsheet_id,high,false
+HE van der Dussen,9948e262,cricketdata::player_meta,337790,Hendrik Erasmus van der Dussen,cricsheet_id,high,false
+HF Gurney,e412cb64,cricketdata::player_meta,244639,Harry Frederick Gurney,cricsheet_id,high,false
+HH Gibbs,e1d1b294,cricketdata::player_meta,45224,Herschelle Herman Gibbs,cricsheet_id,high,false
+HH Pandya,dbe50b21,cricketdata::player_meta,625371,Hardik Himanshu Pandya,cricsheet_id,high,false
+Himmat Singh,ebcfef83,cricketdata::player_meta,805235,Himmat Singh,cricsheet_id,high,false
+HM Amla,e798611a,cricketdata::player_meta,43906,Hashim Mahomed Amla,cricsheet_id,high,false
+HR Shokeen,0c9652b0,cricketdata::player_meta,1175423,Hrithik Rakesh Shokeen,cricsheet_id,high,false
+HS Sekhon,58b66172,cricketdata::player_meta,33893,HS Sekhon,cricsheet_id,high,false
+HV Patel,f986ca1a,cricketdata::player_meta,390481,Harshal Vikram Patel,cricsheet_id,high,false
+I Malhotra,943fd425,cricketdata::player_meta,31088,Ishan Malhotra,cricsheet_id,high,false
+I Sharma,5bb1a1c4,cricketdata::player_meta,236779,Ishant Sharma,cricsheet_id,high,false
+I Shivram,85143097,cricketdata::player_meta,35290,Ivaturi Shivram,cricsheet_id,high,false
+I Udana,ac5ae4af,cricketdata::player_meta,328026,Isuru Udana Tillakaratna,cricsheet_id,high,false
+IC Pandey,e0407c01,cricketdata::player_meta,447439,Ishwar Chand Pandey,cricsheet_id,high,false
+IC Porel,fdf7491e,cricketdata::player_meta,967603,Ishan Chandranath Porel,cricsheet_id,high,false
+IJ Gould,a9dfdf6c,cricketdata::player_meta,13414,Ian James Gould,cricsheet_id,high,false
+IK Pathan,5fa06777,cricketdata::player_meta,32685,Irfan Khan Pathan,cricsheet_id,high,false
+IL Howell,c1cd91c3,cricketdata::player_meta,45454,Ian Lester Howell,cricsheet_id,high,false
+Imran Tahir,acee4cc4,cricketdata::player_meta,40618,Mohammad Imran Tahir,cricsheet_id,high,false
+Iqbal Abdulla,85aae393,cricketdata::player_meta,277237,Sayed Iqbal Abdulla,cricsheet_id,high,false
+IR Jaggi,dded65e7,cricketdata::player_meta,279554,Ishank Rajiv Jaggi,cricsheet_id,high,false
+IR Siddiqui,6436f803,cricketdata::player_meta,34026,Iqbal Rashid Siddiqui,cricsheet_id,high,false
+IS Sodhi,641ac5ff,cricketdata::player_meta,559066,Inderbir Singh Sodhi,cricsheet_id,high,false
+Ishan Kishan,752f7486,cricketdata::player_meta,720471,Ishan Pranav Kumar Pandey Kishan,cricsheet_id,high,false
+J Arunkumar,f663ef00,cricketdata::player_meta,26291,Jagadeesh Arunkumar,cricsheet_id,high,false
+J Botha,7c503806,cricketdata::player_meta,44149,Johan Botha,cricsheet_id,high,false
+J Fraser-McGurk,9b6e1b3f,cricketdata::player_meta,1168049,Jake Fraser-McGurk,cricsheet_id,high,false
+J Little,9061a703,cricketdata::player_meta,928067,Joshua Brian Little,cricsheet_id,high,false
+J Madanagopal,8275b04a,cricketdata::player_meta,31282,Jayaraman Madanagopal,cricsheet_id,high,false
+J Overton,59559bc2,cricketdata::player_meta,510530,Jamie Overton,cricsheet_id,high,false
+J Srinath,bad31fac,cricketdata::player_meta,34105,Javagal Srinath,cricsheet_id,high,false
+J Suchith,4125d931,cricketdata::player_meta,527663,Jagadeesha Suchith,cricsheet_id,high,false
+J Syed Mohammad,c64c2443,cricketdata::player_meta,35261,Jamaluddin Syed Mohammad,cricsheet_id,high,false
+J Theron,dec8e038,cricketdata::player_meta,223642,Juan Theron,cricsheet_id,high,false
+J Yadav,81049310,cricketdata::player_meta,447587,Jayant Yadav,cricsheet_id,high,false
+JA Duffy,dadbdb68,cricketdata::player_meta,547766,Jacob Andrew Duffy,cricsheet_id,high,false
+JA Morkel,c3d35165,cricketdata::player_meta,46248,Johannes Albertus Morkel,cricsheet_id,high,false
+JA Richardson,1ee08e9a,cricketdata::player_meta,774223,Jhye Avon Richardson,cricsheet_id,high,false
+Jalaj S Saxena,249abedf,cricketdata::player_meta,237199,Jalaj Sahai Saxena,cricsheet_id,high,false
+Jasbir Singh,6043dfe7,cricketdata::player_meta,29681,Jasbir Singh,cricsheet_id,high,false
+Jaskaran Singh,d7b3a420,cricketdata::player_meta,376102,Jaskaran Singh Buttar,cricsheet_id,high,false
+JC Archer,5574750c,cricketdata::player_meta,669855,Jofra Chioke Archer,cricsheet_id,high,false
+JC Buttler,99b75528,cricketdata::player_meta,308967,Joseph Charles Buttler,cricsheet_id,high,false
+JD Cloete,b0419f8c,cricketdata::player_meta,44449,Johnnes Daniel Cloete,cricsheet_id,high,false
+JD Ryder,91ffa6c6,cricketdata::player_meta,38373,Jesse Daniel Ryder,cricsheet_id,high,false
+JD Unadkat,1e66c162,cricketdata::player_meta,390484,Jaydev Dipakbhai Unadkat,cricsheet_id,high,false
+JDP Oram,3eac9d95,cricketdata::player_meta,38062,Jacob David Philip Oram,cricsheet_id,high,false
+JDS Neesham,9219eff0,cricketdata::player_meta,355269,James Douglas Sheahan Neesham,cricsheet_id,high,false
+JE Root,a343262c,cricketdata::player_meta,303669,Joseph Edward Root,cricsheet_id,high,false
+JE Taylor,4180d897,cricketdata::player_meta,53191,Jerome Everton Taylor,cricsheet_id,high,false
+JEC Franklin,cf73ad76,cricketdata::player_meta,37004,James Edward Charles Franklin,cricsheet_id,high,false
+JG Bethell,3c55c703,cricketdata::player_meta,1194959,Jacob Graham Bethell,cricsheet_id,high,false
+JH Kallis,86dc8f2e,cricketdata::player_meta,45789,Jacques Henry Kallis,cricsheet_id,high,false
+JJ Bumrah,462411b3,cricketdata::player_meta,625383,Jasprit Jasbirsingh Bumrah,cricsheet_id,high,false
+JJ Roy,d1c36f5c,cricketdata::player_meta,298438,Jason Jonathan Roy,cricsheet_id,high,false
+JJ van der Wath,6821ac10,cricketdata::player_meta,47693,Johannes Jacobus van der Wath,cricsheet_id,high,false
+JL Denly,bdadf7da,cricketdata::player_meta,12454,Joseph Liam Denly,cricsheet_id,high,false
+JL Pattinson,f752db61,cricketdata::player_meta,272465,James Lee Pattinson,cricsheet_id,high,false
+JM Bairstow,abb83e27,cricketdata::player_meta,297433,Jonathan Marc Bairstow,cricsheet_id,high,false
+JM Kemp,6581d753,cricketdata::player_meta,45797,Justin Miles Kemp,cricsheet_id,high,false
+JM Sharma,800d2d97,cricketdata::player_meta,721867,Jitesh Mohan Sharma,cricsheet_id,high,false
+JO Holder,0f721006,cricketdata::player_meta,391485,Jason Omar Holder,cricsheet_id,high,false
+Joginder Sharma,9f961c14,cricketdata::player_meta,29976,Joginder Sharma,cricsheet_id,high,false
+JP Behrendorff,4933f499,cricketdata::player_meta,272477,Jason Paul Behrendorff,cricsheet_id,high,false
+JP Duminy,2e8994e7,cricketdata::player_meta,44932,Jean-Paul Duminy,cricsheet_id,high,false
+JP Faulkner,808f425a,cricketdata::player_meta,270484,James Peter Faulkner,cricsheet_id,high,false
+JP Inglis,989889ff,cricketdata::player_meta,662235,Joshua Patrick Inglis,cricsheet_id,high,false
+JPR Scantlebury-Searles,99ed60f8,cricketdata::player_meta,230554,Javon Philip Ramon Scantlebury-Searles,cricsheet_id,high,false
+JR Hazlewood,03806cf8,cricketdata::player_meta,288284,Josh Reginald Hazlewood,cricsheet_id,high,false
+JR Hopes,2498e163,cricketdata::player_meta,5702,James Redfern Hopes,cricsheet_id,high,false
+JR Philippe,39086549,cricketdata::player_meta,1124282,Joshua Ryan Philippe,cricsheet_id,high,false
+JW Hastings,012829ff,cricketdata::player_meta,228622,John Wayne Hastings,cricsheet_id,high,false
+K Bharatan,7e47c743,cricketdata::player_meta,27190,Krishnamachari Bharatan,cricsheet_id,high,false
+K Goel,a1f1829d,cricketdata::player_meta,28997,Karan Goel,cricsheet_id,high,false
+K Gowtham,90de905a,cricketdata::player_meta,424377,Krishnappa Gowtham,cricsheet_id,high,false
+K Hariharan,2386ccff,cricketdata::player_meta,29271,Krishna Hariharan,cricsheet_id,high,false
+K Kartikeya,f6d8a7ab,cricketdata::player_meta,1159843,Kumar Kartikeya Singh,cricsheet_id,high,false
+K Kelkar,1d88908d,cricketdata::player_meta,1351779,Keyur Kelkar,cricsheet_id,high,false
+K Khejroliya,fa2f1dde,cricketdata::player_meta,1083033,Kulwant Khejroliya,cricsheet_id,high,false
+K Rabada,e62dd25d,cricketdata::player_meta,550215,Kagiso Rabada,cricsheet_id,high,false
+K Santokie,531f0278,cricketdata::player_meta,314622,Krishmar Santokie,cricsheet_id,high,false
+K Sharma,661b0266,cricketdata::player_meta,30012,Kamlesh Sharma,cricsheet_id,high,false
+K Srinath,8ab5da97,cricketdata::player_meta,34243,Krishnaraj Srinath,cricsheet_id,high,false
+K Srinivasan,042a8b69,cricketdata::player_meta,34685,Krishnamachari Srinivasan,cricsheet_id,high,false
+K Swaroopanand,aa2a4962,cricketdata::player_meta,961269,Kannur Swaroopanand,cricsheet_id,high,false
+K Upadhyay,27e71d47,cricketdata::player_meta,431876,Krishnakant Upadhyay,cricsheet_id,high,false
+K Yadav,030f3089,cricketdata::player_meta,1206495,Kuldip Yadav,cricsheet_id,high,false
+KA Jamieson,68c56d09,cricketdata::player_meta,625960,Kyle Alex Jamieson,cricsheet_id,high,false
+KA Maharaj,0b60eb09,cricketdata::player_meta,267724,Keshav Athmanand Maharaj,cricsheet_id,high,false
+KA Pollard,a757b0d8,cricketdata::player_meta,230559,Kieron Adrian Pollard,cricsheet_id,high,false
+KAJ Roach,78eb4223,cricketdata::player_meta,230553,Kemar Andre Jamal Roach,cricsheet_id,high,false
+Kamran Akmal,ff077124,cricketdata::player_meta,41028,Kamran Akmal,cricsheet_id,high,false
+Kamran Khan,6ef60d3a,cricketdata::player_meta,391121,Kamran Khan,cricsheet_id,high,false
+Karanveer Singh,1647bd37,cricketdata::player_meta,322535,Karanveer Singh,cricsheet_id,high,false
+Karim Janat,62175638,cricketdata::player_meta,793467,Karim Janat,cricsheet_id,high,false
+Kartik Sharma,7b679de5,ipl.com,,Kartik Sharma,existing_ipl.com,manual_review,true
+Kartik Tyagi,5d2eea49,cricketdata::player_meta,1122918,Kartik Tyagi,cricsheet_id,high,false
+KB Arun Karthik,7daedf2f,cricketdata::player_meta,319745,Konda Bhaskir Arun Karthik,cricsheet_id,high,false
+KC Cariappa,edb3d4f8,cricketdata::player_meta,777537,Konganda Charamanna Cariappa,cricsheet_id,high,false
+KC Sangakkara,6b71e6cf,cricketdata::player_meta,50710,Kumar Chokshanada Sangakkara,cricsheet_id,high,false
+KD Karthik,c03f1114,cricketdata::player_meta,30045,Krishnakumar Dinesh Karthik,cricsheet_id,high,false
+KH Devdhar,62e07f92,cricketdata::player_meta,340063,Kedar Hemant Devdhar,cricsheet_id,high,false
+KH Hurter,bda8cca8,cricketdata::player_meta,45462,Karl Heinrich Hurter,cricsheet_id,high,false
+KH Pandya,5b8c830e,cricketdata::player_meta,471342,Krunal Himanshu Pandya,cricsheet_id,high,false
+KJ Abbott,a9da7784,cricketdata::player_meta,297583,Kyle John Abbott,cricsheet_id,high,false
+KK Ahmed,a2f46292,cricketdata::player_meta,942645,Khaleel Khursheed Ahmed,cricsheet_id,high,false
+KK Cooper,557153ca,cricketdata::player_meta,371814,Kevon Keston Cooper,cricsheet_id,high,false
+KK Nair,944533a5,cricketdata::player_meta,398439,Karun Nair,cricsheet_id,high,false
+KL Nagarkoti,b4f5c2d9,cricketdata::player_meta,1070188,Kamlesh Lachham Nagarkoti,cricsheet_id,high,false
+KL Rahul,b17e2f24,cricketdata::player_meta,422108,Kannaur Lokesh Rahul,cricsheet_id,high,false
+KM Asif,798cc28e,cricketdata::player_meta,1083030,KM Asif,cricsheet_id,high,false
+KM Gandhi,a9421c64,cricketdata::player_meta,419670,Kaushik Mohan Gandhi,cricsheet_id,high,false
+KM Jadhav,99d63244,cricketdata::player_meta,290716,Kedar Mahadav Jadhav,cricsheet_id,high,false
+KMA Paul,75224f22,cricketdata::player_meta,677081,Keemo Mandela Angus Paul,cricsheet_id,high,false
+KMDN Kulasekara,469ea22b,cricketdata::player_meta,49535,Kulasekara Mudiyanselage Dinesh Nuwan Kulasekara,cricsheet_id,high,false
+KN Ananthapadmanabhan,3144063a,cricketdata::player_meta,26241,Karumanaseri Narayanaiyer Ananthapadmanabhan,cricsheet_id,high,false
+KP Appanna,d92e42f5,cricketdata::player_meta,269170,Kotarangada Prabhu Appanna,cricsheet_id,high,false
+KP Pietersen,39f01cdb,cricketdata::player_meta,19296,Kevin Peter Pietersen,cricsheet_id,high,false
+KR Mayers,73c18486,cricketdata::player_meta,348056,Kyle Rico Mayers,cricsheet_id,high,false
+KR Sen,2e78f685,cricketdata::player_meta,1163695,Kuldeep Rampal Sen,cricsheet_id,high,false
+KS Bharat,44a89551,cricketdata::player_meta,529436,Kona Srikar Bharat,cricsheet_id,high,false
+KS Rathore,e3851766,cricketdata::player_meta,1339031,Kunal Singh Rathore,cricsheet_id,high,false
+KS Sharma,39ed0d2f,cricketdata::player_meta,1246518,Karan Sunny Sharma,cricsheet_id,high,false
+KS Williamson,d027ba9f,cricketdata::player_meta,277906,Kane Stuart Williamson,cricsheet_id,high,false
+KT Maphaka,107c26fb,cricketdata::player_meta,1294342,Kwena Tshegofatso Maphaka,cricsheet_id,high,false
+Kuldeep Yadav,8d2c70ad,cricketdata::player_meta,559235,Kuldeep Yadav,cricsheet_id,high,false
+Kumar Kushagra,57ca01b3,cricketdata::player_meta,1207295,Kumar Kushagra,cricsheet_id,high,false
+KV Sharma,119678fd,cricketdata::player_meta,30288,Karn Vinod Sharma,cricsheet_id,high,false
+KW Richardson,dfc4d8b5,cricketdata::player_meta,272262,Kane William Richardson,cricsheet_id,high,false
+L Ablish,8b9704ae,cricketdata::player_meta,26236,Love Ablish,cricsheet_id,high,false
+L Balaji,b2b50355,cricketdata::player_meta,26829,Lakshmipathy Balaji,cricsheet_id,high,false
+L Ngidi,f834dcfc,cricketdata::player_meta,542023,Lungisani True-man Ngidi,cricsheet_id,high,false
+L Ronchi,0fa5042b,cricketdata::player_meta,7502,Luke Ronchi,cricsheet_id,high,false
+L Wood,65b6943c,cricketdata::player_meta,573170,Luke Wood,cricsheet_id,high,false
+LA Carseldine,d872f52a,cricketdata::player_meta,4541,Lee Andrew Carseldine,cricsheet_id,high,false
+LA Pomersbach,b63ab531,cricketdata::player_meta,232284,Luke Anthony Pomersbach,cricsheet_id,high,false
+Lalit Yadav,ad427b5c,cricketdata::player_meta,930189,Lalit Yadav,cricsheet_id,high,false
+LB Williams,a1d95bd8,cricketdata::player_meta,379887,Lizaad Buyron Williams,cricsheet_id,high,false
+LE Plunkett,9a963804,cricketdata::player_meta,19264,Liam Edward Plunkett,cricsheet_id,high,false
+LG Pretorius,60aa2db3,cricketdata::player_meta,1385640,Lhuan-dre Gilbert  Pretorius,cricsheet_id,high,false
+LH Ferguson,2f9d0389,cricketdata::player_meta,493773,Lachlan Hammond Ferguson,cricsheet_id,high,false
+LI Meriwala,d3611425,cricketdata::player_meta,573930,Lukman Iqbal Meriwala,cricsheet_id,high,false
+Liton Das,0404d43c,cricketdata::player_meta,536936,Litton Kumer Das,cricsheet_id,high,false
+LJ Wright,cca50cd6,cricketdata::player_meta,23460,Luke James Wright,cricsheet_id,high,false
+LMP Simmons,89f64c19,cricketdata::player_meta,53116,Lendl Mark Platter Simmons,cricsheet_id,high,false
+LPC Silva,1be70c88,cricketdata::player_meta,50431,Lindamlilage Prageeth Chamara Silva,cricsheet_id,high,false
+LR Shukla,b1451597,cricketdata::player_meta,34019,Laxmi Ratan Shukla,cricsheet_id,high,false
+LRPL Taylor,b61a3e1a,cricketdata::player_meta,38699,Luteru Ross Poutoa Lote Taylor,cricsheet_id,high,false
+LS Livingstone,50c6bc2b,cricketdata::player_meta,403902,Liam Stephen Livingstone,cricsheet_id,high,false
+M Ashwin,e2db2409,cricketdata::player_meta,528067,Murugan Ashwin,cricsheet_id,high,false
+M de Lange,d4eef961,cricketdata::player_meta,393279,Marchant de Lange,cricsheet_id,high,false
+M Erasmus,15d3c895,cricketdata::player_meta,44971,Marais Erasmus,cricsheet_id,high,false
+M Jansen,81c36ee9,cricketdata::player_meta,696401,Marco Jansen,cricsheet_id,high,false
+M Kaif,d84378a4,cricketdata::player_meta,29990,Mohammad Kaif,cricsheet_id,high,false
+M Kartik,abfeb126,cricketdata::player_meta,30049,Murali Kartik,cricsheet_id,high,false
+M Klinger,b970a03f,cricketdata::player_meta,6161,Michael Klinger,cricsheet_id,high,false
+M Krishnadas,e298c588,cricketdata::player_meta,918287,Mohit Krishnadas,cricsheet_id,high,false
+M Kuppuraj,aa4063d0,cricketdata::player_meta,723589,Madanagopal Kuppuraj,cricsheet_id,high,false
+M Manhas,c42aaf71,cricketdata::player_meta,31001,Mithun Manhas,cricsheet_id,high,false
+M Markande,a9fd84fb,cricketdata::player_meta,1081442,Mayank Markande,cricsheet_id,high,false
+M Morkel,5bb5a915,cricketdata::player_meta,46538,Morne Morkel,cricsheet_id,high,false
+M Muralitharan,4ba44e19,cricketdata::player_meta,49636,Muthiah Muralidaran,cricsheet_id,high,false
+M Nayyar,b7bccddb,cricketdata::player_meta,31909,Manu Nayyar,cricsheet_id,high,false
+M Ntini,20a941bb,cricketdata::player_meta,46592,Makhaya Ntini,cricsheet_id,high,false
+M Pathirana,64839cb3,cricketdata::player_meta,1194795,Matheesha Pathirana,cricsheet_id,high,false
+M Prasidh Krishna,85e0cf10,cricketdata::player_meta,917159,Muralikrishna Prasidh Krishna,cricsheet_id,high,false
+M Rawat,de8d3876,cricketdata::player_meta,33440,Mahesh Rawat,cricsheet_id,high,false
+M Shahrukh Khan,7dcb9bc9,cricketdata::player_meta,719719,Masood Shahrukh Khan,cricsheet_id,high,false
+M Siddharth,cf0ccafa,cricketdata::player_meta,1151286,Manimaran Siddharth,cricsheet_id,high,false
+M Theekshana,f24c6701,cricketdata::player_meta,1138316,Morawakage Maheesh Theekshana,cricsheet_id,high,false
+M Tiwari,fb5f69e4,ipl.com,,M Tiwari,existing_ipl.com,manual,false
+M Vijay,4b57e452,cricketdata::player_meta,237095,Murali Vijay,cricsheet_id,high,false
+M Vohra,c03e2850,cricketdata::player_meta,532856,Manan Vohra,cricsheet_id,high,false
+MA Agarwal,00ea847a,cricketdata::player_meta,398438,Mayank Anurag Agarwal,cricsheet_id,high,false
+MA Gough,76752ac8,cricketdata::player_meta,13413,Michael Andrew Gough,cricsheet_id,high,false
+MA Khote,0d232ffd,cricketdata::player_meta,30220,Musavir Asmat Khote,cricsheet_id,high,false
+MA Starc,3fb19989,cricketdata::player_meta,311592,Mitchell Aaron Starc,cricsheet_id,high,false
+MA Wood,8d92a2c3,cricketdata::player_meta,351588,Mark Andrew Wood,cricsheet_id,high,false
+Mandeep Singh,c3a96caf,cricketdata::player_meta,398506,Mandeep Singh,cricsheet_id,high,false
+Mashrafe Mortaza,e186f49c,cricketdata::player_meta,56007,Mashrafe Bin Mortaza,cricsheet_id,high,false
+Mayank Dagar,a457cfb5,cricketdata::player_meta,942367,Mayank J Dagar,cricsheet_id,high,false
+MB Parmar,86ae8ef2,cricketdata::player_meta,240734,Mohnish Bipinbhai Parmar,cricsheet_id,high,false
+MC Henriques,32198ae0,cricketdata::player_meta,5961,Moises Constantino Henriques,cricsheet_id,high,false
+MC Juneja,605b7efa,cricketdata::player_meta,390480,Manprit Charanjit Juneja,cricsheet_id,high,false
+MD Choudhary,1c84109e,ipl.com,,MD Choudhary,existing_ipl.com,manual_review,true
+MD Mishra,6afb26d6,cricketdata::player_meta,31028,Mohnish Dinesh Mishra,cricsheet_id,high,false
+MD Shanaka,3ff033bb,cricketdata::player_meta,437316,Madagamagamage Dasun Shanaka,cricsheet_id,high,false
+MDKJ Perera,f21043a5,cricketdata::player_meta,300631,Mathurage Don Kusal Janith Perera,cricsheet_id,high,false
+MEK Hussey,48fd7349,cricketdata::player_meta,5939,Michael Edward Killeen Hussey,cricsheet_id,high,false
+MF Maharoof,ab89348d,cricketdata::player_meta,49638,Mohamed Farveez Maharoof,cricsheet_id,high,false
+MG Bracewell,e38bce7a,cricketdata::player_meta,326968,Michael Gordon Bracewell,cricsheet_id,high,false
+MG Johnson,f5180fe6,cricketdata::player_meta,6033,Mitchell Guy Johnson,cricsheet_id,high,false
+MG Neser,0164b064,cricketdata::player_meta,376169,Michael Gertges Neser,cricsheet_id,high,false
+Milind Kumar,b4296080,cricketdata::player_meta,451947,Milind Kumar,cricsheet_id,high,false
+Misbah-ul-Haq,7eae4418,cricketdata::player_meta,41378,Misbah-ul-Haq Khan Niazi,cricsheet_id,high,false
+MJ Clarke,f842c2cf,cricketdata::player_meta,4578,Michael John Clarke,cricsheet_id,high,false
+MJ Guptill,2be41edb,cricketdata::player_meta,226492,Martin James Guptill,cricsheet_id,high,false
+MJ Henry,e84ac20c,cricketdata::player_meta,506612,Matthew James Henry,cricsheet_id,high,false
+MJ Lumb,11df3dc8,cricketdata::player_meta,16406,Michael John Lumb,cricsheet_id,high,false
+MJ McClenaghan,51a3c5ef,cricketdata::player_meta,319439,Mitchell John McClenaghan,cricsheet_id,high,false
+MJ Owen,f2c936d7,cricketdata::player_meta,1213979,Mitchell J Owen,cricsheet_id,high,false
+MJ Santner,e4a0deae,cricketdata::player_meta,502714,Mitchell Josef Santner,cricsheet_id,high,false
+MJ Suthar,025c4400,cricketdata::player_meta,1175426,Manav Jagdusakumar Suthar,cricsheet_id,high,false
+MK Lomror,da934ee8,cricketdata::player_meta,853265,Mahipal Krishan Lomror,cricsheet_id,high,false
+MK Pandey,93b4fc78,cricketdata::player_meta,290630,Manish Krishnanand Pandey,cricsheet_id,high,false
+MK Tiwary,26e5cabf,cricketdata::player_meta,35565,Manoj Kumar Tiwary,cricsheet_id,high,false
+ML Hayden,d8699ab7,cricketdata::player_meta,5616,Matthew Lawrence Hayden,cricsheet_id,high,false
+MM Ali,bb351c23,cricketdata::player_meta,8917,Moeen Munir Ali,cricsheet_id,high,false
+MM Patel,f0f628c7,cricketdata::player_meta,32965,Munaf Musa Patel,cricsheet_id,high,false
+MM Sharma,759ac88f,cricketdata::player_meta,537119,Mohit Mahipal Sharma,cricsheet_id,high,false
+MN Samuels,f846de6a,cricketdata::player_meta,52983,Marlon Nathaniel Samuels,cricsheet_id,high,false
+MN van Wyk,710dd98c,cricketdata::player_meta,47711,Morne Nico van Wyk,cricsheet_id,high,false
+Mohamad Rafi,0479de6b,cricketdata::player_meta,961285,Mohamad Rafi,cricsheet_id,high,false
+Mohammad Ashraful,2bb09eb2,cricketdata::player_meta,55988,Mohammad Ashraful,cricsheet_id,high,false
+Mohammad Asif,e03b66ec,cricketdata::player_meta,41411,Mohammad Asif,cricsheet_id,high,false
+Mohammad Hafeez,9ab63e7b,cricketdata::player_meta,41434,Mohammad Hafeez,cricsheet_id,high,false
+Mohammad Nabi,62af8546,cricketdata::player_meta,25913,Mohammad Nabi,cricsheet_id,high,false
+Mohammed Shami,8cf9814c,cricketdata::player_meta,481896,Mohammed Shami Ahmed,cricsheet_id,high,false
+Mohammed Siraj,2f49c897,cricketdata::player_meta,940973,Mohammed Siraj,cricsheet_id,high,false
+Mohit Rathee,9a5f2863,cricketdata::player_meta,1349361,Mohit Rathee,cricsheet_id,high,false
+Mohsin Khan,c33d8116,cricketdata::player_meta,1132005,Mohsin Khan,cricsheet_id,high,false
+Monu Kumar,fb24e76c,cricketdata::player_meta,694209,Monu Kumar Singh,cricsheet_id,high,false
+MP Breetzke,35f173a0,cricketdata::player_meta,595267,Matthew Paul Breetzke,cricsheet_id,high,false
+MP Stoinis,d9273ee7,cricketdata::player_meta,325012,Marcus Peter Stoinis,cricsheet_id,high,false
+MP Yadav,b1ad996b,cricketdata::player_meta,1292563,Mayank Prabhu Yadav,cricsheet_id,high,false
+MR Benson,790e14d3,cricketdata::player_meta,9074,Mark Richard Benson,cricsheet_id,high,false
+MR Marsh,3d8feaf8,cricketdata::player_meta,272450,Mitchell Ross Marsh,cricsheet_id,high,false
+MR Singh,5d58ac60,cricketdata::player_meta,34051,Madanmohan R Singh,cricsheet_id,high,false
+MS Bhandage,e96801ea,cricketdata::player_meta,1057399,Manoj Shivaramsa Bhandage,cricsheet_id,high,false
+MS Bisla,5afd4539,cricketdata::player_meta,27280,Manvinder Sultansingh Bisla,cricsheet_id,high,false
+MS Dhoni,4a8a2e3b,cricketdata::player_meta,28081,Mahendra Singh Dhoni,cricsheet_id,high,false
+MS Gony,ae78bc32,cricketdata::player_meta,317293,Manpreet Singh Gony,cricsheet_id,high,false
+MS Mahal,50a7e89b,cricketdata::player_meta,30886,MS Mahal,cricsheet_id,high,false
+MS Wade,afa7e784,cricketdata::player_meta,230193,Matthew Scott Wade,cricsheet_id,high,false
+MSS Ranawat,8048c698,cricketdata::player_meta,33614,MSS Ranawat,cricsheet_id,high,false
+Mujeeb Ur Rahman,7d92277a,cricketdata::player_meta,974109,Mujeeb Ur Rahman,cricsheet_id,high,false
+Mukesh Choudhary,765a4731,cricketdata::player_meta,1125688,Mukesh Choudhary,cricsheet_id,high,false
+Mukesh Kumar,2cffab74,cricketdata::player_meta,926851,Mukesh Kumar,cricsheet_id,high,false
+Musheer Khan,d621b427,ipl.com,,Musheer Khan,existing_ipl.com,manual,false
+Mustafizur Rahman,0a8fce53,cricketdata::player_meta,330902,Mustafizur Rahman,cricsheet_id,high,false
+MV Boucher,f3cb53a1,cricketdata::player_meta,44111,Mark Verdon Boucher,cricsheet_id,high,false
+MV Saidharshan Kumar,54b6007b,cricketdata::player_meta,777551,Saidharshan Kumar Methala Veetil,cricsheet_id,high,false
+MW Brown,d83d7796,cricketdata::player_meta,44397,Murray Welsh Brown,cricsheet_id,high,false
+MW Short,a90e53ec,cricketdata::player_meta,605575,Matthew William Short,cricsheet_id,high,false
+N Burger,465aa633,cricketdata::player_meta,971349,Nandre Burger,cricsheet_id,high,false
+N Jagadeesan,bd54eef5,cricketdata::player_meta,1048813,Narayan Jagadeesan,cricsheet_id,high,false
+N Pandit,4947c258,cricketdata::player_meta,391525,Nitin Pandit,cricsheet_id,high,false
+N Pooran,3241e3fd,cricketdata::player_meta,604302,Nicholas Pooran,cricsheet_id,high,false
+N Rana,fb2d1dda,cricketdata::player_meta,604527,Nitish Rana,cricsheet_id,high,false
+N Saini,addbde6c,cricketdata::player_meta,274785,Nitin Saini,cricsheet_id,high,false
+N Thushara,ee1b6c27,cricketdata::player_meta,955235,Ilandari Dewage Nuwan Thushara,cricsheet_id,high,false
+N Wadhera,d1a60072,cricketdata::player_meta,1151273,Nehal Wadhera,cricsheet_id,high,false
+NA Patwardhan,e6ef687d,cricketdata::player_meta,32213,Nikhil Ashok Patwardhan,cricsheet_id,high,false
+NA Saini,21d4e29b,cricketdata::player_meta,700167,Navdeep Amarjeet Saini,cricsheet_id,high,false
+Naman Dhir,fffa744b,cricketdata::player_meta,1287032,Naman Dhir,cricsheet_id,high,false
+Navdeep Saini,21d4e29b,cricketdata::player_meta,700167,Navdeep Amarjeet Saini,cricsheet_id,high,false
+Navdeep Singh,a3e3d8a4,cricketdata::player_meta,31805,Navdeep Singh,cricsheet_id,high,false
+Naveen-ul-Haq,c0c411cb,cricketdata::player_meta,793447,Naveen-ul-Haq Murid,cricsheet_id,high,false
+NB Singh,b822e99c,cricketdata::player_meta,853259,Nathu Bharat Singh,cricsheet_id,high,false
+ND Doshi,6ec424a9,cricketdata::player_meta,12440,Nayan Dilip Doshi,cricsheet_id,high,false
+Niraj Patel,a2870fb7,cricketdata::player_meta,32240,Niraj Kanubhai Patel,cricsheet_id,high,false
+Nithish Kumar Reddy,aad0c365,cricketdata::player_meta,1175496,Kaki Nitish Kumar Reddy,cricsheet_id,high,false
+Nitin Menon,e1d41d9e,cricketdata::player_meta,30988,Nitin Narendra Menon,cricsheet_id,high,false
+NJ Llong,573fb985,cricketdata::player_meta,16314,Nigel James Llong,cricsheet_id,high,false
+NJ Maddinson,44afbf2d,cricketdata::player_meta,333780,Nicolas James Maddinson,cricsheet_id,high,false
+NJ Rimmington,6042bf26,cricketdata::player_meta,7443,Nathan John Rimmington,cricsheet_id,high,false
+NL McCullum,5673a3fc,cricketdata::player_meta,37749,Nathan Leslie McCullum,cricsheet_id,high,false
+NLTC Perera,0f12f9df,cricketdata::player_meta,233514,Narangoda Liyanaarachchilage Thisara Chirantha Perera,cricsheet_id,high,false
+NM Coulter-Nile,56ab442f,cricketdata::player_meta,261354,Nathan Mitchell Coulter-Nile,cricsheet_id,high,false
+Noor Ahmad,efc04be7,cricketdata::player_meta,1182529,Noor Ahmad Lakanwal,cricsheet_id,high,false
+NS Naik,aedc3b7c,cricketdata::player_meta,554700,Nikhil Shankar Naik,cricsheet_id,high,false
+NT Ellis,9eb1455b,cricketdata::player_meta,826915,Nathan Ellis,cricsheet_id,high,false
+NV Ojha,890946a0,cricketdata::player_meta,32102,Naman Vinaykumar Ojha,cricsheet_id,high,false
+O Thomas,c6097d68,cricketdata::player_meta,914567,Oshane Romaine Thomas,cricsheet_id,high,false
+OA Shah,7bf96684,cricketdata::player_meta,20123,Owais Alam Shah,cricsheet_id,high,false
+OC McCoy,529eb9e0,cricketdata::player_meta,906783,Obed  Christopher McCoy,cricsheet_id,high,false
+OF Smith,23cca426,cricketdata::player_meta,820691,Odean Fabian Smith,cricsheet_id,high,false
+P Amarnath,6ad3a659,cricketdata::player_meta,290629,Palani Amarnath,cricsheet_id,high,false
+P Awana,1a0c3177,cricketdata::player_meta,323131,Parvinder Awana,cricsheet_id,high,false
+P Chopra,8ac93ca2,cricketdata::player_meta,500135,Prashant Chopra,cricsheet_id,high,false
+P Dharmani,eaa90ab4,cricketdata::player_meta,28067,Pankaj Dharmani,cricsheet_id,high,false
+P Dogra,2728e7e9,cricketdata::player_meta,28160,Paras Dogra,cricsheet_id,high,false
+P Dubey,ed5a5510,cricketdata::player_meta,777515,Praveen Dubey,cricsheet_id,high,false
+P Joshi,ffc0e370,cricketdata::player_meta,961273,Parashar Joshi,cricsheet_id,high,false
+P Kumar,e938e1bc,cricketdata::player_meta,30732,Praveenkumar Sakat Singh,cricsheet_id,high,false
+P Negi,f62772e5,cricketdata::player_meta,530773,Pawan Negi,cricsheet_id,high,false
+P Nissanka,8ee36b18,cricketdata::player_meta,1028655,Pathum Nissanka Silva,cricsheet_id,high,false
+P Parameswaran,0c432afb,cricketdata::player_meta,279562,Prasanth Parameswaran,cricsheet_id,high,false
+P Prasanth,ddb00822,cricketdata::player_meta,32211,Padmanabhan Prasanth,cricsheet_id,high,false
+P Ray Barman,441c72ae,cricketdata::player_meta,1159712,Prayas Ray Barman,cricsheet_id,high,false
+P Sahu,9a0146b3,cricketdata::player_meta,34155,Pardeep Sahu,cricsheet_id,high,false
+P Simran Singh,9418198b,cricketdata::player_meta,1161024,Prabhsimran Singh,cricsheet_id,high,false
+P Suyal,cedc1d9a,cricketdata::player_meta,431213,Pawan Shakland Suyal,cricsheet_id,high,false
+PA Patel,b5da6c24,cricketdata::player_meta,32242,Parthiv Ajay Patel,cricsheet_id,high,false
+PA Reddy,2461eef2,cricketdata::player_meta,376109,Produturi Akshath Reddy,cricsheet_id,high,false
+Pankaj Singh,e32d22f6,cricketdata::player_meta,32973,Pankaj Singh,cricsheet_id,high,false
+Parvez Rasool,9170ff49,cricketdata::player_meta,378496,Parvez Ghulam Rasool Zargar,cricsheet_id,high,false
+PBB Rajapaksa,6c882e9a,cricketdata::player_meta,342619,Pramod Bhanuka Bandara Rajapaksa,cricsheet_id,high,false
+PC Valthaty,25eeb281,cricketdata::player_meta,35630,Paul Chandrashekar Valthaty,cricsheet_id,high,false
+PD Collingwood,a386e91b,cricketdata::player_meta,10772,Paul David Collingwood,cricsheet_id,high,false
+PD Salt,3d284ca3,cricketdata::player_meta,669365,Philip Dean Salt,cricsheet_id,high,false
+PG Pathak,9f772ec5,cricketdata::player_meta,390895,Pashchim Girish Pathak,cricsheet_id,high,false
+PH Solanki,c695b423,cricketdata::player_meta,1252337,Prashant Hitesh Solanki,cricsheet_id,high,false
+PHKD Mendis,08548b13,cricketdata::player_meta,784373,Pasqual Handi Kamindu Dilanka Mendis,cricsheet_id,high,false
+PJ Cummins,ded9240e,cricketdata::player_meta,489889,Patrick James Cummins,cricsheet_id,high,false
+PJ Sangwan,9fc0ef64,cricketdata::player_meta,279545,Pradeep Jaibeer Sangwan,cricsheet_id,high,false
+PK Garg,bb965e9a,cricketdata::player_meta,1070180,Priyam K Garg,cricsheet_id,high,false
+PK Khakhar,b7cad41f,cricketdata::player_meta,30072,Piyush Kantilal Khakhar,cricsheet_id,high,false
+PM Joshi,0dcc9a8c,cricketdata::player_meta,1162437,Pranav Manohar Joshi,cricsheet_id,high,false
+PM Sarvesh Kumar,4b4d1957,cricketdata::player_meta,327127,PM Sarvesh Kumar,cricsheet_id,high,false
+PN Mankad,663b5e34,cricketdata::player_meta,956871,Prerak Nileshkumar Mankad,cricsheet_id,high,false
+PP Chawla,98ae73b1,cricketdata::player_meta,32966,Piyush Pramod Chawla,cricsheet_id,high,false
+PP Hinge,ece7b6b3,ipl.com,,PP Hinge,existing_ipl.com,manual,false
+PP Ojha,6c6591ab,cricketdata::player_meta,32130,Pragyan Prayash Ojha,cricsheet_id,high,false
+PP Shaw,8b3e9c7c,cricketdata::player_meta,1070168,Prithvi Pankaj Shaw,cricsheet_id,high,false
+PR Reiffel,c9354f29,cricketdata::player_meta,7326,Paul Ronald Reiffel,cricsheet_id,high,false
+PR Shah,0aadc906,cricketdata::player_meta,34282,Pinal Rohitbhai Shah,cricsheet_id,high,false
+PR Veer,e148e6bd,cricketdata::player_meta,1403197,Prashant Ramendra Veer,cricsheet_id,high,false
+Prakash Bhatt,f848ab0b,cricketdata::player_meta,26923,Prakash Jitendrabhai Bhatt,cricsheet_id,high,false
+Premdip Chatterjee,489fb760,cricketdata::player_meta,560278,Premdip Chatterjee,cricsheet_id,high,false
+Prince Yadav,80b2fb19,cricketdata::player_meta,1350768,Prince Yadav,cricsheet_id,high,false
+Priyansh Arya,b5797845,cricketdata::player_meta,1175456,Priyansh Arya,cricsheet_id,high,false
+PSP Handscomb,ada15e88,cricketdata::player_meta,334337,Peter Stephen Patrick Handscomb,cricsheet_id,high,false
+PV Tambe,6aed7e79,cricketdata::player_meta,587152,Pravin Vijay Tambe,cricsheet_id,high,false
+PVD Chameera,327b58d3,cricketdata::player_meta,552152,Pathira Vasan Dushmantha Chameera,cricsheet_id,high,false
+PVSN Raju,c27b5a0e,ipl.com,,PVSN Raju,existing_ipl.com,manual,false
+PWA Mulder,c96f6ac5,cricketdata::player_meta,698189,Pieter Willem Adriaan Mulder,cricsheet_id,high,false
+PWH de Silva,a97c8ec2,cricketdata::player_meta,784379,Pinnaduwage Wanindu Hasaranga de Silva,cricsheet_id,high,false
+Q de Kock,372455c4,cricketdata::player_meta,379143,Quinton de Kock,cricsheet_id,high,false
+R Ashwin,495d42a5,cricketdata::player_meta,26421,Ravichandran Ashwin,cricsheet_id,high,false
+R Bhatia,33a364a6,cricketdata::player_meta,26907,Rajat Bhatia,cricsheet_id,high,false
+R Bishnoi,4d5a1617,cricketdata::player_meta,236766,Rajesh Bishnoi,cricsheet_id,high,false
+R Dhawan,26a85969,cricketdata::player_meta,290727,Rishi Dhawan,cricsheet_id,high,false
+R Dravid,0184dc35,cricketdata::player_meta,28114,Rahul Sharad Dravid,cricsheet_id,high,false
+R Goyal,266849c1,cricketdata::player_meta,1350770,Raghav Goyal,cricsheet_id,high,false
+R McLaren,c654af19,cricketdata::player_meta,46393,Ryan McLaren,cricsheet_id,high,false
+R Minz,bafd0398,ipl.com,,R Minz,existing_ipl.com,manual,false
+R Ninan,ce4cc4d5,cricketdata::player_meta,353669,Ryan Ninan,cricsheet_id,high,false
+R Pandit,8a604384,cricketdata::player_meta,537232,Rohan Pandit,cricsheet_id,high,false
+R Parag,04a418e8,cricketdata::player_meta,1079434,Riyan Parag,cricsheet_id,high,false
+R Powell,650d5e49,cricketdata::player_meta,820351,Rovman Powell,cricsheet_id,high,false
+R Rajesh Kannan,c9062c3e,cricketdata::player_meta,33208,Ramachandran Rajesh Kannan,cricsheet_id,high,false
+R Rampaul,d68e7f48,cricketdata::player_meta,52912,Ravindranath Rampaul,cricsheet_id,high,false
+R Ravindra,ba5e1069,cricketdata::player_meta,959767,Rachin Ravindra,cricsheet_id,high,false
+R Risodkar,3de870ce,cricketdata::player_meta,33176,Rajiv Risodkar,cricsheet_id,high,false
+R Sai Kishore,c7a995d3,cricketdata::player_meta,1048739,Ravisrinivasan Sai Kishore,cricsheet_id,high,false
+R Sanjay Yadav,33ffc3dd,cricketdata::player_meta,1048841,Ramsingh  Sanjay Yadav,cricsheet_id,high,false
+R Sathish,626c5379,cricketdata::player_meta,33870,Rajagopal Sathish,cricsheet_id,high,false
+R Seth,540a44ba,cricketdata::player_meta,34621,Rajiv Seth,cricsheet_id,high,false
+R Shankar,82f0b62e,cricketdata::player_meta,277744,Ravi Shankar,cricsheet_id,high,false
+R Sharma,5d9a1a73,cricketdata::player_meta,272994,Rahul Sharma,cricsheet_id,high,false
+R Shepherd,c5aef772,cricketdata::player_meta,677077,Romario Shepherd,cricsheet_id,high,false
+R Shukla,de4b0555,cricketdata::player_meta,390547,Rahul Shukla,cricsheet_id,high,false
+R Subramanian,7c32b886,cricketdata::player_meta,34132,Ravi Subramanian,cricsheet_id,high,false
+R Tewatia,39a2dfa8,cricketdata::player_meta,423838,Rahul Tewatia,cricsheet_id,high,false
+R Vinay Kumar,41eb4a4f,cricketdata::player_meta,35731,Ranganath Vinay Kumar,cricsheet_id,high,false
+RA Bawa,ba6b2f91,cricketdata::player_meta,1292502,RA Bawa,cricsheet_id,high,false
+RA Jadeja,fe93fd9d,cricketdata::player_meta,234675,Ravindrasinh Anirudhsinh Jadeja,cricsheet_id,high,false
+RA Shaikh,7c390b03,cricketdata::player_meta,279460,Rahil Akhil Ahmed Shaikh,cricsheet_id,high,false
+RA Tripathi,77255a9e,cricketdata::player_meta,446763,Rahul Ajay Tripathi,cricsheet_id,high,false
+Rahmanullah Gurbaz,0bacade8,cricketdata::player_meta,974087,Rahmanullah Gurbaz,cricsheet_id,high,false
+Raju Mukherjee,7a3244b5,cricketdata::player_meta,31727,Satayabrata Mukherjee,cricsheet_id,high,false
+Ramandeep Singh,be24ead0,cricketdata::player_meta,1079470,Ramandeep Singh,cricsheet_id,high,false
+Rashid Khan,5f547c8b,cricketdata::player_meta,793463,Rashid Khan Arman,cricsheet_id,high,false
+Rasikh Salam,b8527c3d,cricketdata::player_meta,1161489,Rasikh Salam Dar,cricsheet_id,high,false
+Ravi Bishnoi,df064e1a,cricketdata::player_meta,1175441,Ravi Bishnoi,cricsheet_id,high,false
+RB Richardson,410e2f12,cricketdata::player_meta,52810,Richard Benjamin Richardson,cricsheet_id,high,false
+RB Tiffin,89087a0d,cricketdata::player_meta,55795,Russell Blair Tiffin,cricsheet_id,high,false
+RD Chahar,2ed569a0,cricketdata::player_meta,1064812,Rahul Desraj Chahar,cricsheet_id,high,false
+RD Gaikwad,45a43fe2,cricketdata::player_meta,1060380,Ruturaj Dashrat Gaikwad,cricsheet_id,high,false
+RD Rickelton,e66732f8,cricketdata::player_meta,605661,Ryan David Rickelton,cricsheet_id,high,false
+RE Koertzen,0265fab2,cricketdata::player_meta,45830,Rudolf Eric Koertzen,cricsheet_id,high,false
+RE Levi,18c78b11,cricketdata::player_meta,46148,Richard Ernst Levi,cricsheet_id,high,false
+RE van der Merwe,05c2ca46,cricketdata::player_meta,47850,Roelof Erasmus van der Merwe,cricsheet_id,high,false
+RG More,b2b23612,cricketdata::player_meta,424219,Ronit Gajanan More,cricsheet_id,high,false
+RG Sharma,740742ef,cricketdata::player_meta,34102,Rohit Gurunath Sharma,cricsheet_id,high,false
+RJ Gleeson,402f8494,cricketdata::player_meta,473191,Richard James Gleeson,cricsheet_id,high,false
+RJ Harris,12eddf28,cricketdata::player_meta,5779,Ryan James Harris,cricsheet_id,high,false
+RJ Peterson,26ff4c29,cricketdata::player_meta,46750,Robin John Peterson,cricsheet_id,high,false
+RJ Quiney,23ac69e6,cricketdata::player_meta,211854,Robert John Quiney,cricsheet_id,high,false
+RJ Tucker,38810cfc,cricketdata::player_meta,7986,Rodney James Tucker,cricsheet_id,high,false
+RJW Topley,8db7f47f,cricketdata::player_meta,461632,Reece James William Topley,cricsheet_id,high,false
+RK Bhui,b63e358a,cricketdata::player_meta,642531,Ricky Kannakumar Bhui,cricsheet_id,high,false
+RK Illingworth,20672246,cricketdata::player_meta,15383,Richard Keith Illingworth,cricsheet_id,high,false
+RK Singh,0a509d6b,cricketdata::player_meta,723105,Rinku Khanchand Singh,cricsheet_id,high,false
+RM Deshpande,7d2a4250,cricketdata::player_meta,262599,Rajesh Madhukar Deshpande,cricsheet_id,high,false
+RM Patidar,c740ea83,cricketdata::player_meta,823703,Rajat Manohar Patidar,cricsheet_id,high,false
+RN ten Doeschate,4ec07775,cricketdata::player_meta,47660,Ryan Neil ten Doeschate,cricsheet_id,high,false
+RP Meredith,64775749,cricketdata::player_meta,961713,Riley Patrick Meredith,cricsheet_id,high,false
+RP Singh,c3d1402f,cricketdata::player_meta,35280,Rudra Pratap Singh,cricsheet_id,high,false
+RR Bhatkal,7d3720ba,cricketdata::player_meta,27150,Raju Ravi Bhatkal,cricsheet_id,high,false
+RR Bose,21ac077a,cricketdata::player_meta,27572,Ranadeb Ranjit Bose,cricsheet_id,high,false
+RR Jadeja,053de19b,cricketdata::player_meta,29831,Rajendra Raisinh Jadeja,cricsheet_id,high,false
+RR Pant,919a3be2,cricketdata::player_meta,931581,Rishabh Rajendra Pant,cricsheet_id,high,false
+RR Powar,5d096f3d,cricketdata::player_meta,32391,Ramesh Rajaram Powar,cricsheet_id,high,false
+RR Raje,5f4e9e8f,cricketdata::player_meta,290713,Rohan Ravindra Raje,cricsheet_id,high,false
+RR Rossouw,cad00a4d,cricketdata::player_meta,318845,Rilee Roscoe Rossouw,cricsheet_id,high,false
+RR Sarwan,36d33dd0,cricketdata::player_meta,52969,Ramnaresh Ronnie Sarwan,cricsheet_id,high,false
+RS Bopara,7ca5e05d,cricketdata::player_meta,10582,Ravinder Singh Bopara,cricsheet_id,high,false
+RS Gavaskar,9ff100a6,cricketdata::player_meta,28792,Rohan Sunil Gavaskar,cricsheet_id,high,false
+RS Hangargekar,c3c92b42,cricketdata::player_meta,1175429,Rajvardhan S Hangargekar,cricsheet_id,high,false
+RS Madugalle,766b5798,cricketdata::player_meta,49623,Ranjan Senerath Madugalle,cricsheet_id,high,false
+RS Mahanama,57910393,cricketdata::player_meta,49626,Roshan Siriwardene Mahanama,cricsheet_id,high,false
+RS Sodhi,a3ecf01f,cricketdata::player_meta,34078,Reetinder Singh Sodhi,cricsheet_id,high,false
+RT Ponting,7d415ea5,cricketdata::player_meta,7133,Ricky Thomas Ponting,cricsheet_id,high,false
+RV Gomez,b2570b38,cricketdata::player_meta,28846,Raiphi Vincent Gomez,cricsheet_id,high,false
+RV Patel,60500956,cricketdata::player_meta,1201520,Ripal Vinubhai Patel,cricsheet_id,high,false
+RV Pawar,c9d33ef5,cricketdata::player_meta,32305,Rajesh Vithal Pawar,cricsheet_id,high,false
+RV Uthappa,1c17e270,cricketdata::player_meta,35582,Robin Venu Uthappa,cricsheet_id,high,false
+RW Price,67af6f81,cricketdata::player_meta,55698,Raymond William Price,cricsheet_id,high,false
+S Anirudha,95a2ea61,cricketdata::player_meta,26798,Srikkanth Anirudha,cricsheet_id,high,false
+S Aravind,957532de,cricketdata::player_meta,290632,Sreenath Aravind,cricsheet_id,high,false
+S Arora,d7423da1,ipl.com,,S Arora,existing_ipl.com,manual_review,true
+S Asnani,b04524bc,cricketdata::player_meta,26314,Sudhir Asnani,cricsheet_id,high,false
+S Badree,76388dc8,cricketdata::player_meta,51433,Samuel Badree,cricsheet_id,high,false
+S Badrinath,3576e47e,cricketdata::player_meta,26806,Subramaniam Badrinath,cricsheet_id,high,false
+S Banerjee,abde8fb9,cricketdata::player_meta,26854,Subrata Banerjee,cricsheet_id,high,false
+S Chanderpaul,881a9bdd,cricketdata::player_meta,51469,Shivnarine Chanderpaul,cricsheet_id,high,false
+S Chaturvedi,c8ec02e1,cricketdata::player_meta,27791,Sunil Chaturvedi,cricsheet_id,high,false
+S Das,475e38b6,cricketdata::player_meta,515928,Subrat Das,cricsheet_id,high,false
+S Dhawan,0a476045,cricketdata::player_meta,28235,Shikhar Dhawan,cricsheet_id,high,false
+S Dua,f1375866,cricketdata::player_meta,28115,Sanjeev Dua,cricsheet_id,high,false
+S Dube,a4e37e47,cricketdata::player_meta,714451,Shivam Dube,cricsheet_id,high,false
+S George,6d9e5a54,cricketdata::player_meta,45389,Shaun George,cricsheet_id,high,false
+S Gopal,7a8bd078,cricketdata::player_meta,344580,Shreyas Gopal,cricsheet_id,high,false
+S Joseph,97290faf,cricketdata::player_meta,1356971,Shamar Joseph,cricsheet_id,high,false
+S Kaul,dcf81436,cricketdata::player_meta,326017,Siddarth Kaul,cricsheet_id,high,false
+S Kaushik,1da489ff,cricketdata::player_meta,917213,Shivil Kaushik,cricsheet_id,high,false
+S Ladda,fb693839,cricketdata::player_meta,317292,Sarabjit Ladda,cricsheet_id,high,false
+S Lamichhane,b410bd3d,cricketdata::player_meta,960361,Sandeep Lamichhane,cricsheet_id,high,false
+S Midhun,ade90de7,cricketdata::player_meta,1131619,Sudhesan Midhun,cricsheet_id,high,false
+S Nadeem,9d80c5e1,cricketdata::player_meta,31872,Shahbaz Nadeem,cricsheet_id,high,false
+S Narwal,287686fd,cricketdata::player_meta,32084,Sumit Narwal,cricsheet_id,high,false
+S Rana,90edaaa9,cricketdata::player_meta,33757,Sachin Rana,cricsheet_id,high,false
+S Randiv,f5f18a18,cricketdata::player_meta,50438,Hewa Kaluhalamullage Suraj Randiv Kaluhalamulla,cricsheet_id,high,false
+S Ravi,9b9ee0df,cricketdata::player_meta,33135,Sundaram Ravi,cricsheet_id,high,false
+S Sandeep Warrier,cdc6bdba,cricketdata::player_meta,592735,Sankarankutty Sandeep Warrier,cricsheet_id,high,false
+S Sohal,3fca55af,cricketdata::player_meta,228943,Sunny Sohal,cricsheet_id,high,false
+S Sreesanth,6b8eb6e5,cricketdata::player_meta,34274,Shanthakumaran Sreesanth,cricsheet_id,high,false
+S Sriram,64a4c383,cricketdata::player_meta,34118,Sridharan Sriram,cricsheet_id,high,false
+S Tyagi,c24a2c5d,cricketdata::player_meta,317784,Sudeep Tyagi,cricsheet_id,high,false
+S Venkataraghavan,12453319,cricketdata::player_meta,35656,Srinivasaraghavan Venkataraghavan,cricsheet_id,high,false
+S Vidyut,756389bd,cricketdata::player_meta,35619,Vidyut Sivaramakrishnan,cricsheet_id,high,false
+SA Abbott,1a2676c5,cricketdata::player_meta,398666,Sean Anthony Abbott,cricsheet_id,high,false
+SA Asnodkar,ae091d39,cricketdata::player_meta,26782,Swapnil Ashok Asnodkar,cricsheet_id,high,false
+SA Satbhai,1b80ebeb,cricketdata::player_meta,35294,Satyajit Ajit Satbhai,cricsheet_id,high,false
+SA Yadav,271f83cd,cricketdata::player_meta,446507,Suryakumar Ashok Yadav,cricsheet_id,high,false
+Sachin Baby,dc9dd038,cricketdata::player_meta,432783,Sachin Baby,cricsheet_id,high,false
+Sakib Hussain,280fff14,cricketdata::player_meta,1340422,Sakib Hussain,cricsheet_id,high,false
+Salman Butt,4d6d6280,cricketdata::player_meta,42683,Salman Butt,cricsheet_id,high,false
+Sameer Rizvi,f89d3b11,cricketdata::player_meta,1175489,Sameer Rizvi,cricsheet_id,high,false
+Sandeep Sharma,ce820073,cricketdata::player_meta,438362,Sandeep Sharma,cricsheet_id,high,false
+Sanjay Verma,bc19a37f,cricketdata::player_meta,35807,Sanjay Verma,cricsheet_id,high,false
+Sanvir Singh,b0f2baf4,cricketdata::player_meta,1132219,Sanvir Singh,cricsheet_id,high,false
+Saurav Chauhan,9e7225b0,cricketdata::player_meta,1287369,Saurav Dilipsingh Chauhan,cricsheet_id,high,false
+SB Bangar,0604ef16,cricketdata::player_meta,27225,Sanjay Bapusaheb Bangar,cricsheet_id,high,false
+SB Dubey,6b2ff18f,cricketdata::player_meta,1252585,Shubham Badriprasad Dubey,cricsheet_id,high,false
+SB Jakati,c8179c68,cricketdata::player_meta,29655,Shadab Bashir Jakati,cricsheet_id,high,false
+SB Joshi,670709ec,cricketdata::player_meta,29725,Sunil Bandacharya Joshi,cricsheet_id,high,false
+SB Styris,57efa3be,cricketdata::player_meta,38407,Scott Bernard Styris,cricsheet_id,high,false
+SB Wagh,dddca1d6,cricketdata::player_meta,279552,Shrikant Bhaskar Wagh,cricsheet_id,high,false
+SC Ganguly,725529bc,cricketdata::player_meta,28779,Sourav Chandidas Ganguly,cricsheet_id,high,false
+SC Kuggeleijn,fef92afc,cricketdata::player_meta,539548,Scott Christopher Kuggeleijn,cricsheet_id,high,false
+SD Chitnis,facb9086,cricketdata::player_meta,337916,Siddharth Dilip Chitnis,cricsheet_id,high,false
+SD Fry,6b725ed1,cricketdata::player_meta,5341,Simon Douglas Fry,cricsheet_id,high,false
+SD Hope,1fc6ef83,cricketdata::player_meta,581379,Shai Diego Hope,cricsheet_id,high,false
+SD Lad,9601c534,cricketdata::player_meta,422342,Siddhesh Dinesh Lad,cricsheet_id,high,false
+SD Ranade,369c85c1,cricketdata::player_meta,33079,Shashank D Ranade,cricsheet_id,high,false
+SE Bond,4f629497,cricketdata::player_meta,36326,Shane Edward Bond,cricsheet_id,high,false
+SE Marsh,508a1ea7,cricketdata::player_meta,6683,Shaun Edward Marsh,cricsheet_id,high,false
+SE Rutherford,d014d5ac,cricketdata::player_meta,914541,Sherfane Eviston Rutherford,cricsheet_id,high,false
+Sediqullah Atal,3c28853f,cricketdata::player_meta,1161050,Sediqullah Atal,cricsheet_id,high,false
+SH Johnson,83c3e8e3,cricketdata::player_meta,1123718,Spencer Henry Johnson,cricsheet_id,high,false
+Shahbaz Ahmed,f9e6e7ef,cricketdata::player_meta,1159711,Shahbaz Ahmed,cricsheet_id,high,false
+Shahid Afridi,0dc00542,cricketdata::player_meta,42639,Sahibzada Mohammad Shahid Khan Afridi,cricsheet_id,high,false
+Shakib Al Hasan,7dc35884,cricketdata::player_meta,56143,Shakib Al Hasan,cricsheet_id,high,false
+Shakti Singh,eb90d319,cricketdata::player_meta,33922,Shakti Singh,cricsheet_id,high,false
+Shashank Singh,26989d80,cricketdata::player_meta,377534,Shashank Singh,cricsheet_id,high,false
+Shivam Mavi,c38d3503,cricketdata::player_meta,1079848,Shivam Pankaj Mavi,cricsheet_id,high,false
+Shivam Sharma,6f49cc6e,cricketdata::player_meta,717201,Shivam Sharma,cricsheet_id,high,false
+Shivam Singh,e1d9ae9c,cricketdata::player_meta,1380113,Shivam Singh,cricsheet_id,high,false
+Shivang Kumar,7b44eb3e,ipl.com,,Shivang Kumar,existing_ipl.com,manual_review,true
+Shoaib Ahmed,8a668774,cricketdata::player_meta,317709,Syed Mohammad Shoaib Ahmed,cricsheet_id,high,false
+Shoaib Akhtar,10a91f35,cricketdata::player_meta,42655,Shoaib Akhtar,cricsheet_id,high,false
+Shoaib Malik,64c34cd0,cricketdata::player_meta,42657,Shoaib Malik,cricsheet_id,high,false
+Shubman Gill,b4b99816,cricketdata::player_meta,1070173,Shubman Gill,cricsheet_id,high,false
+Sikandar Raza,26d041c4,cricketdata::player_meta,299572,Sikandar Raza Butt,cricsheet_id,high,false
+Simarjeet Singh,30df8c66,cricketdata::player_meta,1159722,Simarjeet Singh,cricsheet_id,high,false
+SJ Davis,bc71b0b2,cricketdata::player_meta,4922,Stephen James Davis,cricsheet_id,high,false
+SJ Srivastava,2049f3a0,cricketdata::player_meta,34245,Shalabh Jagdishprasad Srivastava,cricsheet_id,high,false
+SJA Taufel,4b43d5ac,cricketdata::player_meta,7918,Simon James Arnold Taufel,cricsheet_id,high,false
+SK Porel,350a07a7,cricketdata::player_meta,32897,Subroto K Porel,cricsheet_id,high,false
+SK Raina,1dc12ab9,cricketdata::player_meta,33335,Suresh Kumar Raina,cricsheet_id,high,false
+SK Rasheed,cbf58a86,cricketdata::player_meta,1292497,Shaik Rasheed,cricsheet_id,high,false
+SK Tarapore,62a824b4,cricketdata::player_meta,35314,Shavir Keki Tarapore,cricsheet_id,high,false
+SK Trivedi,3d7e087f,cricketdata::player_meta,35353,Siddharth Kishorkumar Trivedi,cricsheet_id,high,false
+SK Warne,bb18be76,cricketdata::player_meta,8166,Shane Keith Warne,cricsheet_id,high,false
+SL Malinga,a12e1d51,cricketdata::player_meta,49758,Separamadu Lasith Malinga,cricsheet_id,high,false
+SL Shastri,53ef012d,cricketdata::player_meta,33977,Suresh Lalchand Shastri,cricsheet_id,high,false
+SM Boland,d167edd3,cricketdata::player_meta,446548,Scott Michael Boland,cricsheet_id,high,false
+SM Curran,e94915e6,cricketdata::player_meta,662973,Samuel Matthew Curran,cricsheet_id,high,false
+SM Harwood,63bff7f9,cricketdata::player_meta,5605,Shane Michael Harwood,cricsheet_id,high,false
+SM Katich,fdedb37c,cricketdata::player_meta,6128,Simon Mathew Katich,cricsheet_id,high,false
+SM Pollock,88fccd6c,cricketdata::player_meta,46774,Shaun Maclean Pollock,cricsheet_id,high,false
+SMSM Senanayake,4c4fa80b,cricketdata::player_meta,273439,Senanayake Mudiyanselage Sachithra Madhushanka Senanayake,cricsheet_id,high,false
+SN Bandekar,350528bb,cricketdata::player_meta,26846,Sameer N Bandekar,cricsheet_id,high,false
+SN Khan,f088b960,cricketdata::player_meta,642525,Sarfaraz Naushad Khan,cricsheet_id,high,false
+SN Thakur,1abb78f8,cricketdata::player_meta,475281,Shardul Narendra Thakur,cricsheet_id,high,false
+SO Hetmyer,48a1d7b7,cricketdata::player_meta,670025,Shimron Odilon Hetmyer,cricsheet_id,high,false
+Sohail Tanvir,64d43928,cricketdata::player_meta,43265,Sohail Tanvir,cricsheet_id,high,false
+Sonu Yadav,6ab96cc2,cricketdata::player_meta,1048867,Ramsingh Sonu Yadav,cricsheet_id,high,false
+SP Fleming,eea6b7f1,cricketdata::player_meta,37000,Stephen Paul Fleming,cricsheet_id,high,false
+SP Goswami,541f85c9,cricketdata::player_meta,302579,Shreevats Pratyush Goswami,cricsheet_id,high,false
+SP Jackson,acc1aeda,cricketdata::player_meta,237696,Sheldon Philip Jackson,cricsheet_id,high,false
+SP Narine,9d430b40,cricketdata::player_meta,230558,Sunil Philip Narine,cricsheet_id,high,false
+SPD Smith,30a45b23,cricketdata::player_meta,267192,Steven Peter Devereux Smith,cricsheet_id,high,false
+SR Tendulkar,d2c2b2d5,cricketdata::player_meta,35320,Sachin Ramesh Tendulkar,cricsheet_id,high,false
+SR Watson,4329fbb5,cricketdata::player_meta,8180,Shane Robert Watson,cricsheet_id,high,false
+SS Agarwal,b51f72a5,cricketdata::player_meta,1079668,Shubham Sanjay Agarwal,cricsheet_id,high,false
+SS Cottrell,a1d053dd,cricketdata::player_meta,495551,Sheldon Shane Cottrell,cricsheet_id,high,false
+SS Hazare,166e5081,cricketdata::player_meta,29400,Sanjay Sukhanand Hazare,cricsheet_id,high,false
+SS Iyer,85ec8e33,cricketdata::player_meta,642519,Shreyas Santosh Iyer,cricsheet_id,high,false
+SS Mundhe,0af3426f,cricketdata::player_meta,279862,Shrikant Shrihari Mundhe,cricsheet_id,high,false
+SS Prabhudessai,9385de2e,cricketdata::player_meta,1083851,Suyash S Prabhudessai,cricsheet_id,high,false
+SS Raul,4cfdf1d0,cricketdata::player_meta,33129,Sanjay Susanta Raul,cricsheet_id,high,false
+SS Sarkar,caa89a48,cricketdata::player_meta,34402,Sourav Subrata Sarkar,cricsheet_id,high,false
+SS Shaikh,5f5d3ad4,cricketdata::player_meta,377437,Shoaib Shabbir Shaikh,cricsheet_id,high,false
+SS Tiwary,709b0bac,cricketdata::player_meta,35390,Saurabh Sunil Tiwary,cricsheet_id,high,false
+SSB Magala,8361e524,cricketdata::player_meta,379776,Sisanda Somila Bruce Magala,cricsheet_id,high,false
+ST Jayasuriya,f233bbb4,cricketdata::player_meta,49209,Sanath Teran Jayasuriya,cricsheet_id,high,false
+STR Binny,bd17b45f,cricketdata::player_meta,27223,Stuart Terence Roger Binny,cricsheet_id,high,false
+Subhransu Senapati,0edcb652,cricketdata::player_meta,1059577,Subhranshu Pradeep Senapati,cricsheet_id,high,false
+Subroto Das,e66066be,cricketdata::player_meta,28318,Subroto Das,cricsheet_id,high,false
+Sumit Kumar,8998a68f,cricketdata::player_meta,1159734,Sumit Kumar,cricsheet_id,high,false
+Sunny Gupta,ee3dfa89,cricketdata::player_meta,271315,Sunny Gupta,cricsheet_id,high,false
+Sunny Singh,30e37810,cricketdata::player_meta,35282,Sunny Singh,cricsheet_id,high,false
+Suryansh Shedge,970ddd24,cricketdata::player_meta,1339698,Suryansh Shedge,cricsheet_id,high,false
+Suyash Sharma,9440ef41,cricketdata::player_meta,1350792,Suyash Sharma,cricsheet_id,high,false
+SV Samson,a4cc73aa,cricketdata::player_meta,425943,Sanju Viswanath Samson,cricsheet_id,high,false
+SW Billings,c16d4035,cricketdata::player_meta,297628,Samuel William Billings,cricsheet_id,high,false
+SW Tait,addfb70e,cricketdata::player_meta,8076,Shaun William Tait,cricsheet_id,high,false
+Swapnil Singh,983f2f61,cricketdata::player_meta,232292,Swapnil Singh,cricsheet_id,high,false
+SZ Mulani,9d704f6f,cricketdata::player_meta,1131607,Shams Zakir Mulani,cricsheet_id,high,false
+T Banton,25f7b7d6,cricketdata::player_meta,877051,Tom Banton,cricsheet_id,high,false
+T Henderson,0a4ebc61,cricketdata::player_meta,45434,Tyron Henderson,cricsheet_id,high,false
+T Kohler-Cadmore,f836b33d,cricketdata::player_meta,470633,Tom Kohler-Cadmore,cricsheet_id,high,false
+T Kohli,40caa465,cricketdata::player_meta,331855,Taruwar Sushil Kohli,cricsheet_id,high,false
+T Mishra,c9cac448,cricketdata::player_meta,24790,Tanmay Mishra,cricsheet_id,high,false
+T Natarajan,ce794613,cricketdata::player_meta,802575,Thangarasu Natarajan,cricsheet_id,high,false
+T Shamsi,a03bba42,cricketdata::player_meta,379145,Tabraiz Shamsi,cricsheet_id,high,false
+T Stubbs,85b3fab2,cricketdata::player_meta,595978,Tristan Stubbs,cricsheet_id,high,false
+T Taibu,75de770f,cricketdata::player_meta,55805,Tatenda Taibu,cricsheet_id,high,false
+T Thushara,b2ae53f5,cricketdata::player_meta,49677,Magina Thilan Thushara Mirando,cricsheet_id,high,false
+T Vijay,51ec3919,cricketdata::player_meta,1292527,Tripurana Vijay,cricsheet_id,high,false
+TA Boult,a818c1be,cricketdata::player_meta,277912,Trent Alexander Boult,cricsheet_id,high,false
+Talat Ali,1df4131e,cricketdata::player_meta,43273,Talat Ali Malik,cricsheet_id,high,false
+Tanay Thyagarajan,f1809c03,cricketdata::player_meta,1080008,Tanay Thyagarajan,cricsheet_id,high,false
+Tanush Kotian,5724e517,cricketdata::player_meta,1125960,Tanush Karunakar Kotian,cricsheet_id,high,false
+Tapan Sharma,b9aa2b6e,cricketdata::player_meta,390973,Tapan Sharma,cricsheet_id,high,false
+TD Paine,5748e866,cricketdata::player_meta,7252,Timothy David Paine,cricsheet_id,high,false
+Tejas Baroka,c28e9f12,cricketdata::player_meta,1082859,Tejas Baroka,cricsheet_id,high,false
+TG Southee,13c35c9e,cricketdata::player_meta,232364,Timothy Grant Southee,cricsheet_id,high,false
+TH David,f1f99156,cricketdata::player_meta,892749,Timothy Hays David,cricsheet_id,high,false
+TH Wijewardene,6a6be119,cricketdata::player_meta,50987,Tyron Hirantha Wijewardene,cricsheet_id,high,false
+Tilak Varma,b0482a1d,cricketdata::player_meta,1170265,Namboori Thakur Tilak Varma,cricsheet_id,high,false
+TK Curran,e86754b2,cricketdata::player_meta,550235,Thomas Kevin Curran,cricsheet_id,high,false
+TL Seifert,4663bd23,cricketdata::player_meta,625964,Tim Louis Seifert,cricsheet_id,high,false
+TL Suman,aaa1b522,cricketdata::player_meta,34281,Tirumalasetti Laxminarayana Suman,cricsheet_id,high,false
+TM Dilshan,5bdcdb72,cricketdata::player_meta,48472,Tillakaratne Mudiyanselage Dilshan,cricsheet_id,high,false
+TM Head,12b610c2,cricketdata::player_meta,530011,Travis Michael Head,cricsheet_id,high,false
+TM Srivastava,a76d10ba,cricketdata::player_meta,35401,Tanmay Manoj Srivastava,cricsheet_id,high,false
+TP Sudhindra,2f3817ce,cricketdata::player_meta,34139,Taduri Prakash Chandra Sudhindra,cricsheet_id,high,false
+TR Birt,d2d4bb0a,cricketdata::player_meta,4292,Travis Rodney Birt,cricsheet_id,high,false
+TS Mills,245c97cb,cricketdata::player_meta,459257,Tymal Solomon Mills,cricsheet_id,high,false
+TU Deshpande,46a9bea1,cricketdata::player_meta,822553,Tushar Uday Deshpande,cricsheet_id,high,false
+U Kaul,622cc511,cricketdata::player_meta,30235,Uday Kaul,cricsheet_id,high,false
+UA Birla,91b9300b,cricketdata::player_meta,262533,Udit Alok Birla,cricsheet_id,high,false
+UBT Chand,0c94f480,cricketdata::player_meta,446499,Unmukt Bharat Thakur Chand,cricsheet_id,high,false
+UL Dubey,b2ef796b,cricketdata::player_meta,28116,Umesh L Dubey,cricsheet_id,high,false
+Umar Gul,16dfcc19,cricketdata::player_meta,43524,Umar Gul,cricsheet_id,high,false
+Umran Malik,81c08fa3,cricketdata::player_meta,1246528,Umran Malik,cricsheet_id,high,false
+Urvil Patel,cf59b3f0,cricketdata::player_meta,1131570,Urvil Mukesh Patel,cricsheet_id,high,false
+UT Khawaja,331ea488,cricketdata::player_meta,215155,Usman Tariq Khawaja,cricsheet_id,high,false
+UT Yadav,cc1e8c68,cricketdata::player_meta,376116,Umeshkumar Tilak Yadav,cricsheet_id,high,false
+UV Gandhe,43dd4011,cricketdata::player_meta,28768,Ulhas Vithal Gandhe,cricsheet_id,high,false
+V Kaverappa,d4d929b0,cricketdata::player_meta,1155262,Vidwath Kaverappa,cricsheet_id,high,false
+V Kohli,ba607b88,cricketdata::player_meta,253802,Virat Kohli,cricsheet_id,high,false
+V Narayan Kutty,4bacee3d,cricketdata::player_meta,31899,Vengalil Narayanan Kutty,cricsheet_id,high,false
+V Nigam,5ffc0565,cricketdata::player_meta,1449074,Vipraj Nigam,cricsheet_id,high,false
+V Pratap Singh,d718440b,cricketdata::player_meta,528967,Veer Pratap Singh,cricsheet_id,high,false
+V Puthur,1e030637,ipl.com,,V Puthur,existing_ipl.com,manual_review,true
+V Sehwag,8ba8195d,cricketdata::player_meta,35263,Virender Sehwag,cricsheet_id,high,false
+V Shankar,0994d0ae,cricketdata::player_meta,477021,Vijay Shankar,cricsheet_id,high,false
+V Suryavanshi,470f446b,ipl.com,,V Suryavanshi,existing_ipl.com,manual,false
+V Viyaskanth,03a83c50,cricketdata::player_meta,1153149,Vijayakanth Viyaskanth,cricsheet_id,high,false
+VA Kulkarni,8fe0c4f8,cricketdata::player_meta,391584,Vineet Anil Kulkarni,cricsheet_id,high,false
+VD Nerurkar,8647d51d,cricketdata::player_meta,265853,Vishwas Digamber Nerurkar,cricsheet_id,high,false
+VG Arora,7c3b3b78,cricketdata::player_meta,1209292,Vaibhav Gopal Arora,cricsheet_id,high,false
+VH Zol,6dbcf855,cricketdata::player_meta,554699,Vijay Hari Zol,cricsheet_id,high,false
+Vijaykumar Vyshak,54e52590,cricketdata::player_meta,777815,Vijaykumar Vyshak,cricsheet_id,high,false
+Vinod Seshan,a3357a27,cricketdata::player_meta,723245,Vinod Seshan,cricsheet_id,high,false
+Virat Singh,26d76ad9,cricketdata::player_meta,720465,Virat Binod Singh,cricsheet_id,high,false
+Vishnu Vinod,0494fa6e,cricketdata::player_meta,732293,Vishnu Vinod,cricsheet_id,high,false
+Vivrant Sharma,1b7b0fa7,cricketdata::player_meta,1252370,Vivrant Sharma,cricsheet_id,high,false
+VK Sharma,a7a49df4,cricketdata::player_meta,33933,Virender Kumar Sharma,cricsheet_id,high,false
+VM Bandiwadekar,e236db6b,cricketdata::player_meta,281112,Vilas M Bandiwadekar,cricsheet_id,high,false
+VM Dhokre,67df71c9,cricketdata::player_meta,961265,VM Dhokre,cricsheet_id,high,false
+VN Kulkarni,0b126008,cricketdata::player_meta,30302,Vinayak N. Kulkarni,cricsheet_id,high,false
+VR Aaron,0a3d54b9,cricketdata::player_meta,360911,Varun Raymond Aaron,cricsheet_id,high,false
+VR Iyer,a24be938,cricketdata::player_meta,851403,Venkatesh Rajasekaran Iyer,cricsheet_id,high,false
+VRV Singh,034b4b7d,cricketdata::player_meta,35281,Vikram Raj Vir Singh,cricsheet_id,high,false
+VS Malik,5f26df4f,cricketdata::player_meta,31738,Vikramjeet Singh Malik,cricsheet_id,high,false
+VS Yeligati,38f2c66c,cricketdata::player_meta,307448,Vikrant Shyam Yeligati,cricsheet_id,high,false
+VVS Laxman,de8cce37,cricketdata::player_meta,30750,Vangipurappu Venkata Sai Laxman,cricsheet_id,high,false
+VY Mahesh,93a17209,cricketdata::player_meta,31732,Vijaykumar Yo Mahesh,cricsheet_id,high,false
+W Jaffer,619aa81f,cricketdata::player_meta,29646,Wasim Jaffer,cricsheet_id,high,false
+W O'Rourke,cb9b8664,cricketdata::player_meta,1211825,W O'Rourke,cricsheet_id,high,false
+WA Mota,3dba85c2,cricketdata::player_meta,31041,Wilkin Arvind Mota,cricsheet_id,high,false
+Washington Sundar,f19ccfad,cricketdata::player_meta,719715,Washington Sundar,cricsheet_id,high,false
+WD Parnell,3a60e0b5,cricketdata::player_meta,265564,Wayne Dillon Parnell,cricsheet_id,high,false
+WG Jacks,9caf69a1,cricketdata::player_meta,897549,William George Jacks,cricsheet_id,high,false
+WP Saha,fe11caa6,cricketdata::player_meta,279810,Wriddhiman Prasanta Saha,cricsheet_id,high,false
+WPUJC Vaas,bcce309e,cricketdata::player_meta,50804,Warnakulasuriya Patabendige Ushantha Joseph Chaminda Vaas,cricsheet_id,high,false
+X Thalaivan Sargunam,1763bc6c,cricketdata::player_meta,319744,Xavier Thalaivan Sargunam,cricsheet_id,high,false
+XC Bartlett,3b53243a,cricketdata::player_meta,1050545,Xavier Colin Bartlett,cricsheet_id,high,false
+Y Gnaneswara Rao,bae11797,cricketdata::player_meta,28830,Yalaka Gnaneswara Rao,cricsheet_id,high,false
+Y Nagar,662c47a6,cricketdata::player_meta,317786,Yogesh Nagar,cricsheet_id,high,false
+Y Prithvi Raj,cfa4bd2b,cricketdata::player_meta,1121579,Prithvi Raj Yarra,cricsheet_id,high,false
+Y Venugopal Rao,fe763256,cricketdata::player_meta,35805,Yalaka Venugopal Rao,cricsheet_id,high,false
+YA Abdulla,4353bba5,cricketdata::player_meta,224367,Yusuf Adam Abdulla,cricsheet_id,high,false
+Yash Dayal,7210d461,cricketdata::player_meta,1159720,Yash Dayal,cricsheet_id,high,false
+Yash Thakur,4b31f3a3,cricketdata::player_meta,1070196,Yash Ravisingh Thakur,cricsheet_id,high,false
+Yashpal Sharma,e22d7ccb,cricketdata::player_meta,36075,Yashpal Sharma,cricsheet_id,high,false
+Yashpal Singh,297b26da,cricketdata::player_meta,36130,Yashpal Singh,cricsheet_id,high,false
+YBK Jaiswal,6c19c6e5,cricketdata::player_meta,1151278,Yashasvi Bhupendra Kumar Jaiswal,cricsheet_id,high,false
+YC Barde,b90f3346,cricketdata::player_meta,26861,Yeshwant Chandrakant Barde,cricsheet_id,high,false
+YK Pathan,3c6ffae8,cricketdata::player_meta,32498,Yusuf Khan Pathan,cricsheet_id,high,false
+Younis Khan,33cb3411,cricketdata::player_meta,43652,Mohammad Younis Khan,cricsheet_id,high,false
+YS Chahal,57ee1fde,cricketdata::player_meta,430246,Yuzvendra Singh Chahal,cricsheet_id,high,false
+Yudhvir Singh,4885bbe6,cricketdata::player_meta,1206052,Yudhvir Singh Charak,cricsheet_id,high,false
+Yuvraj Singh,1c914163,cricketdata::player_meta,36084,Yuvraj Singh,cricsheet_id,high,false
+YV Dhull,dd7e9b3b,cricketdata::player_meta,1292498,Yash Vijay Dhull,cricsheet_id,high,false
+YV Takawale,4e04666c,cricketdata::player_meta,35357,Yogesh Vijay Takawale,cricsheet_id,high,false
+Z Khan,91a4a398,cricketdata::player_meta,30102,Zaheer Khan,cricsheet_id,high,false
+Zeeshan Ansari,36619795,cricketdata::player_meta,942371,Zeeshan Ansari,cricsheet_id,high,false
+ZTA Ndamane,545cc6db,cricketdata::player_meta,46669,Zama Thembekile Anderson Ndamane,cricsheet_id,high,false

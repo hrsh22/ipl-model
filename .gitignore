@@ -1,3 +1,25 @@
 node_modules/
 dist/
 .env
+.playwright-mcp
+
+# macOS / local junk
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local QA artifacts
+qa_script.cjs
+predictor*.png
+
+# Generated training artifacts
+model/artifacts/
+model/artifacts_pruned/
+
+# Runtime-refreshed local snapshots
+model/data/live/
+
+# Oversized local source dataset (keep local or move to LFS/external fetch)
+model/data/IPL.csv

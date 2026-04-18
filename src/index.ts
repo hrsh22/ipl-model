@@ -1,6 +1,8 @@
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { type Server } from "node:http"
+import { execFile } from "node:child_process"
+import { readFile, stat } from "node:fs/promises"
 import express, {
   type Express,
   type NextFunction,
@@ -71,6 +73,74 @@ const requireObserverAuth = (req: Request, res: Response, next: NextFunction) =>
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 const publicDirectory = join(currentDirectory, "..", "public")
+const modelDirectory = join(currentDirectory, "..", "model")
+const predictorScriptPath = join(modelDirectory, "predict_fixture.py")
+const upcomingFixturesCsvPath = join(modelDirectory, "data", "live", "upcoming_fixtures.csv")
+const upcomingFixturesJsonPath = join(modelDirectory, "data", "live", "upcoming_fixtures.json")
+const upcomingFixtureEloPath = join(modelDirectory, "data", "live", "upcoming_fixture_elo_context.csv")
+const predictorLiveDataMaxAgeMs = 2 * 60 * 1000
+
+let predictorLiveDataRefreshPromise: Promise<void> | null = null
+
+const runPredictFixture = (args: string[]) =>
+  Effect.tryPromise<{ stdout: string; stderr: string }, Error>({
+    try: () =>
+      new Promise((resolve, reject) => {
+        execFile("python3", [predictorScriptPath, ...args], { cwd: join(currentDirectory, "..") }, (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(stderr || error.message))
+            return
+          }
+          resolve({ stdout, stderr })
+        })
+      }),
+    catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+  })
+
+const runPackageScript = (scriptName: string) =>
+  new Promise<void>((resolve, reject) => {
+    execFile("pnpm", [scriptName], { cwd: join(currentDirectory, "..") }, (error, _stdout, stderr) => {
+      if (error) {
+        reject(new Error(stderr || error.message))
+        return
+      }
+      resolve()
+    })
+  })
+
+const getOldestPredictorLiveDataMtimeMs = async () => {
+  const stats = await Promise.all([
+    stat(upcomingFixturesJsonPath),
+    stat(upcomingFixturesCsvPath),
+    stat(upcomingFixtureEloPath),
+  ])
+  return Math.min(...stats.map((entry) => entry.mtimeMs))
+}
+
+const refreshPredictorLiveData = async () => {
+  await runPackageScript("model:data:fixtures")
+  await runPackageScript("model:data:elo-current")
+}
+
+const ensurePredictorLiveDataFresh = () =>
+  Effect.tryPromise<void, Error>({
+    try: async () => {
+      const now = Date.now()
+      const oldestMtime = await getOldestPredictorLiveDataMtimeMs().catch(() => 0)
+      if (oldestMtime > 0 && now - oldestMtime < predictorLiveDataMaxAgeMs) {
+        return
+      }
+
+      if (!predictorLiveDataRefreshPromise) {
+        predictorLiveDataRefreshPromise = refreshPredictorLiveData().finally(() => {
+          predictorLiveDataRefreshPromise = null
+        })
+      }
+
+      await predictorLiveDataRefreshPromise
+    },
+    catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+  })
 
 // Load historical data once at startup
 let historicalMatches: Awaited<ReturnType<typeof loadCricsheetData>> | null = null
@@ -98,6 +168,7 @@ const createApp = Effect.sync((): Express => {
             "/observer/diagnostics",
             "/observer/metrics",
             "/observer/dashboard",
+            "/predictor",
             "/observer/fixtures",
             "/observer/fixtures/live",
             "/observer/fixtures/:fixtureId",
@@ -155,6 +226,98 @@ const createApp = Effect.sync((): Express => {
 
   app.get("/observer/dashboard", (_req, res) => {
     res.sendFile(join(publicDirectory, "observer-dashboard.html"))
+  })
+
+  app.get("/predictor", (_req, res) => {
+    res.sendFile(join(publicDirectory, "predictor.html"))
+  })
+
+  app.get("/predictor/api/fixtures", (_req, res) => {
+    sendJson(
+      res,
+      Effect.gen(function* () {
+        yield* ensurePredictorLiveDataFresh()
+        return yield* Effect.tryPromise({
+          try: async () => JSON.parse(await readFile(upcomingFixturesJsonPath, "utf-8")) as unknown,
+          catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+        })
+      }),
+    )
+  })
+
+  app.post("/predictor/api/predict", (req, res) => {
+    sendJson(
+      res,
+      Effect.gen(function* () {
+        const body = req.body as Record<string, unknown>
+        const fixtureId = typeof body.fixtureId === "string" ? body.fixtureId : null
+        const mode = body.mode === "post_toss" ? "post_toss" : "pre_toss"
+
+        if (!fixtureId) {
+          res.status(400)
+          return { error: "fixtureId is required" }
+        }
+
+        const args = ["--fixture-id", fixtureId, "--mode", mode]
+
+        if (typeof body.tossWinner === "string" && body.tossWinner.trim()) {
+          args.push("--toss-winner", body.tossWinner)
+        }
+        if (typeof body.tossDecision === "string" && body.tossDecision.trim()) {
+          args.push("--toss-decision", body.tossDecision)
+        }
+        if (Array.isArray(body.team1ProbableXi) && body.team1ProbableXi.every((item) => typeof item === "string")) {
+          args.push("--team1-probable-xi-json", JSON.stringify(body.team1ProbableXi))
+        }
+        if (Array.isArray(body.team2ProbableXi) && body.team2ProbableXi.every((item) => typeof item === "string")) {
+          args.push("--team2-probable-xi-json", JSON.stringify(body.team2ProbableXi))
+        }
+        if (body.featureOverrides && typeof body.featureOverrides === "object") {
+          args.push("--feature-overrides-json", JSON.stringify(body.featureOverrides))
+        }
+
+        logger.debug("Handled POST /predictor/api/predict", {
+          fixtureId,
+          mode,
+        })
+
+        yield* ensurePredictorLiveDataFresh()
+        const { stdout } = yield* runPredictFixture(args)
+        return JSON.parse(stdout) as unknown
+      }),
+    )
+  })
+
+  app.post("/predictor/api/context", (req, res) => {
+    sendJson(
+      res,
+      Effect.gen(function* () {
+        const body = req.body as Record<string, unknown>
+        const fixtureId = typeof body.fixtureId === "string" ? body.fixtureId : null
+        const mode = body.mode === "post_toss" ? "post_toss" : "pre_toss"
+
+        if (!fixtureId) {
+          res.status(400)
+          return { error: "fixtureId is required" }
+        }
+
+        logger.debug("Handled POST /predictor/api/context", {
+          fixtureId,
+          mode,
+        })
+
+        yield* ensurePredictorLiveDataFresh()
+        const { stdout } = yield* runPredictFixture([
+          "--fixture-id",
+          fixtureId,
+          "--mode",
+          mode,
+          "--describe-context",
+        ])
+
+        return JSON.parse(stdout) as unknown
+      }),
+    )
   })
 
   app.get("/observer/status", requireObserverAuth, (_req, res) => {
