@@ -538,6 +538,10 @@ button.primary {
   display: none;
 }
 
+.field.hidden-field {
+  display: none;
+}
+
 .override-section.hidden-overrides .override-grid,
 .override-section.hidden-overrides .probable-xi-panel {
   display: none;

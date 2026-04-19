@@ -14,6 +14,8 @@ const manualXiEyebrow = document.querySelector('#manual-xi-eyebrow');
 const manualXiHeading = document.querySelector('#manual-xi-heading');
 const manualXiHelper = document.querySelector('#manual-xi-helper');
 const modeSelect = document.querySelector('#mode-select');
+const tossWinnerField = document.querySelector('#toss-winner-field');
+const tossDecisionField = document.querySelector('#toss-decision-field');
 const tossWinnerSelect = document.querySelector('#toss-winner-select');
 const tossDecisionSelect = document.querySelector('#toss-decision-select');
 const refreshFixturesButton = document.querySelector('#refresh-fixtures');
@@ -179,7 +181,10 @@ const setInputMode = (nextMode) => {
 
 const updateInputControlAvailability = () => {
   const busy = uiState.fixturesLoading || uiState.contextLoading || uiState.predictionLoading;
-  const manualTossInputsEnabled = inputMode === 'manual';
+  const manualTossInputsEnabled = inputMode === 'manual' && modeSelect.value === 'post_toss';
+
+  tossWinnerField?.classList.toggle('hidden-field', modeSelect.value !== 'post_toss');
+  tossDecisionField?.classList.toggle('hidden-field', modeSelect.value !== 'post_toss');
 
   if (refreshFixturesButton) refreshFixturesButton.disabled = busy;
   if (runPredictionButton) runPredictionButton.disabled = busy || !selectedFixtureId;
@@ -280,6 +285,7 @@ const isAutoInputAvailable = (payload) => {
 
 const getAutoLockReason = (payload) => {
   const automatic = payload?.automatic ?? {};
+  const fixture = getSelectedFixture();
   if (modeSelect.value === 'post_toss') {
     if (!automatic.official_toss && !automatic.official_confirmed_xi) {
       return 'Auto will unlock when official toss and confirmed XI data arrive. Until then, use Manual to enter the toss result and any lineup assumptions yourself.';
@@ -290,6 +296,12 @@ const getAutoLockReason = (payload) => {
     if (!automatic.official_confirmed_xi) {
       return 'Auto will unlock when the confirmed XIs arrive. Until then, use Manual if you want to supply the post-toss context yourself.';
     }
+  }
+  if (automatic.official_toss && automatic.official_confirmed_xi) {
+    return 'This match already has official toss and confirmed XI data. Switch to Post toss to let Auto use the live context.';
+  }
+  if (fixture?.is_live) {
+    return 'This match is already live, but Auto only uses official live data in Post toss mode. Switch to Post toss to use the live context automatically.';
   }
   return 'Auto pre-toss is locked right now because the system does not automatically have toss, lineup, or team-news assumptions for this fixture yet. Use Manual to enter the assumptions you want the model to use.';
 };
@@ -586,6 +598,8 @@ const renderAvailability = (payload) => {
   const automatic = payload?.automatic ?? {};
   const automaticDetails = payload?.automatic_details ?? {};
   const autoAvailable = syncInputModeWithAvailability(payload);
+  const fixture = getSelectedFixture();
+  const officialPostTossReady = Boolean(automatic.official_toss && automatic.official_confirmed_xi);
   const noteItems = [
     ...(payload?.notes?.pre_toss ?? []),
     ...(payload?.notes?.post_toss ?? []),
@@ -612,8 +626,12 @@ const renderAvailability = (payload) => {
             : 'Official post-toss data is live, but Manual lets you replace it with your own toss or lineup assumptions if needed.')
         : 'Official post-toss data is still incomplete, so Manual is open for you to enter toss outcome and any lineup assumptions yourself.')
     : (inputMode === 'manual'
-        ? 'Manual pre-toss mode is active. Add any toss, lineup, or role assumptions you trust more than the baseline.'
-        : 'Auto pre-toss is locked until the system has real automatic pre-toss inputs for this fixture. Use Manual to set the assumptions yourself.');
+        ? (officialPostTossReady
+            ? 'This match already has official toss and confirmed XI data. You can stay in Manual pre-toss mode, but switching to Post toss will let Auto use the live context.'
+            : 'Manual pre-toss mode is active. Add the lineup and role assumptions you trust more than the baseline.')
+        : (officialPostTossReady
+            ? 'This match already has official toss and confirmed XI data. Switch to Post toss to let Auto use the live context.'
+            : 'Auto pre-toss is locked until the system has real automatic pre-toss inputs for this fixture. Use Manual to set the assumptions yourself.'));
 
   keyStatusSummary.innerHTML = keyCards.join('');
   keyStatusNote.innerHTML = noteCard(keyMessage, true);
@@ -641,7 +659,9 @@ const renderAvailability = (payload) => {
       inputModeMessage.textContent = 'Manual is active. The predictor will use the toss, lineup, and role inputs you supply instead of relying purely on the automatic post-toss path.';
       inputModeMessage.className = 'notice-banner subtle';
     } else {
-      inputModeMessage.textContent = 'Manual is active. The predictor will use any toss, lineup, and role assumptions you supply instead of relying purely on the automatic baseline.';
+      inputModeMessage.textContent = officialPostTossReady
+        ? 'Manual is active. This live match already has official toss and XI data, but your manual toss, lineup, and role assumptions will be used unless you switch to Post toss Auto.'
+        : 'Manual is active. The predictor will use the lineup and role assumptions you supply instead of relying purely on the automatic baseline.';
       inputModeMessage.className = 'notice-banner subtle';
     }
   } else {
@@ -686,9 +706,13 @@ const renderAvailability = (payload) => {
   if (inputMode === 'auto' && modeSelect.value === 'post_toss' && automatic.official_toss && automatic.official_confirmed_xi) {
     setActionFeedback('Auto is active. Official toss and confirmed XI data are live and being used for this post-toss read.', 'success');
   } else if (inputMode === 'auto' && modeSelect.value === 'pre_toss') {
-    setActionFeedback('Auto pre-toss is locked for this fixture. Switch to Manual to set toss, lineup, and role assumptions yourself.', 'warning');
+    setActionFeedback(officialPostTossReady || fixture?.is_live
+      ? 'This match already has live post-toss data. Switch to Post toss if you want Auto to use the official toss and XI context.'
+      : 'Auto pre-toss is locked for this fixture. Switch to Manual to set toss, lineup, and role assumptions yourself.', 'warning');
   } else if (inputMode === 'manual' && modeSelect.value === 'pre_toss') {
-    setActionFeedback('Manual pre-toss mode is active. You can set toss assumptions, edit the XI, and add role overrides if you trust them more than the baseline.', 'subtle');
+    setActionFeedback(officialPostTossReady || fixture?.is_live
+      ? 'Manual pre-toss mode is active, but this match already has live post-toss data. Stay here only if you want to override it yourself; otherwise switch to Post toss.'
+      : 'Manual pre-toss mode is active. You can edit the XI and add role overrides if you trust them more than the baseline.', 'subtle');
   } else if (inputMode === 'manual' && autoAvailable) {
     setActionFeedback('Manual post-toss mode is active. The predictor will use the toss or lineup inputs you supply instead of the automatic path.', 'subtle');
   } else {
@@ -935,10 +959,10 @@ const runPrediction = async () => {
       mode: modeSelect.value,
     };
 
-    if (inputMode === 'manual' && tossWinnerSelect.value) body.tossWinner = tossWinnerSelect.value;
-    if (inputMode === 'manual' && tossDecisionSelect.value) body.tossDecision = tossDecisionSelect.value;
+    if (inputMode === 'manual' && modeSelect.value === 'post_toss' && tossWinnerSelect.value) body.tossWinner = tossWinnerSelect.value;
+    if (inputMode === 'manual' && modeSelect.value === 'post_toss' && tossDecisionSelect.value) body.tossDecision = tossDecisionSelect.value;
 
-  if (inputMode === 'manual' && modeSelect.value === 'post_toss' && !autoInputAvailable) {
+    if (inputMode === 'manual' && modeSelect.value === 'post_toss' && !autoInputAvailable) {
       if (!tossWinnerSelect.value || !tossDecisionSelect.value) {
         throw new Error('Manual post-toss mode needs both toss winner and toss decision while automatic toss data is unavailable.');
       }
