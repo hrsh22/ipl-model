@@ -1137,6 +1137,143 @@ def build_probable_xi_suggestions(
     }
 
 
+def build_named_xi_suggestions(
+    team: str,
+    candidate_names: list[str],
+    suggested_names: list[str],
+    source: str,
+) -> dict[str, Any]:
+    normalized_candidates: list[str] = []
+    seen: set[str] = set()
+    for raw_name in candidate_names:
+        name = strip_player_suffixes(str(raw_name).strip())
+        if not name:
+            continue
+        key = normalize_player_name_key(name)
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized_candidates.append(name)
+
+    if not normalized_candidates:
+        return {
+            "available": False,
+            "suggested_xi": [],
+            "candidate_pool": [],
+            "matches_considered": 0,
+            "source": source,
+        }
+
+    profiles, _ = build_team_player_aggregates(team)
+    key_sets = build_key_player_sets(team)
+    suggested_order = {
+        normalize_player_name_key(name): index + 1
+        for index, name in enumerate(suggested_names)
+    }
+
+    candidate_rows: list[dict[str, Any]] = []
+    for fallback_index, name in enumerate(normalized_candidates, start=1):
+        key = normalize_player_name_key(name)
+        profile = profiles.get(key, {})
+        role = str(profile.get("role_canonical") or "unknown")
+        estimated_order, display_order = estimate_playing_order(profile, fallback_index)
+        order_override = suggested_order.get(key)
+        if order_override is not None:
+            estimated_order = order_override
+            display_order = float(order_override)
+        candidate_rows.append(
+            {
+                "name": name,
+                "key": key,
+                "recent_appearances": int(profile.get("match_count") or 0),
+                "last_seen": str(profile.get("last_match_date") or "official_feed"),
+                "batting_order_estimate": int(estimated_order),
+                "role": role,
+                "style_family": str(profile.get("bowling_style_family") or "unknown"),
+                "suggested": key in suggested_order,
+                "is_key_batter": key in key_sets["key_batters"],
+                "is_key_bowler": key in key_sets["key_bowlers"],
+                "is_death_bowler": key in key_sets["death_bowlers"],
+                "is_opener": key in key_sets["openers"],
+                "_display_order": float(display_order),
+                "_bowling_strength": safe_float(profile.get("bowling_strength")),
+            }
+        )
+
+    candidate_rows.sort(
+        key=lambda row: (
+            0 if row["suggested"] else 1,
+            int(row["batting_order_estimate"]),
+            -int(row["recent_appearances"]),
+            -float(row["_bowling_strength"]),
+            normalize_text(str(row["name"])),
+        )
+    )
+
+    suggested_rows = [row for row in candidate_rows if row["suggested"]]
+    suggested_rows.sort(
+        key=lambda row: (
+            int(row["batting_order_estimate"]),
+            float(row["_display_order"]),
+            normalize_text(str(row["name"])),
+        )
+    )
+    suggested_xi = [row["name"] for row in suggested_rows[:11]]
+    if len(suggested_xi) < 11:
+        existing = {normalize_player_name_key(name) for name in suggested_xi}
+        for row in candidate_rows:
+            key = normalize_player_name_key(str(row["name"]))
+            if key in existing:
+                continue
+            suggested_xi.append(str(row["name"]))
+            existing.add(key)
+            if len(suggested_xi) == 11:
+                break
+
+    for row in candidate_rows:
+        row.pop("_display_order", None)
+        row.pop("_bowling_strength", None)
+
+    return {
+        "available": True,
+        "suggested_xi": suggested_xi,
+        "candidate_pool": candidate_rows,
+        "matches_considered": 0,
+        "source": source,
+    }
+
+
+def build_post_toss_xi_suggestions(
+    fixture: pd.Series, official_post_toss: dict[str, Any]
+) -> dict[str, Any] | None:
+    season = pd.Timestamp(fixture["match_date"]).year
+
+    def build_for_team(team_key: str) -> dict[str, Any]:
+        team_name = str(fixture[team_key])
+        confirmed = list(official_post_toss.get(f"{team_key}_confirmed_xi", []) or [])
+        effective = list(official_post_toss.get(f"{team_key}_effective_xi", []) or [])
+        substitutes = list(
+            official_post_toss.get(f"{team_key}_declared_substitutes", []) or []
+        )
+        candidate_names = confirmed + substitutes
+        suggested_names = effective or confirmed
+        built = build_named_xi_suggestions(
+            team_name,
+            candidate_names,
+            suggested_names,
+            "official_matchday_squad",
+        )
+        if built.get("available"):
+            built["season"] = season
+        return built
+
+    team1 = build_for_team("team1")
+    team2 = build_for_team("team2")
+    if not team1.get("available") and not team2.get("available"):
+        return None
+    return {"team1": team1, "team2": team2}
+
+
 def build_xi_overrides(
     team: str, season: int, match_date: str, xi_players: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -1988,6 +2125,9 @@ def describe_context(args: argparse.Namespace) -> dict[str, Any]:
             str(fixture["team2"]), season, str(fixture["match_date"])
         ),
     }
+    post_toss_xi_suggestions = build_post_toss_xi_suggestions(
+        fixture, official_post_toss
+    )
 
     return {
         "fixture_id": str(fixture["fixture_id"]),
@@ -2113,7 +2253,7 @@ def describe_context(args: argparse.Namespace) -> dict[str, Any]:
         "live_feature_refresh": live_feature_summary,
         "probable_xi_suggestions": probable_xi_suggestions
         if args.mode == "pre_toss"
-        else None,
+        else post_toss_xi_suggestions,
     }
 
 

@@ -8,13 +8,20 @@ const availabilitySummary = document.querySelector('#availability-summary');
 const availabilityNotes = document.querySelector('#availability-notes');
 const overrideSection = document.querySelector('.override-section');
 const overrideHelper = document.querySelector('#override-helper');
-const toggleOverridesButton = document.querySelector('#toggle-overrides');
+const manualModePill = document.querySelector('#manual-mode-pill');
 const probableXiPanel = document.querySelector('#probable-xi-panel');
-const applyProbableXiInput = document.querySelector('#apply-probable-xi');
+const manualXiEyebrow = document.querySelector('#manual-xi-eyebrow');
+const manualXiHeading = document.querySelector('#manual-xi-heading');
+const manualXiHelper = document.querySelector('#manual-xi-helper');
 const modeSelect = document.querySelector('#mode-select');
 const tossWinnerSelect = document.querySelector('#toss-winner-select');
 const tossDecisionSelect = document.querySelector('#toss-decision-select');
 const refreshFixturesButton = document.querySelector('#refresh-fixtures');
+const inputSourcePanel = document.querySelector('.input-source-panel');
+const inputModeAutoButton = document.querySelector('#input-mode-auto');
+const inputModeManualButton = document.querySelector('#input-mode-manual');
+const inputModeMessage = document.querySelector('#input-mode-message');
+const autoModeSummary = document.querySelector('#auto-mode-summary');
 const runPredictionButton = document.querySelector('#run-prediction');
 const predictionStatus = document.querySelector('#prediction-status');
 const predictionSummary = document.querySelector('#prediction-summary');
@@ -53,7 +60,9 @@ const team2LoadSuggestedButton = document.querySelector('#team2-load-suggested')
 let fixtures = [];
 let selectedFixtureId = null;
 let latestContext = null;
-let manualOverridesVisible = false;
+let inputMode = window.localStorage.getItem('predictor-input-mode') === 'manual' ? 'manual' : 'auto';
+let inputModeTouched = false;
+let autoInputAvailable = true;
 let probableXiSelections = {
   team1: new Set(),
   team2: new Set(),
@@ -81,7 +90,6 @@ const manualInputs = [
   team2MissingOpenerInput,
   team1MissingDeathBowlerInput,
   team2MissingDeathBowlerInput,
-  applyProbableXiInput,
 ];
 
 const clearNode = (node) => {
@@ -146,15 +154,45 @@ const setActionFeedback = (message, tone = 'subtle') => {
   actionFeedback.className = `notice-banner ${tone}`;
 };
 
-const setUiBusyState = () => {
+const applyInputMode = ({ autoAvailable = autoInputAvailable } = {}) => {
+  inputSourcePanel?.classList.toggle('manual-active', inputMode === 'manual');
+  inputModeAutoButton?.classList.toggle('is-active', inputMode === 'auto');
+  inputModeManualButton?.classList.toggle('is-active', inputMode === 'manual');
+  inputModeAutoButton?.setAttribute('aria-pressed', String(inputMode === 'auto'));
+  inputModeManualButton?.setAttribute('aria-pressed', String(inputMode === 'manual'));
+  if (inputModeAutoButton) {
+    inputModeAutoButton.disabled = !autoAvailable;
+  }
+};
+
+const setInputMode = (nextMode) => {
+  inputMode = nextMode === 'manual' ? 'manual' : 'auto';
+  inputModeTouched = true;
+  window.localStorage.setItem('predictor-input-mode', inputMode);
+  applyInputMode({ autoAvailable: autoInputAvailable });
+  renderProbableXiSelectors();
+  updateInputControlAvailability();
+  if (latestContext) {
+    renderAvailability(latestContext);
+  }
+};
+
+const updateInputControlAvailability = () => {
   const busy = uiState.fixturesLoading || uiState.contextLoading || uiState.predictionLoading;
+  const manualTossInputsEnabled = inputMode === 'manual';
+
   if (refreshFixturesButton) refreshFixturesButton.disabled = busy;
   if (runPredictionButton) runPredictionButton.disabled = busy || !selectedFixtureId;
   if (fixtureSearch) fixtureSearch.disabled = uiState.fixturesLoading;
   if (modeSelect) modeSelect.disabled = busy;
-  if (toggleOverridesButton) toggleOverridesButton.disabled = busy;
-  if (tossWinnerSelect) tossWinnerSelect.disabled = busy || tossWinnerSelect.disabled;
-  if (tossDecisionSelect) tossDecisionSelect.disabled = busy || tossDecisionSelect.disabled;
+  if (tossWinnerSelect) tossWinnerSelect.disabled = busy || !manualTossInputsEnabled;
+  if (tossDecisionSelect) tossDecisionSelect.disabled = busy || !manualTossInputsEnabled;
+  if (inputModeAutoButton) inputModeAutoButton.disabled = busy || !autoInputAvailable;
+  if (inputModeManualButton) inputModeManualButton.disabled = busy;
+};
+
+const setUiBusyState = () => {
+  updateInputControlAvailability();
 };
 
 const buildImpactContextCard = (xiContext, prefix) => {
@@ -232,6 +270,41 @@ const getNumericValue = (input) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const isAutoInputAvailable = (payload) => {
+  if (modeSelect.value === 'post_toss') {
+    const automatic = payload?.automatic ?? {};
+    return Boolean(automatic.official_toss && automatic.official_confirmed_xi);
+  }
+  return false;
+};
+
+const getAutoLockReason = (payload) => {
+  const automatic = payload?.automatic ?? {};
+  if (modeSelect.value === 'post_toss') {
+    if (!automatic.official_toss && !automatic.official_confirmed_xi) {
+      return 'Auto will unlock when official toss and confirmed XI data arrive. Until then, use Manual to enter the toss result and any lineup assumptions yourself.';
+    }
+    if (!automatic.official_toss) {
+      return 'Auto will unlock when the official toss result arrives. Until then, use Manual to enter toss winner and toss decision yourself.';
+    }
+    if (!automatic.official_confirmed_xi) {
+      return 'Auto will unlock when the confirmed XIs arrive. Until then, use Manual if you want to supply the post-toss context yourself.';
+    }
+  }
+  return 'Auto pre-toss is locked right now because the system does not automatically have toss, lineup, or team-news assumptions for this fixture yet. Use Manual to enter the assumptions you want the model to use.';
+};
+
+const syncInputModeWithAvailability = (payload) => {
+  autoInputAvailable = isAutoInputAvailable(payload);
+  if (!autoInputAvailable) {
+    inputMode = 'manual';
+  } else if (!inputModeTouched) {
+    inputMode = 'auto';
+  }
+  window.localStorage.setItem('predictor-input-mode', inputMode);
+  return autoInputAvailable;
+};
+
 const buildFeatureOverrides = () => {
   const entries = [
     ['team1_probableXiStrength', getNumericValue(team1ProbableXiStrengthInput)],
@@ -271,7 +344,6 @@ const resetManualFormState = () => {
     team2MissingOpenerInput,
     team1MissingDeathBowlerInput,
     team2MissingDeathBowlerInput,
-    applyProbableXiInput,
   ].forEach((input) => {
     input.checked = false;
   });
@@ -280,7 +352,7 @@ const resetManualFormState = () => {
   tossDecisionSelect.value = '';
   probableXiSelections = { team1: new Set(), team2: new Set() };
   probableXiDirty = { team1: false, team2: false };
-  manualOverridesVisible = false;
+  inputModeTouched = false;
 };
 
 const clearPredictionOutputs = (message = 'Run a prediction to populate this panel.') => {
@@ -430,7 +502,7 @@ const renderProbableXiTeam = ({
   renderSelectedProbableXi(selectedNode, Array.from(selected));
 
   if (!suggestion?.available) {
-    renderEmpty(candidatesNode, 'No same-season squad suggestions are available for this side.');
+    renderEmpty(candidatesNode, 'No automatic XI candidates are available for this side yet.');
     return;
   }
 
@@ -451,13 +523,19 @@ const renderProbableXiTeam = ({
 };
 
 const renderProbableXiSelectors = () => {
-  const visible = modeSelect.value === 'pre_toss';
+  const visible = inputMode === 'manual';
   probableXiPanel.classList.toggle('hidden-probable-xi', !visible);
 
   if (!visible) {
-    applyProbableXiInput.checked = false;
     return;
   }
+
+  const isPostToss = modeSelect.value === 'post_toss';
+  if (manualXiEyebrow) manualXiEyebrow.textContent = isPostToss ? 'Post-toss XI editor' : 'Pre-toss lineup builder';
+  if (manualXiHeading) manualXiHeading.textContent = isPostToss ? 'Set the XI you want the post-toss model to use' : 'Set the XI you want the model to assume before the toss';
+  if (manualXiHelper) manualXiHelper.textContent = isPostToss
+    ? 'Selections you make here apply automatically in Manual mode. Use this to replace or correct the post-toss XI the model should use.'
+    : 'Selections you make here apply automatically in Manual mode. Suggestions come from recent same-season squads and can be adjusted before you run the model.';
 
   const suggestions = latestContext?.probable_xi_suggestions;
   const fixture = getSelectedFixture();
@@ -507,6 +585,7 @@ const renderAvailability = (payload) => {
   setProbableXiSelectionsFromSuggestions(payload);
   const automatic = payload?.automatic ?? {};
   const automaticDetails = payload?.automatic_details ?? {};
+  const autoAvailable = syncInputModeWithAvailability(payload);
   const noteItems = [
     ...(payload?.notes?.pre_toss ?? []),
     ...(payload?.notes?.post_toss ?? []),
@@ -527,15 +606,52 @@ const renderAvailability = (payload) => {
       ];
 
   const keyMessage = modeSelect.value === 'post_toss'
-    ? (automatic.official_toss && automatic.official_confirmed_xi
-        ? 'The automatic post-toss path is available. Toss and official XIs are already live for this fixture.'
-        : 'Post-toss mode is active, but you still need fallback toss or lineup context for a stronger read.')
-    : (payload?.probable_xi_suggestions?.team1?.available && payload?.probable_xi_suggestions?.team2?.available
-        ? 'Pre-toss mode is ready. You can use the suggested XI builder, or trust the historical baseline.'
-        : 'Pre-toss mode is ready, but lineup assumptions still lean on historical defaults unless you add manual context.');
+    ? (autoAvailable
+        ? (inputMode === 'auto'
+            ? 'Official toss and confirmed XI data are live, so Auto can use the complete post-toss context immediately.'
+            : 'Official post-toss data is live, but Manual lets you replace it with your own toss or lineup assumptions if needed.')
+        : 'Official post-toss data is still incomplete, so Manual is open for you to enter toss outcome and any lineup assumptions yourself.')
+    : (inputMode === 'manual'
+        ? 'Manual pre-toss mode is active. Add any toss, lineup, or role assumptions you trust more than the baseline.'
+        : 'Auto pre-toss is locked until the system has real automatic pre-toss inputs for this fixture. Use Manual to set the assumptions yourself.');
 
   keyStatusSummary.innerHTML = keyCards.join('');
   keyStatusNote.innerHTML = noteCard(keyMessage, true);
+
+  const autoSummaryCards = modeSelect.value === 'post_toss'
+    ? [
+        metricCard('Auto source', autoAvailable ? 'Ready' : 'Locked', autoAvailable ? 'edge-positive' : 'edge-negative'),
+        metricCard('Official toss', automatic.official_toss ? 'Live feed' : 'Waiting', automatic.official_toss ? 'edge-positive' : 'edge-negative'),
+        metricCard('Confirmed XIs', automatic.official_confirmed_xi ? 'Live feed' : 'Waiting', automatic.official_confirmed_xi ? 'edge-positive' : 'edge-negative'),
+        metricCard('Run behavior', autoAvailable ? 'Uses official match context' : 'Manual entry required'),
+      ]
+    : [
+        metricCard('Auto source', autoAvailable ? 'Ready' : 'Locked', autoAvailable ? 'edge-positive' : 'edge-negative'),
+        metricCard('Baseline context', automatic.fixture_shell && automatic.current_elo ? 'Loaded' : 'Missing', automatic.fixture_shell && automatic.current_elo ? 'edge-positive' : 'edge-negative'),
+        metricCard('Form refresh', payload?.live_feature_refresh?.applied ? 'Live refresh' : 'Historical', payload?.live_feature_refresh?.applied ? 'edge-positive' : ''),
+        metricCard('Run behavior', autoAvailable ? 'Uses system baseline' : 'Manual entry required'),
+      ];
+  autoModeSummary.innerHTML = autoSummaryCards.join('');
+
+  if (inputMode === 'manual') {
+    if (!autoAvailable) {
+      inputModeMessage.textContent = getAutoLockReason(payload);
+      inputModeMessage.className = 'notice-banner warning';
+    } else if (modeSelect.value === 'post_toss') {
+      inputModeMessage.textContent = 'Manual is active. The predictor will use the toss, lineup, and role inputs you supply instead of relying purely on the automatic post-toss path.';
+      inputModeMessage.className = 'notice-banner subtle';
+    } else {
+      inputModeMessage.textContent = 'Manual is active. The predictor will use any toss, lineup, and role assumptions you supply instead of relying purely on the automatic baseline.';
+      inputModeMessage.className = 'notice-banner subtle';
+    }
+  } else {
+    inputModeMessage.textContent = modeSelect.value === 'post_toss'
+      ? 'Auto is active. The predictor will use official toss and confirmed XI data from the live feeds.'
+      : 'Auto is active. The predictor will use the system baseline, live form refresh, and available market context.';
+    inputModeMessage.className = 'notice-banner success';
+  }
+
+  applyInputMode({ autoAvailable });
 
   availabilitySummary.innerHTML = [
     metricCard('Fixture shell', automatic.fixture_shell ? 'Loaded' : 'Missing', automatic.fixture_shell ? 'edge-positive' : 'edge-negative'),
@@ -560,21 +676,23 @@ const renderAvailability = (payload) => {
     renderEmpty(availabilityNotes, 'No extra availability notes for this fixture.');
   }
 
-  const postTossAuto = modeSelect.value === 'post_toss' && automatic.official_toss;
-  tossWinnerSelect.disabled = uiState.fixturesLoading || uiState.contextLoading || uiState.predictionLoading || modeSelect.value === 'pre_toss' || postTossAuto;
-  tossDecisionSelect.disabled = uiState.fixturesLoading || uiState.contextLoading || uiState.predictionLoading || modeSelect.value === 'pre_toss' || postTossAuto;
-
-  const shouldHideOverrides = modeSelect.value === 'post_toss' && automatic.official_toss && automatic.official_confirmed_xi && !manualOverridesVisible;
-  overrideSection.classList.toggle('hidden-overrides', shouldHideOverrides);
-  toggleOverridesButton.textContent = shouldHideOverrides ? 'Show manual controls' : 'Hide manual controls';
+  const shouldHideOverrides = inputMode !== 'manual';
+  overrideSection.classList.toggle('manual-hidden', shouldHideOverrides);
+  overrideSection.classList.remove('hidden-overrides');
+  manualModePill.className = `pill ${inputMode === 'manual' ? 'success' : ''}`.trim();
+  manualModePill.textContent = inputMode === 'manual' ? 'Manual inputs active' : 'Manual mode';
   overrideHelper.textContent = payload?.manual_input_recommendation?.message || 'Leave manual fields blank unless you have stronger information than the automatic feeds.';
 
-  if (modeSelect.value === 'post_toss' && automatic.official_toss && automatic.official_confirmed_xi) {
-    setActionFeedback('Automatic toss and official XI data are live. Manual controls are optional for edge-case corrections only.', 'success');
-  } else if (modeSelect.value === 'pre_toss') {
-    setActionFeedback('Use pre-toss mode for baseline reads. Only apply probable XI or manual injuries if you have reliable information.', 'subtle');
+  if (inputMode === 'auto' && modeSelect.value === 'post_toss' && automatic.official_toss && automatic.official_confirmed_xi) {
+    setActionFeedback('Auto is active. Official toss and confirmed XI data are live and being used for this post-toss read.', 'success');
+  } else if (inputMode === 'auto' && modeSelect.value === 'pre_toss') {
+    setActionFeedback('Auto pre-toss is locked for this fixture. Switch to Manual to set toss, lineup, and role assumptions yourself.', 'warning');
+  } else if (inputMode === 'manual' && modeSelect.value === 'pre_toss') {
+    setActionFeedback('Manual pre-toss mode is active. You can set toss assumptions, edit the XI, and add role overrides if you trust them more than the baseline.', 'subtle');
+  } else if (inputMode === 'manual' && autoAvailable) {
+    setActionFeedback('Manual post-toss mode is active. The predictor will use the toss or lineup inputs you supply instead of the automatic path.', 'subtle');
   } else {
-    setActionFeedback('This post-toss read still needs fallback context. Add only the inputs you trust.', 'error');
+    setActionFeedback('Manual post-toss mode is active. Enter toss winner, toss decision, and any lineup assumptions you trust while Auto data is unavailable.', 'warning');
   }
 
   renderProbableXiSelectors();
@@ -817,22 +935,37 @@ const runPrediction = async () => {
       mode: modeSelect.value,
     };
 
-    if (tossWinnerSelect.value) body.tossWinner = tossWinnerSelect.value;
-    if (tossDecisionSelect.value) body.tossDecision = tossDecisionSelect.value;
+    if (inputMode === 'manual' && tossWinnerSelect.value) body.tossWinner = tossWinnerSelect.value;
+    if (inputMode === 'manual' && tossDecisionSelect.value) body.tossDecision = tossDecisionSelect.value;
 
-    const featureOverrides = buildFeatureOverrides();
+  if (inputMode === 'manual' && modeSelect.value === 'post_toss' && !autoInputAvailable) {
+      if (!tossWinnerSelect.value || !tossDecisionSelect.value) {
+        throw new Error('Manual post-toss mode needs both toss winner and toss decision while automatic toss data is unavailable.');
+      }
+    }
+
+    const featureOverrides = inputMode === 'manual' ? buildFeatureOverrides() : {};
     if (Object.keys(featureOverrides).length) {
       body.featureOverrides = featureOverrides;
     }
 
-    if (modeSelect.value === 'pre_toss' && applyProbableXiInput.checked) {
+    if (inputMode === 'manual') {
       const team1Players = Array.from(probableXiSelections.team1 ?? []);
       const team2Players = Array.from(probableXiSelections.team2 ?? []);
-      if (team1Players.length !== 11 || team2Players.length !== 11) {
-        throw new Error('Select exactly 11 probable XI players for both teams before applying the lineup builder.');
+
+      if (probableXiDirty.team1) {
+        if (team1Players.length !== 11) {
+          throw new Error('Team 1 manual XI must contain exactly 11 players before running the model.');
+        }
+        body.team1ProbableXi = team1Players;
       }
-      body.team1ProbableXi = team1Players;
-      body.team2ProbableXi = team2Players;
+
+      if (probableXiDirty.team2) {
+        if (team2Players.length !== 11) {
+          throw new Error('Team 2 manual XI must contain exactly 11 players before running the model.');
+        }
+        body.team2ProbableXi = team2Players;
+      }
     }
 
     const response = await fetch('/predictor/api/predict', {
@@ -876,9 +1009,7 @@ runPredictionButton?.addEventListener('click', () => {
 fixtureSearch?.addEventListener('input', renderFixtures);
 
 modeSelect?.addEventListener('change', () => {
-  if (modeSelect.value === 'post_toss') {
-    applyProbableXiInput.checked = false;
-  }
+  inputModeTouched = false;
   void fetchContext().catch((error) => {
     setPredictionStatus('Error', 'error');
     setActionFeedback(error instanceof Error ? error.message : 'Unknown context error', 'error');
@@ -887,35 +1018,37 @@ modeSelect?.addEventListener('change', () => {
 
 team1LoadSuggestedButton?.addEventListener('click', () => {
   probableXiSelections.team1 = new Set(latestContext?.probable_xi_suggestions?.team1?.suggested_xi ?? []);
-  probableXiDirty.team1 = false;
+  probableXiDirty.team1 = true;
   renderProbableXiSelectors();
-  setActionFeedback('Loaded suggested probable XI for Team 1.', 'success');
+  setActionFeedback('Loaded the suggested XI for Team 1. It will be applied automatically in Manual mode.', 'success');
 });
 
 team2LoadSuggestedButton?.addEventListener('click', () => {
   probableXiSelections.team2 = new Set(latestContext?.probable_xi_suggestions?.team2?.suggested_xi ?? []);
-  probableXiDirty.team2 = false;
+  probableXiDirty.team2 = true;
   renderProbableXiSelectors();
-  setActionFeedback('Loaded suggested probable XI for Team 2.', 'success');
+  setActionFeedback('Loaded the suggested XI for Team 2. It will be applied automatically in Manual mode.', 'success');
 });
 
-toggleOverridesButton?.addEventListener('click', () => {
-  manualOverridesVisible = !manualOverridesVisible;
-  if (latestContext) {
-    renderAvailability(latestContext);
-  } else {
-    overrideSection.classList.toggle('hidden-overrides', !manualOverridesVisible);
-  }
+inputModeAutoButton?.addEventListener('click', () => {
+  if (inputModeAutoButton.disabled) return;
+  setInputMode('auto');
+});
+
+inputModeManualButton?.addEventListener('click', () => {
+  setInputMode('manual');
 });
 
 manualInputs.forEach((input) => {
   input?.addEventListener('input', () => {
     if (actionFeedback.classList.contains('error')) return;
+    if (inputMode !== 'manual') return;
     setActionFeedback('Manual context has changed. Run the model again to apply the new assumptions.', 'subtle');
   });
 });
 
 clearPredictionOutputs('Pick a fixture, review the context, then run the model.');
+applyInputMode();
 setActionFeedback('Pick a fixture to load context. Live matches switch to post-toss automatically.', 'subtle');
 
 void fetchFixtures().catch((error) => {

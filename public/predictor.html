@@ -42,7 +42,13 @@
                 <p class="eyebrow">Match briefing</p>
                 <h2>Set the decision context</h2>
               </div>
-              <span class="pill" id="prediction-status">Idle</span>
+              <div class="command-header-aside">
+                <span class="pill" id="prediction-status">Idle</span>
+                <div class="input-mode-toggle" role="tablist" aria-label="Input source mode">
+                  <button id="input-mode-auto" type="button" class="input-mode-button is-active" aria-pressed="true">Auto</button>
+                  <button id="input-mode-manual" type="button" class="input-mode-button" aria-pressed="false">Manual</button>
+                </div>
+              </div>
             </div>
 
             <div class="selected-fixture" id="selected-fixture"></div>
@@ -76,14 +82,14 @@
                 </label>
 
                 <label class="field">
-                  <span>Toss winner fallback</span>
+                  <span>Toss winner</span>
                   <select id="toss-winner-select">
                     <option value="">Use automatic source</option>
                   </select>
                 </label>
 
                 <label class="field">
-                  <span>Toss decision fallback</span>
+                  <span>Toss decision</span>
                   <select id="toss-decision-select">
                     <option value="">Use automatic source</option>
                     <option value="bat">Bat first</option>
@@ -95,25 +101,33 @@
               <div id="action-feedback" class="notice-banner subtle">Pick a fixture to load context. Live matches switch to post-toss automatically.</div>
             </section>
 
+            <section class="input-source-panel">
+              <div class="panel-header compact-header input-source-header">
+                <div>
+                  <p class="eyebrow">Input source</p>
+                  <h3>Automatic data or your own assumptions</h3>
+                </div>
+              </div>
+              <div id="input-mode-message" class="notice-banner subtle">Auto uses live system data when it is available. Switch to manual if you need to supply toss or lineup assumptions.</div>
+              <div id="auto-mode-summary" class="summary-grid summary-grid-tight"></div>
+            </section>
+
             <section class="override-section hidden-overrides">
               <div class="panel-header compact-header">
                 <div>
                   <p class="eyebrow">Manual context</p>
                   <h3>Only override what you genuinely know</h3>
                 </div>
-                <button id="toggle-overrides" type="button">Show manual controls</button>
+                <span class="pill" id="manual-mode-pill">Manual mode</span>
               </div>
 
               <section class="probable-xi-panel" id="probable-xi-panel">
                 <div class="panel-header compact-header probable-header">
                   <div>
-                    <p class="eyebrow">Pre-toss lineup builder</p>
-                    <h3>Shape likely XI before the toss</h3>
+                    <p class="eyebrow" id="manual-xi-eyebrow">Manual lineup builder</p>
+                    <h3 id="manual-xi-heading">Set the XI you want the model to use</h3>
                   </div>
-                  <label class="checkbox-field inline-checkbox">
-                    <input id="apply-probable-xi" type="checkbox" />
-                    <span>Use selected probable XIs in the model</span>
-                  </label>
+                  <span class="pill success" id="manual-xi-pill">Selections apply automatically</span>
                 </div>
 
                 <div class="probable-xi-grid">
@@ -148,7 +162,7 @@
                   </article>
                 </div>
 
-                <p class="subdued helper-text">Use this only for pre-toss work. Suggestions come from recent same-season squads and remain optional until you explicitly apply them.</p>
+                <p id="manual-xi-helper" class="subdued helper-text">Selections you make here apply automatically in Manual mode. Suggestions come from recent same-season squads and can be adjusted before you run the model.</p>
               </section>
 
               <div class="override-grid">
