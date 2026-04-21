@@ -39,6 +39,8 @@ MODEL_MATRIX_MANIFEST_PATH = DATA_DIR / "metadata" / "model_matrix_manifest.json
 FIXTURE_OVERRIDES_PATH = LIVE_DIR / "fixture_overrides.json"
 RAW_MATCH_INFO_PATH = DATA_DIR / "raw" / "cricsheet_match_info.csv"
 COMPLETED_RESULTS_2026_PATH = LIVE_DIR / "completed_results_2026.csv"
+CURRENT_SEASON_MATCH_SQUADS_PATH = LIVE_DIR / "current_season_match_squads.csv"
+CURRENT_SEASON_PLAYER_MATCH_STATS_PATH = LIVE_DIR / "current_season_player_match_stats.csv"
 
 OPTICODDS_BASE_URL = "https://api.opticodds.com/api/v3"
 OPTICODDS_SPORTSBOOKS = [
@@ -852,6 +854,12 @@ def canonicalize_official_role(player_skill: str, is_wk: str) -> str:
 @functools.lru_cache(maxsize=1)
 def load_player_match_history() -> pd.DataFrame:
     frame = load_csv(DATA_DIR / "staged" / "player_match_stats.csv").copy()
+    if CURRENT_SEASON_PLAYER_MATCH_STATS_PATH.exists():
+        live_frame = load_csv(CURRENT_SEASON_PLAYER_MATCH_STATS_PATH).copy()
+        frame = pd.concat([frame, live_frame], ignore_index=True)
+        frame = frame.drop_duplicates(
+            subset=["match_id", "team", "player_name"], keep="last"
+        )
     frame["player_name_key"] = frame["player_name"].map(normalize_player_name_key)
     frame["match_date"] = pd.to_datetime(frame["match_date"])
     numeric_columns = [
@@ -880,6 +888,12 @@ def load_player_style_history() -> pd.DataFrame:
 @functools.lru_cache(maxsize=1)
 def load_match_squads_history() -> pd.DataFrame:
     frame = load_csv(DATA_DIR / "staged" / "match_squads.csv").copy()
+    if CURRENT_SEASON_MATCH_SQUADS_PATH.exists():
+        live_frame = load_csv(CURRENT_SEASON_MATCH_SQUADS_PATH).copy()
+        frame = pd.concat([frame, live_frame], ignore_index=True)
+        frame = frame.drop_duplicates(
+            subset=["match_id", "team", "player_name"], keep="last"
+        )
     frame["player_name_key"] = frame["player_name"].map(normalize_player_name_key)
     frame["match_date"] = pd.to_datetime(frame["match_date"])
     return frame

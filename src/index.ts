@@ -111,6 +111,8 @@ const predictorScriptPath = join(modelDirectory, "predict_fixture.py")
 const upcomingFixturesCsvPath = join(modelDirectory, "data", "live", "upcoming_fixtures.csv")
 const upcomingFixturesJsonPath = join(modelDirectory, "data", "live", "upcoming_fixtures.json")
 const upcomingFixtureEloPath = join(modelDirectory, "data", "live", "upcoming_fixture_elo_context.csv")
+const currentSeasonSquadsPath = join(modelDirectory, "data", "live", "current_season_match_squads.csv")
+const currentSeasonPlayerStatsPath = join(modelDirectory, "data", "live", "current_season_player_match_stats.csv")
 const predictorLiveDataMaxAgeMs = config.predictorLiveDataMaxAgeMs
 const predictorMaintenanceIntervalMs = config.predictorMaintenanceIntervalMs
 const automaticPreTossLookaheadMs = 24 * 60 * 60 * 1000
@@ -158,6 +160,8 @@ const getOldestPredictorLiveDataMtimeMs = async () => {
     stat(upcomingFixturesJsonPath),
     stat(upcomingFixturesCsvPath),
     stat(upcomingFixtureEloPath),
+    stat(currentSeasonSquadsPath),
+    stat(currentSeasonPlayerStatsPath),
   ])
   return Math.min(...stats.map((entry) => entry.mtimeMs))
 }
@@ -165,6 +169,8 @@ const getOldestPredictorLiveDataMtimeMs = async () => {
 const refreshPredictorLiveData = async () => {
   await runPackageScript("model:data:fixtures")
   await runPackageScript("model:data:results-current")
+  await runPackageScript("model:data:squads-current")
+  await runPackageScript("model:data:player-stats-current")
   await runPackageScript("model:data:elo-current")
   await refreshPredictorPerformanceSummary()
 }
