@@ -29,6 +29,16 @@ def parse_args() -> argparse.Namespace:
         default="delta",
         help="Second feature mode directory to blend",
     )
+    parser.add_argument(
+        "--artifacts-dir",
+        default="model/artifacts",
+        help="Base directory containing matrix artifact folders",
+    )
+    parser.add_argument(
+        "--output-name",
+        default=None,
+        help="Optional output directory name; defaults to ensemble_catboost__<mode-a>__<mode-b>",
+    )
     return parser.parse_args()
 
 
@@ -46,7 +56,7 @@ def evaluate(y_true: pd.Series, probabilities: pd.Series) -> dict[str, float]:
 def main() -> None:
     args = parse_args()
     root = Path.cwd()
-    base_dir = root / "model" / "artifacts" / args.matrix
+    base_dir = root / args.artifacts_dir / args.matrix
 
     def resolve_mode_path(mode: str) -> Path:
         if "/" in mode or mode.startswith("."):
@@ -61,7 +71,9 @@ def main() -> None:
     mode_a_label = sanitize_label(args.mode_a)
     mode_b_label = sanitize_label(args.mode_b)
 
-    output_dir = base_dir / f"ensemble_catboost__{mode_a_label}__{mode_b_label}"
+    output_dir = base_dir / (
+        args.output_name or f"ensemble_catboost__{mode_a_label}__{mode_b_label}"
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     mode_a_predictions = pd.read_csv(mode_a_path / "fold_predictions.csv")
@@ -70,7 +82,15 @@ def main() -> None:
     mode_a_catboost = mode_a_predictions[
         mode_a_predictions["model"] == "catboost_tuned"
     ][
-        ["fold_name", "split", "match_id", "target_team1_won", "predicted_probability"]
+        [
+            "fold_name",
+            "split",
+            "match_id",
+            "season",
+            "match_date",
+            "target_team1_won",
+            "predicted_probability",
+        ]
     ].rename(columns={"predicted_probability": "p_mode_a"})
     mode_b_catboost = mode_b_predictions[
         mode_b_predictions["model"] == "catboost_tuned"
@@ -132,6 +152,8 @@ def main() -> None:
                     "fold_name",
                     "split",
                     "match_id",
+                    "season",
+                    "match_date",
                     "target_team1_won",
                     "model",
                     "selected_weight_primary",
@@ -147,6 +169,8 @@ def main() -> None:
                     "fold_name",
                     "split",
                     "match_id",
+                    "season",
+                    "match_date",
                     "target_team1_won",
                     "model",
                     "selected_weight_primary",
@@ -157,6 +181,47 @@ def main() -> None:
         ignore_index=True,
     )
     blended_predictions.to_csv(output_dir / "blended_predictions.csv", index=False)
+    blended_predictions.to_csv(output_dir / "fold_predictions.csv", index=False)
+
+    fold_metric_rows: list[dict[str, Any]] = []
+    for (fold_name, split_name), grouped in blended_predictions.groupby(
+        ["fold_name", "split"]
+    ):
+        metrics = evaluate(grouped["target_team1_won"], grouped["predicted_probability"])
+        fold_metric_rows.append(
+            {
+                "fold_name": fold_name,
+                "model": "catboost_ensemble",
+                "split": split_name,
+                "rows": int(grouped.shape[0]),
+                **metrics,
+            }
+        )
+
+    fold_metrics = pd.DataFrame(fold_metric_rows)
+    fold_metrics.to_csv(output_dir / "fold_metrics.csv", index=False)
+
+    summary_metric_rows: list[dict[str, Any]] = []
+    for split_name, grouped in fold_metrics.groupby("split"):
+        summary_metric_rows.append(
+            {
+                "model": "catboost_ensemble",
+                "split": split_name,
+                "folds": int(grouped.shape[0]),
+                "accuracy_mean": float(grouped["accuracy"].mean()),
+                "accuracy_std": float(grouped["accuracy"].std(ddof=0)),
+                "roc_auc_mean": float(grouped["roc_auc"].mean()),
+                "roc_auc_std": float(grouped["roc_auc"].std(ddof=0)),
+                "log_loss_mean": float(grouped["log_loss"].mean()),
+                "log_loss_std": float(grouped["log_loss"].std(ddof=0)),
+                "brier_mean": float(grouped["brier"].mean()),
+                "brier_std": float(grouped["brier"].std(ddof=0)),
+            }
+        )
+
+    pd.DataFrame(summary_metric_rows).to_csv(
+        output_dir / "summary_metrics.csv", index=False
+    )
 
     summary = {
         "matrix": args.matrix,

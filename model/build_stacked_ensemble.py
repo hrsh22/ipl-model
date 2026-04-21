@@ -20,6 +20,16 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Prediction source in the form path:model_name:alias",
     )
+    parser.add_argument(
+        "--artifacts-dir",
+        default="model/artifacts",
+        help="Base directory containing matrix artifact folders",
+    )
+    parser.add_argument(
+        "--output-name",
+        default="stacked_ensemble",
+        help="Output directory name under the chosen matrix artifact folder",
+    )
     return parser.parse_args()
 
 
@@ -40,11 +50,21 @@ def resolve_source(root: Path, source: str) -> tuple[Path, str, str]:
     return path, model_name, alias
 
 
+def load_prediction_frame(source_dir: Path) -> pd.DataFrame:
+    for file_name in ["fold_predictions.csv", "blended_predictions.csv"]:
+        file_path = source_dir / file_name
+        if file_path.exists():
+            return pd.read_csv(file_path)
+    raise FileNotFoundError(
+        f"No fold_predictions.csv or blended_predictions.csv found in {source_dir}"
+    )
+
+
 def main() -> None:
     args = parse_args()
     root = Path.cwd()
-    base_dir = root / "model" / "artifacts" / args.matrix
-    output_dir = base_dir / "stacked_ensemble"
+    base_dir = root / args.artifacts_dir / args.matrix
+    output_dir = base_dir / args.output_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
     merged: pd.DataFrame | None = None
@@ -53,12 +73,18 @@ def main() -> None:
     for source in args.source:
         path, model_name, alias = resolve_source(root, source)
         aliases.append(alias)
-        frame = pd.read_csv(path / "fold_predictions.csv")
-        frame = frame[frame["model"] == model_name][
+        frame = load_prediction_frame(path)
+        frame = frame[frame["model"] == model_name].copy()
+        for optional_column in ["season", "match_date"]:
+            if optional_column not in frame.columns:
+                frame[optional_column] = pd.NA
+        frame = frame[
             [
                 "fold_name",
                 "split",
                 "match_id",
+                "season",
+                "match_date",
                 "target_team1_won",
                 "predicted_probability",
             ]
@@ -103,7 +129,9 @@ def main() -> None:
             fold_rows.append(
                 {
                     "fold_name": fold_name,
+                    "model": "stacked_ensemble",
                     "split": split_name,
+                    "rows": int(rows.shape[0]),
                     **metrics,
                 }
             )
@@ -114,7 +142,10 @@ def main() -> None:
                         "fold_name": fold_name,
                         "split": split_name,
                         "match_id": getattr(row, "match_id"),
+                        "season": getattr(row, "season"),
+                        "match_date": getattr(row, "match_date"),
                         "target_team1_won": getattr(row, "target_team1_won"),
+                        "model": "stacked_ensemble",
                         "predicted_probability": float(prob),
                     }
                 )
@@ -128,12 +159,17 @@ def main() -> None:
     for split_name, grouped in metrics_frame.groupby("split"):
         summary_rows.append(
             {
+                "model": "stacked_ensemble",
                 "split": split_name,
                 "folds": int(grouped.shape[0]),
                 "accuracy_mean": float(grouped["accuracy"].mean()),
+                "accuracy_std": float(grouped["accuracy"].std(ddof=0)),
                 "roc_auc_mean": float(grouped["roc_auc"].mean()),
+                "roc_auc_std": float(grouped["roc_auc"].std(ddof=0)),
                 "log_loss_mean": float(grouped["log_loss"].mean()),
+                "log_loss_std": float(grouped["log_loss"].std(ddof=0)),
                 "brier_mean": float(grouped["brier"].mean()),
+                "brier_std": float(grouped["brier"].std(ddof=0)),
             }
         )
 
@@ -142,6 +178,7 @@ def main() -> None:
         "sources": args.source,
         "summary": summary_rows,
     }
+    pd.DataFrame(summary_rows).to_csv(output_dir / "summary_metrics.csv", index=False)
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(summary, indent=2))
 

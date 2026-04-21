@@ -23,3 +23,6 @@ model/data/live/
 
 # Oversized local source dataset (keep local or move to LFS/external fetch)
 model/data/IPL.csv
+
+# Local experiment outputs
+model/experiments/

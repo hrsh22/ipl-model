@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import joblib
 import json
 import os
 import re
@@ -13,8 +14,15 @@ from typing import Any
 
 import pandas as pd
 from catboost import CatBoostClassifier
+try:
+    from xgboost import Booster, DMatrix
+except ImportError:  # pragma: no cover - optional until XGBoost promotion is used
+    Booster = None
+    DMatrix = None
 
 from train_baselines import (
+    apply_isotonic_calibrator,
+    apply_platt_calibrator,
     build_feature_view,
     load_feature_allowlist,
     prepare_dataframe,
@@ -62,13 +70,15 @@ def load_local_env() -> None:
         os.environ.setdefault(key, value)
 
 
-def resolve_repo_path(path_value: str | Path) -> Path:
+def resolve_repo_path(
+    path_value: str | Path, *, final_models_dir: Path = FINAL_MODELS_DIR
+) -> Path:
     candidate = Path(path_value)
     if candidate.exists():
         return candidate
 
     if not candidate.is_absolute():
-        for base in (ROOT, MODEL_DIR, FINAL_MODELS_DIR, DATA_DIR):
+        for base in (ROOT, MODEL_DIR, final_models_dir, DATA_DIR):
             rebased = (base / candidate).resolve()
             if rebased.exists():
                 return rebased
@@ -83,7 +93,7 @@ def resolve_repo_path(path_value: str | Path) -> Path:
 
     if "final_models" in parts:
         final_models_index = parts.index("final_models")
-        rebased = (FINAL_MODELS_DIR / Path(*parts[final_models_index + 1 :])).resolve()
+        rebased = (final_models_dir / Path(*parts[final_models_index + 1 :])).resolve()
         if rebased.exists():
             return rebased
 
@@ -132,6 +142,11 @@ def parse_args() -> argparse.Namespace:
         description="Predict IPL fixture win probabilities"
     )
     parser.add_argument("--fixture-id", help="Fixture id from upcoming_fixtures.csv")
+    parser.add_argument(
+        "--fixture-row-json",
+        default=None,
+        help="Optional JSON object describing a historical fixture row for backfill use",
+    )
     parser.add_argument("--mode", choices=["pre_toss", "post_toss"], default="pre_toss")
     parser.add_argument("--list-fixtures", action="store_true")
     parser.add_argument("--describe-context", action="store_true")
@@ -151,6 +166,11 @@ def parse_args() -> argparse.Namespace:
         "--team2-probable-xi-json",
         default=None,
         help="Optional JSON array of selected probable XI player names for team2",
+    )
+    parser.add_argument(
+        "--final-models-dir",
+        default=None,
+        help="Optional alternate final_models directory for staged promotion validation",
     )
     argv = sys.argv[1:]
     if argv and argv[0] == "--":
@@ -195,6 +215,70 @@ def list_fixtures() -> None:
         fixtures[["fixture_id", "match_date", "team1", "team2", "venue"]].to_string(
             index=False
         )
+    )
+
+
+def load_fixture_row_from_args(args: argparse.Namespace) -> pd.Series:
+    fixtures = load_csv(LIVE_DIR / "upcoming_fixtures.csv")
+    fixture_row = fixtures[fixtures["fixture_id"] == args.fixture_id]
+    if not fixture_row.empty:
+        return fixture_row.iloc[0]
+
+    if args.fixture_row_json:
+        payload = json.loads(args.fixture_row_json)
+        if not isinstance(payload, dict):
+            raise ValueError("fixture-row-json must be a JSON object")
+        return pd.Series(payload)
+
+    raise ValueError(f"Unknown fixture id: {args.fixture_id}")
+
+
+def build_historical_elo_row(fixture: pd.Series) -> pd.Series:
+    matches = load_completed_match_context().copy()
+    target_match_date = normalize_timestamp(fixture["match_date"])
+    target_match_id = str(fixture.get("official_match_id") or fixture.get("fixture_id") or "")
+
+    def is_before_target(row: pd.Series) -> bool:
+        match_date = normalize_timestamp(row["match_date"])
+        if match_date < target_match_date:
+            return True
+        if match_date > target_match_date:
+            return False
+        if target_match_id and str(row["match_id"]).isdigit() and target_match_id.isdigit():
+            return int(str(row["match_id"])) < int(target_match_id)
+        return str(row["match_id"]) < target_match_id
+
+    prior_matches = matches[matches.apply(is_before_target, axis=1)].sort_values(
+        ["match_date", "match_id"]
+    )
+
+    elo_ratings: dict[str, float] = {}
+    for row in prior_matches.itertuples(index=False):
+        team1 = str(row.team1)
+        team2 = str(row.team2)
+        winner = str(row.winner)
+        team1_elo = elo_ratings.get(team1, 1500.0)
+        team2_elo = elo_ratings.get(team2, 1500.0)
+        expected_team1 = 1 / (1 + 10 ** ((team2_elo - team1_elo) / 400))
+        score_team1 = 1.0 if winner == team1 else 0.0
+        k_factor = 20.0
+        elo_ratings[team1] = team1_elo + k_factor * (score_team1 - expected_team1)
+        elo_ratings[team2] = team2_elo + k_factor * ((1.0 - score_team1) - (1.0 - expected_team1))
+
+    team1 = str(fixture["team1"])
+    team2 = str(fixture["team2"])
+    team1_elo = elo_ratings.get(team1, 1500.0)
+    team2_elo = elo_ratings.get(team2, 1500.0)
+    expected_team1 = 1 / (1 + 10 ** ((team2_elo - team1_elo) / 400))
+    return pd.Series(
+        {
+            "fixture_id": fixture["fixture_id"],
+            "team1_elo": team1_elo,
+            "team2_elo": team2_elo,
+            "elo_gap": team1_elo - team2_elo,
+            "elo_expected_team1_win": expected_team1,
+            "elo_expected_team2_win": 1 - expected_team1,
+        }
     )
 
 
@@ -1868,7 +1952,6 @@ def latest_venue_snapshot(matchups: pd.DataFrame, venue: str) -> dict[str, Any]:
 
 
 def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
-    fixtures = load_csv(LIVE_DIR / "upcoming_fixtures.csv")
     elo = load_csv(LIVE_DIR / "upcoming_fixture_elo_context.csv")
     matchup_path = FEATURES_DIR / "training_ready_matchup_features.csv"
     matchup_rows = load_csv(matchup_path)
@@ -1876,15 +1959,10 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
         normalize_timestamp
     )
 
-    fixture_row = fixtures[fixtures["fixture_id"] == args.fixture_id]
-    if fixture_row.empty:
-        raise ValueError(f"Unknown fixture id: {args.fixture_id}")
-    fixture = fixture_row.iloc[0]
+    fixture = load_fixture_row_from_args(args)
 
     elo_row = elo[elo["fixture_id"] == args.fixture_id]
-    if elo_row.empty:
-        raise ValueError(f"Missing Elo context for fixture: {args.fixture_id}")
-    live_elo = elo_row.iloc[0]
+    live_elo = elo_row.iloc[0] if not elo_row.empty else build_historical_elo_row(fixture)
 
     team1 = fixture["team1"]
     team2 = fixture["team2"]
@@ -2096,18 +2174,14 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def describe_context(args: argparse.Namespace) -> dict[str, Any]:
-    fixtures = load_csv(LIVE_DIR / "upcoming_fixtures.csv")
     elo = load_csv(LIVE_DIR / "upcoming_fixture_elo_context.csv")
-    fixture_row = fixtures[fixtures["fixture_id"] == args.fixture_id]
-    if fixture_row.empty:
-        raise ValueError(f"Unknown fixture id: {args.fixture_id}")
-    fixture = fixture_row.iloc[0]
+    fixture = load_fixture_row_from_args(args)
     elo_row = elo[elo["fixture_id"] == args.fixture_id]
     season = pd.Timestamp(fixture["match_date"]).year
     live_feature_summary = (
-        build_live_feature_refresh(fixture, elo_row.iloc[0])[1]
-        if not elo_row.empty
-        else {"applied": False, "completed_matches_considered": 0, "current_season_matches_considered": 0}
+        build_live_feature_refresh(
+            fixture, elo_row.iloc[0] if not elo_row.empty else build_historical_elo_row(fixture)
+        )[1]
     )
     override_entry = load_fixture_override_entry(str(fixture["fixture_id"]))
     official_post_toss = fetch_official_post_toss_context(fixture)
@@ -2258,7 +2332,7 @@ def describe_context(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def predict_component(
-    component_manifest: dict[str, Any], base_row: dict[str, Any]
+    component_manifest: dict[str, Any], base_row: dict[str, Any], final_models_dir: Path
 ) -> float:
     matrix_manifest = json.loads(MODEL_MATRIX_MANIFEST_PATH.read_text())[
         "preToss" if component_manifest["matrix"] == "pre_toss" else "postToss"
@@ -2276,9 +2350,68 @@ def predict_component(
         allowlist,
     )
     x = feature_view.frame[component_manifest["featureColumns"]]
-    model = CatBoostClassifier()
-    model.load_model(str(resolve_repo_path(component_manifest["modelPath"])))
-    return float(model.predict_proba(x)[0, 1])
+    model_type = str(component_manifest.get("modelType", "catboost")).lower()
+
+    if model_type == "catboost":
+        model = CatBoostClassifier()
+        model.load_model(
+            str(
+                resolve_repo_path(
+                    component_manifest["modelPath"], final_models_dir=final_models_dir
+                )
+            )
+        )
+        return float(model.predict_proba(x)[0, 1])
+
+    if model_type == "xgboost":
+        if Booster is None or DMatrix is None:
+            raise ImportError(
+                "xgboost runtime is required to load promoted XGBoost production models"
+            )
+
+        preprocessor_path = component_manifest.get("preprocessorPath")
+        if not preprocessor_path:
+            raise ValueError("XGBoost component manifest is missing preprocessorPath")
+
+        preprocessor = joblib.load(
+            resolve_repo_path(preprocessor_path, final_models_dir=final_models_dir)
+        )
+        transformed = preprocessor.transform(x)
+        booster = Booster()
+        booster.load_model(
+            str(
+                resolve_repo_path(
+                    component_manifest["modelPath"], final_models_dir=final_models_dir
+                )
+            )
+        )
+        probabilities = booster.predict(DMatrix(transformed))
+        probability = float(probabilities[0])
+
+        calibration_method = component_manifest.get("calibrationMethod")
+        calibrator_path = component_manifest.get("calibratorPath")
+        if calibration_method and calibrator_path:
+            calibrator = joblib.load(
+                resolve_repo_path(calibrator_path, final_models_dir=final_models_dir)
+            )
+            if calibration_method == "platt":
+                probability = float(
+                    apply_platt_calibrator(calibrator, pd.Series([probability]).to_numpy())[0]
+                )
+            elif calibration_method == "isotonic":
+                probability = float(
+                    apply_isotonic_calibrator(
+                        calibrator, pd.Series([probability]).to_numpy()
+                    )[0]
+                )
+            else:
+                raise ValueError(
+                    f"Unsupported XGBoost calibration method: {calibration_method}"
+                )
+
+        return probability
+
+    raise ValueError(f"Unsupported modelType in component manifest: {model_type}")
 
 
 def main() -> None:
@@ -2293,13 +2426,19 @@ def main() -> None:
         print(json.dumps(describe_context(args), indent=2))
         return
 
-    manifest = json.loads((FINAL_MODELS_DIR / "manifest.json").read_text())
+    final_models_dir = (
+        resolve_repo_path(args.final_models_dir, final_models_dir=FINAL_MODELS_DIR)
+        if args.final_models_dir
+        else FINAL_MODELS_DIR
+    )
+
+    manifest = json.loads((final_models_dir / "manifest.json").read_text())
     model_config = manifest[args.mode]
     base_row = build_base_row(args)
 
     component_predictions = []
     for component in model_config["components"]:
-        probability = predict_component(component, base_row)
+        probability = predict_component(component, base_row, final_models_dir)
         component_predictions.append(
             {
                 "component": component["component"],

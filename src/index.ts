@@ -15,6 +15,15 @@ import logger from "./logger.js"
 import { loadCricsheetData } from "./ipl/data-loader.js"
 import { generatePredictions, type PredictionRequest } from "./ipl/prediction-service.js"
 import { getAggregatedOdds } from "./ipl/odds-service.js"
+import {
+  backfillHistoricalPostTossSnapshots,
+  buildPredictorSnapshotKey,
+  getCurrentPredictorModelSourceHash,
+  getPredictorPerformanceSummary,
+  listStoredPredictorSnapshotKeys,
+  recordPredictorPerformanceSnapshot,
+  refreshPredictorPerformanceSummary,
+} from "./predictor-performance.js"
 
 const sendJson = <A>(res: Response, program: Effect.Effect<A, unknown>) => {
   void Effect.runPromise(
@@ -102,9 +111,21 @@ const predictorScriptPath = join(modelDirectory, "predict_fixture.py")
 const upcomingFixturesCsvPath = join(modelDirectory, "data", "live", "upcoming_fixtures.csv")
 const upcomingFixturesJsonPath = join(modelDirectory, "data", "live", "upcoming_fixtures.json")
 const upcomingFixtureEloPath = join(modelDirectory, "data", "live", "upcoming_fixture_elo_context.csv")
-const predictorLiveDataMaxAgeMs = 2 * 60 * 1000
+const predictorLiveDataMaxAgeMs = config.predictorLiveDataMaxAgeMs
+const predictorMaintenanceIntervalMs = config.predictorMaintenanceIntervalMs
+const automaticPreTossLookaheadMs = 24 * 60 * 60 * 1000
+const automaticPostTossWindowBeforeStartMs = 90 * 60 * 1000
+const automaticPostTossWindowAfterStartMs = 6 * 60 * 60 * 1000
 
 let predictorLiveDataRefreshPromise: Promise<void> | null = null
+
+type PredictorFixtureRow = {
+  fixture_id: string
+  match_date: string
+  status: string
+  is_live: boolean
+  is_completed: boolean
+}
 
 const runPredictFixture = (args: string[]) =>
   Effect.tryPromise<{ stdout: string; stderr: string }, Error>({
@@ -143,7 +164,145 @@ const getOldestPredictorLiveDataMtimeMs = async () => {
 
 const refreshPredictorLiveData = async () => {
   await runPackageScript("model:data:fixtures")
+  await runPackageScript("model:data:results-current")
   await runPackageScript("model:data:elo-current")
+  await refreshPredictorPerformanceSummary()
+}
+
+const loadPredictorFixtures = async () =>
+  JSON.parse(await readFile(upcomingFixturesJsonPath, "utf-8")) as PredictorFixtureRow[]
+
+const shouldGenerateAutomaticPreTossSnapshot = (
+  fixture: PredictorFixtureRow,
+  now: number,
+) => {
+  const matchTime = Date.parse(fixture.match_date)
+  if (!Number.isFinite(matchTime)) return false
+  if (fixture.is_completed) return false
+  return matchTime > now && matchTime - now <= automaticPreTossLookaheadMs
+}
+
+const shouldAttemptAutomaticPostTossSnapshot = (
+  fixture: PredictorFixtureRow,
+  now: number,
+) => {
+  const matchTime = Date.parse(fixture.match_date)
+  if (!Number.isFinite(matchTime)) return false
+  if (fixture.is_completed) return false
+  return (
+    fixture.is_live ||
+    (matchTime - automaticPostTossWindowBeforeStartMs <= now &&
+      now <= matchTime + automaticPostTossWindowAfterStartMs)
+  )
+}
+
+const runAutomaticPredictorSnapshots = async () => {
+  const fixtures = await loadPredictorFixtures().catch(() => [] as PredictorFixtureRow[])
+  if (!fixtures.length) {
+    return
+  }
+
+  const now = Date.now()
+  const modelSourceHash = await getCurrentPredictorModelSourceHash()
+  const snapshotKeys = await listStoredPredictorSnapshotKeys()
+
+  const tryRecordSnapshot = async (fixtureId: string, mode: "pre_toss" | "post_toss") => {
+    const requestProfile = "automatic"
+    const snapshotKey = buildPredictorSnapshotKey(
+      fixtureId,
+      mode,
+      requestProfile,
+      modelSourceHash,
+    )
+    if (snapshotKeys.has(snapshotKey)) {
+      return false
+    }
+
+    const { stdout } = await Effect.runPromise(
+      runPredictFixture(["--fixture-id", fixtureId, "--mode", mode]),
+    )
+    const result = JSON.parse(stdout) as Record<string, unknown>
+
+    if (
+      mode === "post_toss" &&
+      result.official_post_toss_applied !== true
+    ) {
+      return false
+    }
+
+    await recordPredictorPerformanceSnapshot(
+      {
+        fixtureId,
+        mode,
+        tossWinner: null,
+        tossDecision: null,
+        team1ProbableXi: [],
+        team2ProbableXi: [],
+        featureOverrides: null,
+      },
+      result as never,
+    )
+    snapshotKeys.add(snapshotKey)
+    logger.info("Recorded automatic predictor snapshot", { fixtureId, mode })
+    return true
+  }
+
+  for (const fixture of fixtures.sort((left, right) => left.match_date.localeCompare(right.match_date))) {
+    if (shouldGenerateAutomaticPreTossSnapshot(fixture, now)) {
+      try {
+        await tryRecordSnapshot(fixture.fixture_id, "pre_toss")
+      } catch (error) {
+        logger.warn("Automatic pre-toss snapshot generation failed", {
+          fixtureId: fixture.fixture_id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
+    if (shouldAttemptAutomaticPostTossSnapshot(fixture, now)) {
+      try {
+        await tryRecordSnapshot(fixture.fixture_id, "post_toss")
+      } catch (error) {
+        logger.warn("Automatic post-toss snapshot generation failed", {
+          fixtureId: fixture.fixture_id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+  }
+}
+
+const startPredictorMaintenanceLoop = () => {
+  const runMaintenance = async () => {
+    try {
+      await refreshPredictorLiveData()
+      await runAutomaticPredictorSnapshots()
+      await backfillHistoricalPostTossSnapshots()
+      await refreshPredictorPerformanceSummary()
+      logger.debug("Refreshed predictor maintenance data in background")
+    } catch (error) {
+      logger.warn("Predictor maintenance refresh failed", {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  const runMaintenanceWithLock = () => {
+    if (predictorLiveDataRefreshPromise) {
+      logger.debug("Skipped predictor maintenance refresh because one is already running")
+      return predictorLiveDataRefreshPromise
+    }
+
+    predictorLiveDataRefreshPromise = runMaintenance().finally(() => {
+      predictorLiveDataRefreshPromise = null
+    })
+    return predictorLiveDataRefreshPromise
+  }
+
+  void runMaintenanceWithLock()
+  return setInterval(() => {
+    void runMaintenanceWithLock()
+  }, predictorMaintenanceIntervalMs)
 }
 
 const ensurePredictorLiveDataFresh = () =>
@@ -190,6 +349,7 @@ const createApp = Effect.sync((): Express => {
           "/predictor/api/fixtures",
           "/predictor/api/context",
           "/predictor/api/predict",
+          "/predictor/api/performance",
           "/predict/ipl",
         ]
 
@@ -339,7 +499,65 @@ const createApp = Effect.sync((): Express => {
 
         yield* ensurePredictorLiveDataFresh()
         const { stdout } = yield* runPredictFixture(args)
-        return JSON.parse(stdout) as unknown
+        const result = JSON.parse(stdout) as Record<string, unknown>
+
+        yield* Effect.tryPromise({
+          try: () =>
+            recordPredictorPerformanceSnapshot(
+              {
+                fixtureId,
+                mode,
+                tossWinner:
+                  typeof body.tossWinner === "string" ? body.tossWinner : null,
+                tossDecision:
+                  typeof body.tossDecision === "string" ? body.tossDecision : null,
+                team1ProbableXi:
+                  Array.isArray(body.team1ProbableXi) &&
+                  body.team1ProbableXi.every((item) => typeof item === "string")
+                    ? body.team1ProbableXi
+                    : [],
+                team2ProbableXi:
+                  Array.isArray(body.team2ProbableXi) &&
+                  body.team2ProbableXi.every((item) => typeof item === "string")
+                    ? body.team2ProbableXi
+                    : [],
+                featureOverrides:
+                  body.featureOverrides && typeof body.featureOverrides === "object"
+                    ? (body.featureOverrides as Record<string, unknown>)
+                    : null,
+              },
+              result as never,
+            ),
+          catch: (error) =>
+            error instanceof Error ? error : new Error(String(error)),
+        }).pipe(
+          Effect.tapError((error) =>
+            Effect.sync(() => {
+              logger.warn("Failed to record predictor performance snapshot", {
+                fixtureId,
+                mode,
+                error: error.message,
+              })
+            }),
+          ),
+          Effect.ignore,
+        )
+
+        return result as unknown
+      }),
+    )
+  })
+
+  app.get("/predictor/api/performance", (_req, res) => {
+    sendJson(
+      res,
+      Effect.gen(function* () {
+        yield* ensurePredictorLiveDataFresh()
+        return yield* Effect.tryPromise({
+          try: () => getPredictorPerformanceSummary(),
+          catch: (error) =>
+            error instanceof Error ? error : new Error(String(error)),
+        })
       }),
     )
   })
@@ -707,6 +925,7 @@ const program = Effect.gen(function* () {
   yield* listen(app, config.port)
   yield* Effect.sync(() => {
     logger.info(`Server listening on http://localhost:${config.port}`)
+    startPredictorMaintenanceLoop()
   })
 
   if (!config.predictorOnlyMode) {

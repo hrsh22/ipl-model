@@ -157,6 +157,98 @@ Confirmed XI is now auto-fetched in `post_toss` mode from the IPL official match
 - If no matching Polymarket market exists, `market_overlay` will be `null` while `sportsbook_overlay` can still be populated from OpticOdds.
 - In `post_toss` mode, official toss + confirmed XI are applied before any file or CLI overrides; file overrides can still replace them if needed.
 
+## 9. Current-season prediction performance tracking
+
+The predictor now keeps a lightweight season ledger for live model calls under `model/data/live/`.
+
+Files:
+
+- `predictor_performance_predictions.jsonl` - immutable prediction snapshots for each `/predictor/api/predict` call
+- `predictor_performance_summary.json` - computed season summary using the latest snapshot per `fixture_id + mode + request_profile`
+- `predictor_finished_fixtures_<season>.csv` - derived settled-fixture ledger with actual result plus latest pre-toss and post-toss predictions on the same row
+
+Automatic background snapshots are also created while the server is running:
+
+- one automatic `pre_toss` snapshot when a fixture enters the pre-match lookahead window
+- one automatic `post_toss` snapshot once the match is near/live and official post-toss data is actually available
+
+Automatic snapshots are deduped by:
+
+- `fixture_id`
+- `mode`
+- `request_profile`
+- current production model manifest hash
+
+So the maintenance loop does not keep appending the same automatic prediction every 2 minutes.
+
+The finished-fixtures CSV is derived from the settled ledger rather than mutating `completed_results_<season>.csv`, so the raw completed-results file stays a clean source input.
+
+The tracker currently settles predictions against:
+
+- `model/data/live/completed_results_<season>.csv`
+- current-season rows in `model/data/raw/cricsheet_match_info.csv` when present
+
+The app now refreshes these inputs automatically in the background on a periodic maintenance loop, even if nobody hits the predictor UI:
+
+- `pnpm model:data:fixtures`
+- `pnpm model:data:results-current`
+- `pnpm model:data:elo-current`
+- predictor performance summary rebuild
+
+So ongoing-season evaluation updates automatically as completed results become available in those files.
+
+Available API endpoint:
+
+- `GET /predictor/api/performance`
+
+The summary reports, by season:
+
+- snapshot counts
+- pending vs settled predictions
+- accuracy
+- log loss
+- Brier score
+- separate slices for `pre_toss` / `post_toss`
+- separate slices for `automatic` / `manual` prediction requests
+
+Manual requests are tracked separately so repeated experiments or override-heavy calls do not silently pollute the default automatic model read.
+
+## 8. Safe experiment workflow
+
+The deployed predictor is only changed when you explicitly overwrite `model/final_models/`.
+
+To try alternative training settings, calibration methods, and ensembles without touching the current deployed model:
+
+```bash
+pnpm model:experiment -- --name april-backtest-v1 --dry-run
+```
+
+Then run the real suite:
+
+```bash
+pnpm model:experiment -- --name april-backtest-v1
+```
+
+This writes all experimental artifacts under:
+
+- `model/experiments/april-backtest-v1/artifacts/`
+- `model/experiments/april-backtest-v1/reports/`
+
+The experiment workflow currently:
+
+- trains multiple feature views in an isolated artifact root
+- evaluates both Platt and isotonic calibration when requested
+- builds isolated ensemble and stacked variants
+- backtests stored predictions against the current baseline artifacts without modifying `model/final_models/`
+
+You can also compare any stored prediction roots directly:
+
+```bash
+pnpm model:backtest -- --root current:model/artifacts --root experiment:model/experiments/april-backtest-v1/artifacts --output-dir model/experiments/april-backtest-v1/reports/manual-compare
+```
+
+Use this path to decide whether an experiment is better before promoting anything into `model/final_models/`.
+
 ## Predictor-only server mode
 
 If you want to expose only the predictor UI/API on a VM, you can start the Node server with:

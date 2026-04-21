@@ -69,6 +69,9 @@ const extractJsonpPayload = <T>(text: string, callbackName: string) => {
 const officialMatchKey = (matchDate: string, venue: string, team1: string, team2: string) =>
   [matchDate, normalizeLookup(venue), [normalizeLookup(team1), normalizeLookup(team2)].sort().join("::")].join("::")
 
+const officialMatchFallbackKey = (matchDate: string, team1: string, team2: string) =>
+  [matchDate, [normalizeLookup(team1), normalizeLookup(team2)].sort().join("::")].join("::")
+
 const fetchOfficialCompetitionId = async (seasonYear: number) => {
   const response = await fetch(IPLT20_COMPETITION_URL, {
     headers: { "User-Agent": "Mozilla/5.0" },
@@ -107,7 +110,7 @@ const fetchOfficialSchedule = async (seasonYear: number) => {
 
 const buildOfficialScheduleIndex = async (seasonYear: number) => {
   const rows = await fetchOfficialSchedule(seasonYear)
-  return new Map(
+  const byExactKey = new Map(
     rows.map((row) => {
       const matchDate = clean(row.MatchDate || row.GMTMatchDate)
       const venue = normalizeVenueName(clean(row.GroundName))
@@ -116,6 +119,20 @@ const buildOfficialScheduleIndex = async (seasonYear: number) => {
       return [officialMatchKey(matchDate, venue, team1, team2), row] as const
     }),
   )
+
+  const byFallbackKey = new Map(
+    rows.map((row) => {
+      const matchDate = clean(row.MatchDate || row.GMTMatchDate)
+      const team1 = normalizeTeamName(clean(row.HomeTeamName))
+      const team2 = normalizeTeamName(clean(row.AwayTeamName))
+      return [officialMatchFallbackKey(matchDate, team1, team2), row] as const
+    }),
+  )
+
+  return {
+    byExactKey,
+    byFallbackKey,
+  }
 }
 
 const deriveStatusFromOfficial = (officialRow: IplScheduleRow | undefined, fallbackStatus: string, fallbackIsLive: boolean, matchDate: Date, now: number) => {
@@ -250,9 +267,14 @@ const main = async () => {
       const city = deriveCity(clean(fixture.venue_location))
       const team1 = normalizeTeamName(clean(fixture.home_team_display))
       const team2 = normalizeTeamName(clean(fixture.away_team_display))
-      const officialRow = officialScheduleByMatch.get(
-        officialMatchKey(matchDate.toISOString().slice(0, 10), venue, team1, team2),
-      )
+      const officialMatchDate = matchDate.toISOString().slice(0, 10)
+      const officialRow =
+        officialScheduleByMatch.byExactKey.get(
+          officialMatchKey(officialMatchDate, venue, team1, team2),
+        ) ??
+        officialScheduleByMatch.byFallbackKey.get(
+          officialMatchFallbackKey(officialMatchDate, team1, team2),
+        )
       const statusState = deriveStatusFromOfficial(officialRow, fixture.status, fixture.is_live, matchDate, now)
       const inferredHomeTeam = inferHomeTeam([team1, team2], venue, matchDate.getUTCFullYear())
       const team1Context = resolveTeamVenueContext(team1, venue, matchDate.getUTCFullYear())

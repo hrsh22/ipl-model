@@ -29,7 +29,24 @@ const parsePort = (value: string) => {
   return port
 }
 
+const parseOptionalPositiveIntegerEnv = (
+  value: string | undefined,
+  fallback: number,
+) => {
+  if (!value?.trim()) {
+    return fallback
+  }
+
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error("Expected a positive integer environment value")
+  }
+
+  return parsed
+}
+
 const predictorOnlyMode = parseBooleanEnv(process.env.PREDICTOR_ONLY)
+const defaultPredictorBackgroundIntervalMs = 60 * 60 * 1000
 
 export const config = {
   port: parsePort(requireEnv("PORT")),
@@ -38,4 +55,12 @@ export const config = {
   databaseUrl: predictorOnlyMode ? optionalEnv("DATABASE_URL") : requireEnv("DATABASE_URL"),
   opticOddsApiKey: requireEnv("OPTICODDS_API_KEY"),
   observerApiToken: optionalEnv("OBSERVER_API_TOKEN"),
+  predictorLiveDataMaxAgeMs: parseOptionalPositiveIntegerEnv(
+    process.env.PREDICTOR_LIVE_DATA_MAX_AGE_MS,
+    defaultPredictorBackgroundIntervalMs,
+  ),
+  predictorMaintenanceIntervalMs: parseOptionalPositiveIntegerEnv(
+    process.env.PREDICTOR_MAINTENANCE_INTERVAL_MS,
+    defaultPredictorBackgroundIntervalMs,
+  ),
 }

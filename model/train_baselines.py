@@ -14,6 +14,7 @@ import pandas as pd
 from catboost import CatBoostClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
+from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, brier_score_loss, log_loss, roc_auc_score
 from sklearn.pipeline import Pipeline
@@ -74,6 +75,49 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional text file containing one allowed feature column per line",
     )
+    parser.add_argument(
+        "--run-label",
+        default=None,
+        help="Optional output directory label; defaults to feature mode",
+    )
+    parser.add_argument(
+        "--calibration-methods",
+        default="platt",
+        help="Comma-separated CatBoost calibration methods to evaluate: platt,isotonic",
+    )
+    parser.add_argument(
+        "--depth-options",
+        default="4,6",
+        help="Comma-separated CatBoost depth candidates",
+    )
+    parser.add_argument(
+        "--learning-rate-options",
+        default="0.03,0.05",
+        help="Comma-separated CatBoost learning-rate candidates",
+    )
+    parser.add_argument(
+        "--l2-options",
+        default="3,8",
+        help="Comma-separated CatBoost l2_leaf_reg candidates",
+    )
+    parser.add_argument(
+        "--catboost-iterations",
+        type=int,
+        default=1000,
+        help="Maximum CatBoost iterations before early stopping",
+    )
+    parser.add_argument(
+        "--season-weight-mode",
+        choices=["uniform", "exponential_half_life"],
+        default="uniform",
+        help="Optional training-only season recency weighting mode",
+    )
+    parser.add_argument(
+        "--season-half-life",
+        type=float,
+        default=2.0,
+        help="Half-life in seasons when season-weight-mode=exponential_half_life",
+    )
     return parser.parse_args()
 
 
@@ -87,6 +131,50 @@ def load_feature_allowlist(file_path: str | None) -> list[str] | None:
 
     path = Path(file_path)
     return [line.strip() for line in path.read_text().splitlines() if line.strip()]
+
+
+def parse_int_list(raw_value: str, *, label: str) -> list[int]:
+    values = [item.strip() for item in raw_value.split(",") if item.strip()]
+    if not values:
+        raise ValueError(f"{label} must contain at least one value")
+    return [int(item) for item in values]
+
+
+def parse_float_list(raw_value: str, *, label: str) -> list[float]:
+    values = [item.strip() for item in raw_value.split(",") if item.strip()]
+    if not values:
+        raise ValueError(f"{label} must contain at least one value")
+    return [float(item) for item in values]
+
+
+def parse_calibration_methods(raw_value: str) -> list[str]:
+    allowed = {"platt", "isotonic"}
+    methods = [item.strip().lower() for item in raw_value.split(",") if item.strip()]
+    if not methods:
+        return []
+    invalid = [method for method in methods if method not in allowed]
+    if invalid:
+        raise ValueError(
+            f"Unsupported calibration methods: {', '.join(invalid)}; allowed: {', '.join(sorted(allowed))}"
+        )
+    return list(dict.fromkeys(methods))
+
+
+def compute_season_sample_weights(
+    seasons: pd.Series,
+    *,
+    mode: str,
+    half_life: float,
+) -> np.ndarray:
+    if mode == "uniform":
+        return np.ones(len(seasons), dtype=float)
+    if half_life <= 0:
+        raise ValueError("season-half-life must be > 0")
+
+    latest_season = float(seasons.max())
+    season_gap = latest_season - seasons.astype(float)
+    weights = np.power(0.5, season_gap / half_life)
+    return weights.to_numpy(dtype=float)
 
 
 def normalize_boolean_string(series: pd.Series) -> pd.Series:
@@ -191,14 +279,17 @@ def build_logistic_pipeline(
 
 
 def build_catboost_model(
-    depth: int = 6, learning_rate: float = 0.05, l2_leaf_reg: float = 3.0
+    depth: int = 6,
+    learning_rate: float = 0.05,
+    l2_leaf_reg: float = 3.0,
+    iterations: int = 1000,
 ) -> CatBoostClassifier:
     return CatBoostClassifier(
         loss_function="Logloss",
         eval_metric="Logloss",
         depth=depth,
         learning_rate=learning_rate,
-        iterations=1000,
+        iterations=iterations,
         l2_leaf_reg=l2_leaf_reg,
         nan_mode="Min",
         has_time=True,
@@ -221,9 +312,9 @@ def evaluate_predictions(y_true: pd.Series, y_prob: np.ndarray) -> dict[str, flo
 
 
 def build_artifact_dirs(
-    base_dir: Path, matrix_name: str, feature_mode: str
+    base_dir: Path, matrix_name: str, run_label: str
 ) -> tuple[Path, Path]:
-    matrix_dir = base_dir / matrix_name / feature_mode
+    matrix_dir = base_dir / matrix_name / run_label
     models_dir = matrix_dir / "models"
     matrix_dir.mkdir(parents=True, exist_ok=True)
     models_dir.mkdir(parents=True, exist_ok=True)
@@ -337,6 +428,18 @@ def fit_platt_calibrator(
     return calibrator
 
 
+def fit_isotonic_calibrator(
+    probabilities: np.ndarray, targets: pd.Series
+) -> IsotonicRegression | None:
+    if len(np.unique(targets)) < 2:
+        return None
+
+    clipped = np.clip(probabilities, 1e-6, 1 - 1e-6)
+    calibrator = IsotonicRegression(out_of_bounds="clip")
+    calibrator.fit(clipped, targets)
+    return calibrator
+
+
 def apply_platt_calibrator(
     calibrator: LogisticRegression | None, probabilities: np.ndarray
 ) -> np.ndarray:
@@ -348,17 +451,32 @@ def apply_platt_calibrator(
     return calibrator.predict_proba(logits)[:, 1]
 
 
+def apply_isotonic_calibrator(
+    calibrator: IsotonicRegression | None, probabilities: np.ndarray
+) -> np.ndarray:
+    if calibrator is None:
+        return probabilities
+
+    clipped = np.clip(probabilities, 1e-6, 1 - 1e-6)
+    return calibrator.predict(clipped)
+
+
 def tune_catboost(
     x_train: pd.DataFrame,
     y_train: pd.Series,
+    train_sample_weight: np.ndarray,
     x_calibration: pd.DataFrame,
     y_calibration: pd.Series,
     categorical_columns: list[str],
+    depth_options: list[int],
+    learning_rate_options: list[float],
+    l2_options: list[float],
+    iterations: int,
 ) -> tuple[CatBoostClassifier, dict[str, Any], list[dict[str, Any]]]:
     candidates = [
         {"depth": depth, "learning_rate": learning_rate, "l2_leaf_reg": l2_leaf_reg}
         for depth, learning_rate, l2_leaf_reg in product(
-            [4, 6], [0.03, 0.05], [3.0, 8.0]
+            depth_options, learning_rate_options, l2_options
         )
     ]
 
@@ -368,10 +486,11 @@ def tune_catboost(
     best_score = float("inf")
 
     for params in candidates:
-        model = build_catboost_model(**params)
+        model = build_catboost_model(**params, iterations=iterations)
         model.fit(
             x_train,
             y_train,
+            sample_weight=train_sample_weight,
             cat_features=categorical_columns,
             eval_set=(x_calibration, y_calibration),
             use_best_model=True,
@@ -398,6 +517,12 @@ def tune_catboost(
 
 def train() -> None:
     args = parse_args()
+    calibration_methods = parse_calibration_methods(args.calibration_methods)
+    depth_options = parse_int_list(args.depth_options, label="depth options")
+    learning_rate_options = parse_float_list(
+        args.learning_rate_options, label="learning-rate options"
+    )
+    l2_options = parse_float_list(args.l2_options, label="l2 options")
     root_dir = Path.cwd()
     metadata_dir = root_dir / "model" / "data" / "metadata"
     manifest_path = metadata_dir / "model_matrix_manifest.json"
@@ -433,7 +558,9 @@ def train() -> None:
     folds = build_folds(available_seasons, args.min_train_seasons)
 
     artifacts_dir, models_dir = build_artifact_dirs(
-        root_dir / args.artifacts_dir, args.matrix, args.feature_mode
+        root_dir / args.artifacts_dir,
+        args.matrix,
+        args.run_label or args.feature_mode,
     )
     metrics_rows: list[dict[str, Any]] = []
     prediction_rows: list[dict[str, Any]] = []
@@ -454,6 +581,11 @@ def train() -> None:
 
         x_train = train_frame[feature_columns]
         y_train = train_frame[target_column]
+        train_sample_weight = compute_season_sample_weights(
+            train_frame["season"],
+            mode=args.season_weight_mode,
+            half_life=args.season_half_life,
+        )
         x_calibration = calibration_frame[feature_columns]
         y_calibration = calibration_frame[target_column]
         x_validation = validation_frame[feature_columns]
@@ -516,28 +648,59 @@ def train() -> None:
         catboost_model, best_params, fold_tuning_rows = tune_catboost(
             x_train,
             y_train,
+            train_sample_weight,
             x_calibration,
             y_calibration,
             categorical_columns,
+            depth_options,
+            learning_rate_options,
+            l2_options,
+            args.catboost_iterations,
         )
         catboost_calibration_prob = catboost_model.predict_proba(x_calibration)[:, 1]
         catboost_validation_prob = catboost_model.predict_proba(x_validation)[:, 1]
         catboost_test_prob = catboost_model.predict_proba(x_test)[:, 1]
-        platt_calibrator = fit_platt_calibrator(
-            catboost_calibration_prob, y_calibration
-        )
-        catboost_validation_prob_calibrated = apply_platt_calibrator(
-            platt_calibrator, catboost_validation_prob
-        )
-        catboost_test_prob_calibrated = apply_platt_calibrator(
-            platt_calibrator, catboost_test_prob
-        )
+        calibrated_outputs: list[tuple[str, np.ndarray, np.ndarray]] = [
+            ("catboost_tuned", catboost_validation_prob, catboost_test_prob)
+        ]
 
         catboost_model.save_model(models_dir / f"{fold.fold_name}__catboost_tuned.cbm")
-        joblib.dump(
-            platt_calibrator,
-            models_dir / f"{fold.fold_name}__catboost_platt.joblib",
-        )
+
+        if "platt" in calibration_methods:
+            platt_calibrator = fit_platt_calibrator(
+                catboost_calibration_prob, y_calibration
+            )
+            joblib.dump(
+                platt_calibrator,
+                models_dir / f"{fold.fold_name}__catboost_platt.joblib",
+            )
+            calibrated_outputs.append(
+                (
+                    "catboost_tuned_platt",
+                    apply_platt_calibrator(platt_calibrator, catboost_validation_prob),
+                    apply_platt_calibrator(platt_calibrator, catboost_test_prob),
+                )
+            )
+
+        if "isotonic" in calibration_methods:
+            isotonic_calibrator = fit_isotonic_calibrator(
+                catboost_calibration_prob, y_calibration
+            )
+            joblib.dump(
+                isotonic_calibrator,
+                models_dir / f"{fold.fold_name}__catboost_isotonic.joblib",
+            )
+            calibrated_outputs.append(
+                (
+                    "catboost_tuned_isotonic",
+                    apply_isotonic_calibrator(
+                        isotonic_calibrator, catboost_validation_prob
+                    ),
+                    apply_isotonic_calibrator(
+                        isotonic_calibrator, catboost_test_prob
+                    ),
+                )
+            )
 
         for tuning_row in fold_tuning_rows:
             tuning_rows.append(
@@ -568,14 +731,7 @@ def train() -> None:
             }
         )
 
-        for model_name, validation_prob, test_prob in [
-            ("catboost_tuned", catboost_validation_prob, catboost_test_prob),
-            (
-                "catboost_tuned_platt",
-                catboost_validation_prob_calibrated,
-                catboost_test_prob_calibrated,
-            ),
-        ]:
+        for model_name, validation_prob, test_prob in calibrated_outputs:
             for split_name, split_frame, y_true, probabilities in [
                 ("validation", validation_frame, y_validation, validation_prob),
                 ("test", test_frame, y_test, test_prob),
@@ -646,11 +802,23 @@ def train() -> None:
         "generatedAt": pd.Timestamp.utcnow().isoformat(),
         "matrix": args.matrix,
         "featureMode": args.feature_mode,
+        "runLabel": args.run_label or args.feature_mode,
         "featureAllowlist": feature_allowlist,
         "matrixPath": str(matrix_path),
         "matrixSha256": compute_sha256(matrix_path),
         "modelMatrixManifestSha256": compute_sha256(manifest_path),
         "minTrainSeasons": args.min_train_seasons,
+        "calibrationMethods": calibration_methods,
+        "seasonWeighting": {
+            "mode": args.season_weight_mode,
+            "halfLife": args.season_half_life,
+        },
+        "catboostSearch": {
+            "depthOptions": depth_options,
+            "learningRateOptions": learning_rate_options,
+            "l2LeafRegOptions": l2_options,
+            "iterations": args.catboost_iterations,
+        },
         "availableSeasons": available_seasons,
         "folds": [
             {
