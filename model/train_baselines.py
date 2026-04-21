@@ -43,6 +43,34 @@ def compute_sha256(file_path: Path) -> str:
     return sha256(file_path.read_bytes()).hexdigest()
 
 
+def resolve_repo_path(path_value: str | Path, *, root_dir: Path) -> Path:
+    candidate = Path(path_value)
+    if candidate.exists():
+        return candidate
+
+    if not candidate.is_absolute():
+        for base in (root_dir, root_dir / "model"):
+            rebased = (base / candidate).resolve()
+            if rebased.exists():
+                return rebased
+        return (root_dir / candidate).resolve()
+
+    parts = candidate.parts
+    if "model" in parts:
+        model_index = parts.index("model")
+        rebased = (root_dir / Path(*parts[model_index:])).resolve()
+        if rebased.exists():
+            return rebased
+
+    if "data" in parts:
+        data_index = parts.index("data")
+        rebased = (root_dir / "model" / "data" / Path(*parts[data_index + 1 :])).resolve()
+        if rebased.exists():
+            return rebased
+
+    return candidate
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train walk-forward IPL baseline models"
@@ -529,7 +557,7 @@ def train() -> None:
     manifest = load_manifest(manifest_path)
     manifest_key = "preToss" if args.matrix == "pre_toss" else "postToss"
     matrix_manifest = manifest[manifest_key]
-    matrix_path = Path(matrix_manifest["matrixPath"])
+    matrix_path = resolve_repo_path(matrix_manifest["matrixPath"], root_dir=root_dir)
 
     dataframe = pd.read_csv(matrix_path)
     metadata_columns: list[str] = list(matrix_manifest["metadataColumns"])

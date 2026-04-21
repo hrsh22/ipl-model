@@ -32,6 +32,7 @@ from train_baselines import (
     parse_float_list,
     parse_int_list,
     prepare_dataframe,
+    resolve_repo_path,
 )
 
 try:
@@ -210,7 +211,7 @@ def train() -> None:
     manifest = load_manifest(manifest_path)
     manifest_key = "preToss" if args.matrix == "pre_toss" else "postToss"
     matrix_manifest = manifest[manifest_key]
-    matrix_path = Path(matrix_manifest["matrixPath"])
+    matrix_path = resolve_repo_path(matrix_manifest["matrixPath"], root_dir=root_dir)
 
     dataframe = pd.read_csv(matrix_path)
     metadata_columns: list[str] = list(matrix_manifest["metadataColumns"])
