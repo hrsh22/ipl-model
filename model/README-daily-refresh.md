@@ -21,8 +21,8 @@ pnpm model:daily-refresh -- --dry-run
 pnpm model:daily-refresh -- --run-id 20260421-daily
 pnpm model:daily-refresh -- --skip-refresh
 pnpm model:daily-refresh -- --skip-train
-pnpm model:daily-refresh -- --auto-promote-post-toss --promotion-dry-run
-pnpm model:daily-refresh -- --auto-promote-post-toss
+pnpm model:daily-refresh -- --auto-promote-pre-toss --promotion-dry-run
+pnpm model:daily-refresh -- --auto-promote-pre-toss --auto-promote-post-toss
 ```
 
 ## What it runs
@@ -68,10 +68,10 @@ By default the daily runner does **not** auto-promote production models.
 If you enable:
 
 ```bash
-pnpm model:daily-refresh -- --auto-promote-post-toss
+pnpm model:daily-refresh -- --auto-promote-pre-toss --auto-promote-post-toss
 ```
 
-the runner will evaluate the daily `post_toss / xgboost_full_recency_h3_daily` candidate against the currently promoted production post-toss model and **promote by default** unless it clearly regresses.
+the runner will evaluate the daily pre-toss and post-toss production candidates against the currently promoted production baselines and **promote by default** unless they clearly regress.
 
 It will block promotion only when:
 
@@ -80,22 +80,22 @@ It will block promotion only when:
 - ROC-AUC drops beyond the allowed threshold
 - candidate metrics are missing / invalid
 
-The promotion still creates a rollback backup first via `model/promote_xgboost_experiment.py`.
+Pre-toss promotion rebuilds the production CatBoost components from the daily `top60_full_daily` + `delta_daily` artifacts using the daily ensemble-selected weights and records the ensemble summary as the future production baseline.
 
-Pre-toss remains evaluation-only and continues to use the CatBoost family.
+The promotion still creates a rollback backup first via `model/promote_catboost_experiment.py` and `model/promote_xgboost_experiment.py`.
 
 ## Cron example (4am IST)
 
 Run on a machine already configured with the repo, Python deps, and Node deps:
 
 ```cron
-0 4 * * * cd /home/cric-predictor/apps/ipl-model && /usr/bin/flock -n /tmp/ipl-model-daily-refresh.lock pnpm model:daily-refresh -- --auto-promote-post-toss >> logs/daily_model_refresh.log 2>&1
+0 4 * * * cd /home/cric-predictor/apps/ipl-model && /usr/bin/flock -n /tmp/ipl-model-daily-refresh.lock pnpm model:daily-refresh -- --auto-promote-pre-toss --auto-promote-post-toss >> logs/daily_model_refresh.log 2>&1
 ```
 
 If `flock` is unavailable, use a simpler cron entry first:
 
 ```cron
-0 4 * * * cd /home/cric-predictor/apps/ipl-model && pnpm model:daily-refresh -- --auto-promote-post-toss >> logs/daily_model_refresh.log 2>&1
+0 4 * * * cd /home/cric-predictor/apps/ipl-model && pnpm model:daily-refresh -- --auto-promote-pre-toss --auto-promote-post-toss >> logs/daily_model_refresh.log 2>&1
 ```
 
 ## PM2 ecosystem option
@@ -111,7 +111,7 @@ It defines two PM2 apps:
 
 The daily refresh process is configured with:
 
-- `pnpm model:daily-refresh -- --auto-promote-post-toss`
+- `pnpm model:daily-refresh -- --auto-promote-pre-toss --auto-promote-post-toss`
 - `cron_restart: "0 4 * * *"`
 - `autorestart: false`
 
