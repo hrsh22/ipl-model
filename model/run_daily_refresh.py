@@ -145,8 +145,45 @@ def build_refresh_commands() -> list[list[str]]:
     ]
 
 
+def resolve_pre_toss_top60_allowlist(run_artifacts_dir: Path) -> Path:
+    static_allowlist_path = (
+        ROOT / "model" / "artifacts" / "pre_toss" / "full" / "pruned_allowlists" / "top60.txt"
+    )
+    if static_allowlist_path.exists():
+        print(
+            "Pre-toss top60 allowlist source: static file "
+            f"({static_allowlist_path.relative_to(ROOT)})"
+        )
+        return static_allowlist_path
+
+    production_manifest_path = (
+        ROOT / "model" / "final_models" / "pre_toss" / "top60_full" / "manifest.json"
+    )
+    if production_manifest_path.exists():
+        production_manifest = json.loads(production_manifest_path.read_text())
+        feature_allowlist = production_manifest.get("featureAllowlist")
+        if isinstance(feature_allowlist, list) and feature_allowlist:
+            fallback_allowlist_path = run_artifacts_dir / "bootstrap_pre_toss_top60_allowlist.txt"
+            fallback_allowlist_path.parent.mkdir(parents=True, exist_ok=True)
+            fallback_allowlist_path.write_text(
+                "\n".join(str(feature) for feature in feature_allowlist) + "\n"
+            )
+            print(
+                "Pre-toss top60 allowlist source: production manifest "
+                f"({production_manifest_path.relative_to(ROOT)}) -> "
+                f"{fallback_allowlist_path.relative_to(ROOT)}"
+            )
+            return fallback_allowlist_path
+
+    raise FileNotFoundError(
+        "Missing pre-toss top60 allowlist. Expected either model/artifacts/pre_toss/full/pruned_allowlists/top60.txt "
+        "or a featureAllowlist in model/final_models/pre_toss/top60_full/manifest.json"
+    )
+
+
 def build_candidates(run_artifacts_dir: Path) -> list[Candidate]:
     relative_artifacts = run_artifacts_dir.relative_to(ROOT)
+    pre_toss_top60_allowlist = resolve_pre_toss_top60_allowlist(run_artifacts_dir)
     return [
         Candidate(
             key="pre_toss_catboost_top60_full",
@@ -166,7 +203,7 @@ def build_candidates(run_artifacts_dir: Path) -> list[Candidate]:
                 "--artifacts-dir",
                 str(relative_artifacts),
                 "--feature-allowlist",
-                "model/artifacts/pre_toss/full/pruned_allowlists/top60.txt",
+                str(pre_toss_top60_allowlist.relative_to(ROOT)),
                 "--calibration-methods",
                 "platt",
                 "--depth-options",

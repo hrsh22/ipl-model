@@ -94,6 +94,29 @@ COMPONENT_CONFIG = {
 }
 
 
+def resolve_allowlist(config: dict[str, Any], matrix_name: str) -> list[str] | None:
+    allowlist_path = config.get("allowlist_path")
+    if allowlist_path:
+        path = Path(allowlist_path)
+        if path.exists():
+            return load_feature_allowlist(str(path))
+
+    if matrix_name == "pre_toss" and config.get("name") == "top60_full":
+        production_manifest_path = (
+            ROOT / "model" / "final_models" / "pre_toss" / "top60_full" / "manifest.json"
+        )
+        if production_manifest_path.exists():
+            production_manifest = json.loads(production_manifest_path.read_text())
+            feature_allowlist = production_manifest.get("featureAllowlist")
+            if isinstance(feature_allowlist, list) and feature_allowlist:
+                return [str(feature) for feature in feature_allowlist]
+
+    if allowlist_path:
+        raise FileNotFoundError(f"Missing allowlist file: {allowlist_path}")
+
+    return None
+
+
 def to_repo_relative(path: Path) -> str:
     return str(path.resolve().relative_to(ROOT))
 
@@ -153,11 +176,7 @@ def fit_component(
     dataframe = pd.read_csv(matrix_path)
     feature_columns: list[str] = list(matrix_manifest["featureColumns"])
     categorical_columns: list[str] = list(matrix_manifest["categoricalFeatureColumns"])
-    allowlist = (
-        load_feature_allowlist(str(config["allowlist_path"]))
-        if config["allowlist_path"]
-        else None
-    )
+    allowlist = resolve_allowlist(config, matrix_name)
 
     dataframe = prepare_dataframe(
         dataframe, categorical_columns, "__unused_target__", []
