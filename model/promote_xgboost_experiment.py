@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -61,7 +62,10 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional backup directory; used automatically when writing over the same final_models root",
     )
-    return parser.parse_args()
+    argv = sys.argv[1:]
+    if argv and argv[0] == "--":
+        argv = argv[1:]
+    return parser.parse_args(argv)
 
 
 def resolve_repo_path(path_value: str | Path) -> Path:
