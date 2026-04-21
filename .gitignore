@@ -26,3 +26,9 @@ model/data/IPL.csv
 
 # Local experiment outputs
 model/experiments/
+
+# Local final-model rollback snapshots
+model/final_models_backups/
+
+# Local tournament simulation outputs
+model/simulations/
