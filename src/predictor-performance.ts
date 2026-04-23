@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises"
+import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createHash, randomUUID } from "node:crypto"
 import { execFile } from "node:child_process"
@@ -175,7 +175,8 @@ const rootDir = process.cwd()
 const modelDir = join(rootDir, "model")
 const liveDir = join(modelDir, "data", "live")
 const rawDir = join(modelDir, "data", "raw")
-const finalModelsManifestPath = join(modelDir, "final_models", "manifest.json")
+const finalModelsRoot = join(modelDir, "final_models")
+const finalModelsManifestPath = join(finalModelsRoot, "manifest.json")
 const predictionLedgerPath = join(liveDir, "predictor_performance_predictions.jsonl")
 const performanceSummaryPath = join(liveDir, "predictor_performance_summary.json")
 const finishedFixturesPrefix = join(liveDir, "predictor_finished_fixtures_")
@@ -250,13 +251,42 @@ const buildSnapshotPresenceKey = (
   modelSourceHash: string,
 ) => `${fixtureId}::${mode}::${requestProfile}::${modelSourceHash}`
 
-const getModelSourceHash = async () => {
+const listTrackedFinalModelFiles = async (directoryPath: string): Promise<string[]> => {
   try {
-    const raw = await readFile(finalModelsManifestPath, "utf-8")
-    return createHash("sha256").update(raw).digest("hex")
+    const entries = await readdir(directoryPath, { withFileTypes: true })
+    const nestedPaths = await Promise.all(
+      entries.map(async (entry) => {
+        const entryPath = join(directoryPath, entry.name)
+        if (entry.isDirectory()) {
+          return listTrackedFinalModelFiles(entryPath)
+        }
+        if (entry.isFile() && entry.name !== "revision_history.jsonl") {
+          return [entryPath]
+        }
+        return []
+      }),
+    )
+
+    return nestedPaths.flat().sort((left, right) => left.localeCompare(right))
   } catch {
+    return []
+  }
+}
+
+const getModelSourceHash = async () => {
+  const trackedFiles = await listTrackedFinalModelFiles(finalModelsRoot)
+  if (!trackedFiles.length) {
     return "unknown"
   }
+
+  const digest = createHash("sha256")
+  for (const filePath of trackedFiles) {
+    const relativePath = filePath.slice(finalModelsRoot.length + 1)
+    const fileHash = createHash("sha256").update(await readFile(filePath)).digest("hex")
+    digest.update(`${relativePath}:${fileHash}\n`)
+  }
+
+  return digest.digest("hex")
 }
 
 const resolveRequestProfile = (request: PredictorRequestSnapshot): PredictorRequestProfile => {

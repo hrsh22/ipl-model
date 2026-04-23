@@ -509,6 +509,8 @@ def maybe_promote_pre_toss_candidates(
         "model/final_models",
         "--backup-root",
         "model/final_models_backups",
+        "--revision-note",
+        f"auto-promote pre_toss: {decision.reason}",
     ]
     payload["promotionCommand"] = command
     payload["promotionApplied"] = not args.promotion_dry_run
@@ -572,6 +574,8 @@ def maybe_promote_post_toss_candidate(
         "model/final_models",
         "--backup-root",
         "model/final_models_backups",
+        "--revision-note",
+        f"auto-promote post_toss: {decision.reason}",
     ]
     payload["promotionCommand"] = command
     payload["promotionApplied"] = not args.promotion_dry_run

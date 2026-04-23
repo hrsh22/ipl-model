@@ -177,9 +177,50 @@ Automatic snapshots are deduped by:
 - `fixture_id`
 - `mode`
 - `request_profile`
-- current production model manifest hash
+- current production model source hash
 
 So the maintenance loop does not keep appending the same automatic prediction every 2 minutes.
+
+The production model source hash now fingerprints the full deployed `model/final_models/` tree (component manifests plus model binaries/preprocessors), excluding `revision_history.jsonl`, so prediction snapshots stay tied to the actual shipped model state rather than only the top-level manifest file.
+
+## 10. Model change tracking
+
+The required **human-readable source of truth** now lives in:
+
+- `model/MODEL_CHANGELOG.md`
+
+Use that file for every material model-affecting change, especially when you:
+
+- add or remove a data point / feature
+- change feature engineering logic
+- tune training/calibration/ensemble settings
+- change inference-time inputs that alter probabilities
+
+Each entry should explain:
+
+- what changed
+- why it changed
+- how it was tested
+- what happened to the key metrics
+- whether the change was promoted, rejected, or reverted
+
+Automatic logs are still useful, but they are **supporting evidence**, not the readable narrative source of truth. The main supporting files are:
+
+- `model/final_models/revision_history.jsonl`
+- `model/data/live/predictor_performance_predictions.jsonl`
+- `model/data/live/predictor_performance_summary.json`
+
+The first one tells us exactly when deployed artifacts changed; the other two let us see how that model source hash performed over time.
+
+If you promote manually, add an operator note so later reviews capture why the change was made:
+
+```bash
+python3 model/promote_xgboost_experiment.py ... --revision-note "improves post-toss calibration on recent-season walk-forward"
+```
+
+```bash
+python3 model/promote_catboost_experiment.py ... --revision-note "daily pre-toss promotion after guarded log-loss check"
+```
 
 The finished-fixtures CSV is derived from the settled ledger rather than mutating `completed_results_<season>.csv`, so the raw completed-results file stays a clean source input.
 
@@ -213,7 +254,7 @@ The summary reports, by season:
 
 Manual requests are tracked separately so repeated experiments or override-heavy calls do not silently pollute the default automatic model read.
 
-## 8. Safe experiment workflow
+## 11. Safe experiment workflow
 
 The deployed predictor is only changed when you explicitly overwrite `model/final_models/`.
 

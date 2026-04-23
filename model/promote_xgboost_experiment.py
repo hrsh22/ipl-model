@@ -12,6 +12,7 @@ import joblib
 import pandas as pd
 from xgboost import XGBClassifier
 
+from final_model_revision_log import append_final_model_revision, capture_final_model_state
 from train_baselines import (
     build_feature_view,
     compute_season_sample_weights,
@@ -62,6 +63,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional backup directory; used automatically when writing over the same final_models root",
     )
+    parser.add_argument(
+        "--revision-note",
+        default=None,
+        help="Optional operator note recorded in the final model revision log",
+    )
     argv = sys.argv[1:]
     if argv and argv[0] == "--":
         argv = argv[1:]
@@ -78,7 +84,11 @@ def resolve_repo_path(path_value: str | Path) -> Path:
 
 
 def to_repo_relative(path: Path) -> str:
-    return str(path.resolve().relative_to(ROOT))
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(ROOT))
+    except ValueError:
+        return str(resolved)
 
 
 def choose_xgboost_params(tuning_path: Path) -> dict[str, Any]:
@@ -155,6 +165,7 @@ def main() -> None:
     output_root = resolve_repo_path(args.output_root)
     base_root = resolve_repo_path(args.base_final_models_root)
     backup_root = resolve_repo_path(args.backup_root) if args.backup_root else None
+    previous_state = capture_final_model_state(output_root)
 
     training_manifest_path = artifact_dir / "training_manifest.json"
     tuning_path = artifact_dir / "xgboost_tuning.csv"
@@ -266,6 +277,19 @@ def main() -> None:
     (output_root / "manifest.json").write_text(
         json.dumps(overall_manifest, indent=2) + "\n"
     )
+    revision_entry = append_final_model_revision(
+        final_models_root=output_root,
+        operation="promote_xgboost_experiment",
+        previous_state=previous_state,
+        context={
+            "script": "model/promote_xgboost_experiment.py",
+            "matrix": args.matrix,
+            "artifactDir": to_repo_relative(artifact_dir),
+            "outputRoot": to_repo_relative(output_root),
+            "componentName": args.component_name,
+            "revisionNote": args.revision_note,
+        },
+    )
 
     print(
         json.dumps(
@@ -274,6 +298,8 @@ def main() -> None:
                 "artifactDir": str(artifact_dir),
                 "outputRoot": str(output_root),
                 "component": component_manifest,
+                "revisionLog": to_repo_relative(output_root / "revision_history.jsonl"),
+                "currentModelSourceHash": revision_entry["currentModelSourceHash"],
             },
             indent=2,
         )

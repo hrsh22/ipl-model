@@ -10,6 +10,7 @@ from typing import Any
 
 import pandas as pd
 
+from final_model_revision_log import append_final_model_revision, capture_final_model_state
 from fit_final_catboost_ensemble import choose_params
 from train_baselines import (
     build_catboost_model,
@@ -69,6 +70,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional backup directory; used automatically when writing over the same final_models root",
     )
+    parser.add_argument(
+        "--revision-note",
+        default=None,
+        help="Optional operator note recorded in the final model revision log",
+    )
     argv = sys.argv[1:]
     if argv and argv[0] == "--":
         argv = argv[1:]
@@ -97,7 +103,11 @@ def resolve_repo_path(path_value: str | Path) -> Path:
 
 
 def to_repo_relative(path: Path) -> str:
-    return str(path.resolve().relative_to(ROOT))
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(ROOT))
+    except ValueError:
+        return str(resolved)
 
 
 def maybe_backup_current_output(
@@ -218,6 +228,7 @@ def main() -> None:
     output_root = resolve_repo_path(args.output_root)
     base_root = resolve_repo_path(args.base_final_models_root)
     backup_root = resolve_repo_path(args.backup_root) if args.backup_root else None
+    previous_state = capture_final_model_state(output_root)
 
     maybe_backup_current_output(
         output_root=output_root,
@@ -258,6 +269,19 @@ def main() -> None:
     (output_root / "manifest.json").write_text(
         json.dumps(overall_manifest, indent=2) + "\n"
     )
+    revision_entry = append_final_model_revision(
+        final_models_root=output_root,
+        operation="promote_catboost_experiment",
+        previous_state=previous_state,
+        context={
+            "script": "model/promote_catboost_experiment.py",
+            "matrix": args.matrix,
+            "artifactsRoot": to_repo_relative(artifacts_root),
+            "ensembleArtifactDir": to_repo_relative(ensemble_artifact_dir),
+            "outputRoot": to_repo_relative(output_root),
+            "revisionNote": args.revision_note,
+        },
+    )
 
     print(
         json.dumps(
@@ -267,6 +291,8 @@ def main() -> None:
                 "ensembleArtifactDir": str(ensemble_artifact_dir),
                 "outputRoot": str(output_root),
                 "components": components,
+                "revisionLog": to_repo_relative(output_root / "revision_history.jsonl"),
+                "currentModelSourceHash": revision_entry["currentModelSourceHash"],
             },
             indent=2,
         )

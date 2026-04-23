@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from catboost import CatBoostClassifier
 
+from final_model_revision_log import append_final_model_revision, capture_final_model_state
 from train_baselines import (
     build_catboost_model,
     build_feature_view,
@@ -225,6 +226,7 @@ def fit_component(
 def main() -> None:
     data_manifest = load_manifest(DATA_MANIFEST_PATH)
     overall_manifest: dict[str, Any] = {}
+    previous_state = capture_final_model_state(FINAL_MODELS_DIR)
 
     for matrix_name, configs in COMPONENT_CONFIG.items():
         components = [
@@ -241,7 +243,25 @@ def main() -> None:
     (FINAL_MODELS_DIR / "manifest.json").write_text(
         json.dumps(overall_manifest, indent=2) + "\n"
     )
+    revision_entry = append_final_model_revision(
+        final_models_root=FINAL_MODELS_DIR,
+        operation="fit_final_catboost_ensemble",
+        previous_state=previous_state,
+        context={
+            "script": "model/fit_final_catboost_ensemble.py",
+            "notes": None,
+        },
+    )
     print(json.dumps(overall_manifest, indent=2))
+    print(
+        json.dumps(
+            {
+                "revisionLog": str((FINAL_MODELS_DIR / "revision_history.jsonl").relative_to(ROOT)),
+                "currentModelSourceHash": revision_entry["currentModelSourceHash"],
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":
