@@ -97,3 +97,10 @@
 ## IPL prediction endpoints
 - `src/index.ts` also wires experimental IPL prediction helpers from `src/ipl/`.
 - Current surfaced endpoint: `GET /predict/ipl` (and related IPL modeling helpers referenced from `src/index.ts`). Treat this area as experimental compared with the observer engine.
+
+## Model change discipline
+- The deployed predictor model lives under `model/`, with active production artifacts in `model/final_models/`.
+- `model/MODEL_CHANGELOG.md` is the required human-readable source of truth for any material model-affecting change.
+- Update `model/MODEL_CHANGELOG.md` whenever you change training data inputs, derived features, feature engineering logic, allowlists, model family, calibration, ensemble weights, hyperparameters, or inference-time inputs that can change predicted probabilities.
+- Each changelog entry should explain what changed, why it changed, how it was tested, the baseline vs candidate metrics, and whether the change was promoted, rejected, or reverted.
+- Automatic logs are supporting evidence only; when relevant, reference `model/final_models/revision_history.jsonl`, `model/data/live/predictor_performance_predictions.jsonl`, and `model/data/live/predictor_performance_summary.json` from the changelog entry.
