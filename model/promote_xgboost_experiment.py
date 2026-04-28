@@ -20,6 +20,7 @@ from train_baselines import (
     prepare_dataframe,
 )
 from train_xgboost import build_xgboost_preprocessor
+from train_xgboost import build_xgboost_feature_weights
 
 
 MODEL_DIR = Path(__file__).resolve().parent
@@ -125,10 +126,25 @@ def build_final_xgboost_model(
     n_estimators: int,
     subsample: float,
     colsample_bytree: float,
+    booster: str,
 ) -> XGBClassifier:
+    common_params = {
+        "objective": "binary:logistic",
+        "eval_metric": "logloss",
+        "booster": booster,
+        "learning_rate": learning_rate,
+        "reg_lambda": reg_lambda,
+        "n_estimators": n_estimators,
+        "random_state": 42,
+        "n_jobs": 0,
+    }
+    if booster == "gblinear":
+        return XGBClassifier(**common_params)
+
     return XGBClassifier(
         objective="binary:logistic",
         eval_metric="logloss",
+        booster=booster,
         max_depth=max_depth,
         learning_rate=learning_rate,
         reg_lambda=reg_lambda,
@@ -213,6 +229,14 @@ def main() -> None:
 
     selected_params = choose_xgboost_params(tuning_path)
     xgboost_search = training_manifest.get("xgboostSearch", {})
+    feature_weights = build_xgboost_feature_weights(
+        preprocessor,
+        feature_view.numeric_columns,
+        feature_view.categorical_columns,
+        float(xgboost_search.get("tossFeatureWeight", 1.0))
+        if args.matrix == "post_toss"
+        else 1.0,
+    )
     model = build_final_xgboost_model(
         max_depth=selected_params["max_depth"],
         learning_rate=selected_params["learning_rate"],
@@ -220,8 +244,14 @@ def main() -> None:
         n_estimators=selected_params["n_estimators"],
         subsample=float(xgboost_search.get("subsample", 0.9)),
         colsample_bytree=float(xgboost_search.get("colsampleBytree", 0.9)),
+        booster=str(xgboost_search.get("booster", "gbtree")),
     )
-    model.fit(x_train_encoded, y_train, sample_weight=train_sample_weight)
+    model.fit(
+        x_train_encoded,
+        y_train,
+        sample_weight=train_sample_weight,
+        feature_weights=feature_weights,
+    )
 
     maybe_backup_current_output(
         output_root=output_root,
@@ -253,6 +283,7 @@ def main() -> None:
             **selected_params,
             "subsample": float(xgboost_search.get("subsample", 0.9)),
             "colsampleBytree": float(xgboost_search.get("colsampleBytree", 0.9)),
+            "booster": str(xgboost_search.get("booster", "gbtree")),
         },
         "modelPath": to_repo_relative(model_path),
         "preprocessorPath": to_repo_relative(preprocessor_path),

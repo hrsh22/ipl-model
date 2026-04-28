@@ -42,7 +42,7 @@ pnpm model:daily-refresh -- --auto-promote-pre-toss --auto-promote-post-toss
 - `pre_toss / top60_full_daily`
 - `pre_toss / delta_daily`
 - `pre_toss / ensemble_top60_full__delta_daily`
-- `post_toss / xgboost_full_recency_h3_daily`
+- `post_toss / xgboost_post_toss_state_linear_daily`
 
 These are retrained into a dated run root under:
 
@@ -79,6 +79,14 @@ It will block promotion only when:
 - Brier regresses beyond the allowed threshold
 - ROC-AUC drops beyond the allowed threshold
 - candidate metrics are missing / invalid
+
+For post-toss promotion, the runner also stages the candidate and runs:
+
+```bash
+pnpm model:sensitivity:toss -- --fixture-id <fixture-id> --final-models-dir <staging-root> --min-spread 0.001 --max-equivalent-state-diff 1e-9
+```
+
+This blocks promotion unless the candidate is both sensitive to the resulting batting-order state and invariant across equivalent toss phrasings. For example, “team 1 wins toss and bats” must match “team 2 wins toss and fields.”
 
 Pre-toss promotion rebuilds the production CatBoost components from the daily `top60_full_daily` + `delta_daily` artifacts using the daily ensemble-selected weights and records the ensemble summary as the future production baseline.
 

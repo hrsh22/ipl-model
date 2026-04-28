@@ -276,26 +276,30 @@ const getNumericValue = (input) => {
 };
 
 const isAutoInputAvailable = (payload) => {
+  const automatic = payload?.automatic ?? {};
   if (modeSelect.value === 'post_toss') {
-    const automatic = payload?.automatic ?? {};
-    return Boolean(automatic.official_toss && automatic.official_confirmed_xi);
+    return Boolean(automatic.official_toss);
   }
-  return false;
+  return Boolean(automatic.fixture_shell && automatic.current_elo);
 };
 
 const getAutoLockReason = (payload) => {
   const automatic = payload?.automatic ?? {};
   const fixture = getSelectedFixture();
   if (modeSelect.value === 'post_toss') {
-    if (!automatic.official_toss && !automatic.official_confirmed_xi) {
-      return 'Auto will unlock when official toss and confirmed XI data arrive. Until then, use Manual to enter the toss result and any lineup assumptions yourself.';
-    }
     if (!automatic.official_toss) {
       return 'Auto will unlock when the official toss result arrives. Until then, use Manual to enter toss winner and toss decision yourself.';
     }
     if (!automatic.official_confirmed_xi) {
-      return 'Auto will unlock when the confirmed XIs arrive. Until then, use Manual if you want to supply the post-toss context yourself.';
+      return 'Auto can use the official toss now. Confirmed XIs are not available yet, so lineup context will fall back to modeled/suggested inputs unless you switch to Manual.';
     }
+    return 'Auto can use the official toss and confirmed XI data from the live feeds.';
+  }
+  if (automatic.fixture_shell && automatic.current_elo) {
+    if (fixture?.is_live) {
+      return 'Auto pre-toss baseline is available, but this match is live. Switch to Post toss to use official toss context when available.';
+    }
+    return 'Auto pre-toss baseline is available from the fixture shell, refreshed form, and current Elo context.';
   }
   if (automatic.official_toss && automatic.official_confirmed_xi) {
     return 'This match already has official toss and confirmed XI data. Switch to Post toss to let Auto use the live context.';
@@ -303,7 +307,7 @@ const getAutoLockReason = (payload) => {
   if (fixture?.is_live) {
     return 'This match is already live, but Auto only uses official live data in Post toss mode. Switch to Post toss to use the live context automatically.';
   }
-  return 'Auto pre-toss is locked right now because the system does not automatically have toss, lineup, or team-news assumptions for this fixture yet. Use Manual to enter the assumptions you want the model to use.';
+  return 'Auto is locked because the predictor is missing the fixture shell or current Elo context. Use Manual only if you can supply trusted assumptions while the automatic context is incomplete.';
 };
 
 const syncInputModeWithAvailability = (payload) => {
@@ -600,6 +604,7 @@ const renderAvailability = (payload) => {
   const autoAvailable = syncInputModeWithAvailability(payload);
   const fixture = getSelectedFixture();
   const officialPostTossReady = Boolean(automatic.official_toss && automatic.official_confirmed_xi);
+  const officialTossReady = Boolean(automatic.official_toss);
   const noteItems = [
     ...(payload?.notes?.pre_toss ?? []),
     ...(payload?.notes?.post_toss ?? []),
@@ -622,16 +627,18 @@ const renderAvailability = (payload) => {
   const keyMessage = modeSelect.value === 'post_toss'
     ? (autoAvailable
         ? (inputMode === 'auto'
-            ? 'Official toss and confirmed XI data are live, so Auto can use the complete post-toss context immediately.'
+            ? (officialPostTossReady
+                ? 'Official toss and confirmed XI data are live, so Auto can use the complete post-toss context immediately.'
+                : 'Official toss data is live, so Auto can price the batting-order state now; confirmed XI context will use the best available fallback.')
             : 'Official post-toss data is live, but Manual lets you replace it with your own toss or lineup assumptions if needed.')
-        : 'Official post-toss data is still incomplete, so Manual is open for you to enter toss outcome and any lineup assumptions yourself.')
+        : 'Official toss data is still missing, so Manual is open for you to enter toss outcome and any lineup assumptions yourself.')
     : (inputMode === 'manual'
-        ? (officialPostTossReady
-            ? 'This match already has official toss and confirmed XI data. You can stay in Manual pre-toss mode, but switching to Post toss will let Auto use the live context.'
+        ? (officialTossReady
+            ? 'This match already has official toss data. You can stay in Manual pre-toss mode, but switching to Post toss will let Auto use the live batting-order context.'
             : 'Manual pre-toss mode is active. Add the lineup and role assumptions you trust more than the baseline.')
-        : (officialPostTossReady
-            ? 'This match already has official toss and confirmed XI data. Switch to Post toss to let Auto use the live context.'
-            : 'Auto pre-toss is locked until the system has real automatic pre-toss inputs for this fixture. Use Manual to set the assumptions yourself.'));
+        : (officialTossReady
+            ? 'This match already has official toss data. Switch to Post toss to let Auto use the live batting-order context.'
+            : 'Auto pre-toss is using the system baseline, refreshed form, and available market context.'));
 
   keyStatusSummary.innerHTML = keyCards.join('');
   keyStatusNote.innerHTML = noteCard(keyMessage, true);
@@ -641,7 +648,7 @@ const renderAvailability = (payload) => {
         metricCard('Auto source', autoAvailable ? 'Ready' : 'Locked', autoAvailable ? 'edge-positive' : 'edge-negative'),
         metricCard('Official toss', automatic.official_toss ? 'Live feed' : 'Waiting', automatic.official_toss ? 'edge-positive' : 'edge-negative'),
         metricCard('Confirmed XIs', automatic.official_confirmed_xi ? 'Live feed' : 'Waiting', automatic.official_confirmed_xi ? 'edge-positive' : 'edge-negative'),
-        metricCard('Run behavior', autoAvailable ? 'Uses official match context' : 'Manual entry required'),
+        metricCard('Run behavior', autoAvailable ? (automatic.official_confirmed_xi ? 'Uses official match context' : 'Uses toss + fallback XI') : 'Manual entry required'),
       ]
     : [
         metricCard('Auto source', autoAvailable ? 'Ready' : 'Locked', autoAvailable ? 'edge-positive' : 'edge-negative'),
@@ -666,7 +673,9 @@ const renderAvailability = (payload) => {
     }
   } else {
     inputModeMessage.textContent = modeSelect.value === 'post_toss'
-      ? 'Auto is active. The predictor will use official toss and confirmed XI data from the live feeds.'
+      ? (automatic.official_confirmed_xi
+          ? 'Auto is active. The predictor will use official toss and confirmed XI data from the live feeds.'
+          : 'Auto is active. The predictor will use official toss data and the best available fallback lineup context.')
       : 'Auto is active. The predictor will use the system baseline, live form refresh, and available market context.';
     inputModeMessage.className = 'notice-banner success';
   }
@@ -705,10 +714,12 @@ const renderAvailability = (payload) => {
 
   if (inputMode === 'auto' && modeSelect.value === 'post_toss' && automatic.official_toss && automatic.official_confirmed_xi) {
     setActionFeedback('Auto is active. Official toss and confirmed XI data are live and being used for this post-toss read.', 'success');
+  } else if (inputMode === 'auto' && modeSelect.value === 'post_toss' && automatic.official_toss) {
+    setActionFeedback('Auto is active. Official toss data is live; confirmed XI context will use the best available fallback until lineups arrive.', 'success');
   } else if (inputMode === 'auto' && modeSelect.value === 'pre_toss') {
-    setActionFeedback(officialPostTossReady || fixture?.is_live
-      ? 'This match already has live post-toss data. Switch to Post toss if you want Auto to use the official toss and XI context.'
-      : 'Auto pre-toss is locked for this fixture. Switch to Manual to set toss, lineup, and role assumptions yourself.', 'warning');
+    setActionFeedback(officialTossReady || fixture?.is_live
+      ? 'This match already has live post-toss data. Switch to Post toss if you want Auto to use the official toss context.'
+      : 'Auto pre-toss is active with fixture shell, refreshed form, current Elo, and available market context.', officialTossReady || fixture?.is_live ? 'warning' : 'success');
   } else if (inputMode === 'manual' && modeSelect.value === 'pre_toss') {
     setActionFeedback(officialPostTossReady || fixture?.is_live
       ? 'Manual pre-toss mode is active, but this match already has live post-toss data. Stay here only if you want to override it yourself; otherwise switch to Post toss.'
@@ -977,14 +988,14 @@ const runPrediction = async () => {
       const team1Players = Array.from(probableXiSelections.team1 ?? []);
       const team2Players = Array.from(probableXiSelections.team2 ?? []);
 
-      if (probableXiDirty.team1) {
+      if (team1Players.length) {
         if (team1Players.length !== 11) {
           throw new Error('Team 1 manual XI must contain exactly 11 players before running the model.');
         }
         body.team1ProbableXi = team1Players;
       }
 
-      if (probableXiDirty.team2) {
+      if (team2Players.length) {
         if (team2Players.length !== 11) {
           throw new Error('Team 2 manual XI must contain exactly 11 players before running the model.');
         }

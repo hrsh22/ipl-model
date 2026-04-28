@@ -87,6 +87,44 @@ const parseConfidenceQuery = (value: unknown) => {
     : undefined
 }
 
+const parsePredictorMode = (value: unknown) => {
+  if (value === "pre_toss" || value === "post_toss") {
+    return value
+  }
+  return null
+}
+
+const parseOptionalString = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
+const parseStringArray = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const parsed = value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  return parsed.length === value.length ? parsed : []
+}
+
+const parseFeatureOverrides = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).filter(([, entryValue]) => entryValue !== null && entryValue !== undefined)
+  return entries.length ? Object.fromEntries(entries) : null
+}
+
 const requireObserverAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!config.observerApiToken) {
     next()
@@ -473,29 +511,38 @@ const createApp = Effect.sync((): Express => {
       Effect.gen(function* () {
         const body = req.body as Record<string, unknown>
         const fixtureId = typeof body.fixtureId === "string" ? body.fixtureId : null
-        const mode = body.mode === "post_toss" ? "post_toss" : "pre_toss"
+        const mode = parsePredictorMode(body.mode)
 
         if (!fixtureId) {
           res.status(400)
           return { error: "fixtureId is required" }
         }
+        if (!mode) {
+          res.status(400)
+          return { error: "mode must be pre_toss or post_toss" }
+        }
 
         const args = ["--fixture-id", fixtureId, "--mode", mode]
+        const tossWinner = parseOptionalString(body.tossWinner)
+        const tossDecision = parseOptionalString(body.tossDecision)
+        const team1ProbableXi = parseStringArray(body.team1ProbableXi)
+        const team2ProbableXi = parseStringArray(body.team2ProbableXi)
+        const featureOverrides = parseFeatureOverrides(body.featureOverrides)
 
-        if (typeof body.tossWinner === "string" && body.tossWinner.trim()) {
-          args.push("--toss-winner", body.tossWinner)
+        if (tossWinner) {
+          args.push("--toss-winner", tossWinner)
         }
-        if (typeof body.tossDecision === "string" && body.tossDecision.trim()) {
-          args.push("--toss-decision", body.tossDecision)
+        if (tossDecision) {
+          args.push("--toss-decision", tossDecision)
         }
-        if (Array.isArray(body.team1ProbableXi) && body.team1ProbableXi.every((item) => typeof item === "string")) {
-          args.push("--team1-probable-xi-json", JSON.stringify(body.team1ProbableXi))
+        if (team1ProbableXi.length) {
+          args.push("--team1-probable-xi-json", JSON.stringify(team1ProbableXi))
         }
-        if (Array.isArray(body.team2ProbableXi) && body.team2ProbableXi.every((item) => typeof item === "string")) {
-          args.push("--team2-probable-xi-json", JSON.stringify(body.team2ProbableXi))
+        if (team2ProbableXi.length) {
+          args.push("--team2-probable-xi-json", JSON.stringify(team2ProbableXi))
         }
-        if (body.featureOverrides && typeof body.featureOverrides === "object") {
-          args.push("--feature-overrides-json", JSON.stringify(body.featureOverrides))
+        if (featureOverrides) {
+          args.push("--feature-overrides-json", JSON.stringify(featureOverrides))
         }
 
         logger.debug("Handled POST /predictor/api/predict", {
@@ -513,24 +560,11 @@ const createApp = Effect.sync((): Express => {
               {
                 fixtureId,
                 mode,
-                tossWinner:
-                  typeof body.tossWinner === "string" ? body.tossWinner : null,
-                tossDecision:
-                  typeof body.tossDecision === "string" ? body.tossDecision : null,
-                team1ProbableXi:
-                  Array.isArray(body.team1ProbableXi) &&
-                  body.team1ProbableXi.every((item) => typeof item === "string")
-                    ? body.team1ProbableXi
-                    : [],
-                team2ProbableXi:
-                  Array.isArray(body.team2ProbableXi) &&
-                  body.team2ProbableXi.every((item) => typeof item === "string")
-                    ? body.team2ProbableXi
-                    : [],
-                featureOverrides:
-                  body.featureOverrides && typeof body.featureOverrides === "object"
-                    ? (body.featureOverrides as Record<string, unknown>)
-                    : null,
+                tossWinner,
+                tossDecision,
+                team1ProbableXi,
+                team2ProbableXi,
+                featureOverrides,
               },
               result as never,
             ),
@@ -574,11 +608,15 @@ const createApp = Effect.sync((): Express => {
       Effect.gen(function* () {
         const body = req.body as Record<string, unknown>
         const fixtureId = typeof body.fixtureId === "string" ? body.fixtureId : null
-        const mode = body.mode === "post_toss" ? "post_toss" : "pre_toss"
+        const mode = parsePredictorMode(body.mode)
 
         if (!fixtureId) {
           res.status(400)
           return { error: "fixtureId is required" }
+        }
+        if (!mode) {
+          res.status(400)
+          return { error: "mode must be pre_toss or post_toss" }
         }
 
         logger.debug("Handled POST /predictor/api/context", {

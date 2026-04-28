@@ -384,3 +384,213 @@ Removing Elo alone hurt both current-like all-data candidates.
 - Supporting evidence:
     - `model/experiments/no-elo-all-data/artifacts/pre_toss/ensemble_top60_full__delta_no_elo_all_data/summary_metrics.csv`
     - `model/experiments/no-elo-all-data/artifacts/post_toss/xgboost_full_no_elo_all_data/summary_metrics.csv`
+
+### 2026-04-28 — make post-toss XGBoost toss-sensitive
+
+- Status: promoted
+- Change type: feature | training | ensemble | inference
+- Hypothesis: the post-toss production model should respond to actual toss winner/decision changes by learning direct toss implication features inside XGBoost, instead of relying on inference-time fallback behavior.
+
+### What changed
+
+- Exact files changed: `src/model-data/derive-features.ts`, `model/data/features/*`, `model/data/matrices/post_toss_model_matrix.csv`, `model/data/metadata/model_matrix_manifest.json`, `model/predict_fixture.py`, `model/train_xgboost.py`, `model/promote_xgboost_experiment.py`, `model/run_daily_refresh.py`, `model/check_toss_sensitivity.py`, `package.json`, `model/final_models/manifest.json`, `model/final_models/post_toss/xgboost_linear_toss/*`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: added post-toss toss implication features (`toss_winner_is_team1`, `toss_winner_is_team2`, `toss_decision_bat`, `toss_decision_field`, `team1_batting_order_win_rate`, `team2_batting_order_win_rate`, `batting_order_win_rate_gap`, `venue_batting_order_expected_team1_win_rate`, `toss_winner_decision_preference_match`) and mirrored them in live inference. Added XGBoost `feature_weights` support and `gblinear` booster support. Production post_toss is now an all-XGBoost blend: existing tree XGBoost component at 0.65 plus new linear XGBoost toss component at 0.35.
+- Whether this affects pre_toss, post_toss, or both: post_toss only.
+
+### How we tested it
+
+- Experiment/report paths:
+  - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_full_toss_features_w1_20260428/summary_metrics.csv`
+  - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_full_toss_linear_20260428/summary_metrics.csv`
+  - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_linear_toss_ensemble_20260428/summary_metrics.csv`
+- Baseline artifact or production reference: prior `model/final_models/post_toss/xgboost_full_recency_h3` tree-only production model; prior documented 2025 baseline from `model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3/summary_metrics.csv`.
+- Comparison method: walk-forward training/proxy ensemble metrics plus production runtime toss-permutation sensitivity gate.
+
+### Measured impact
+
+| metric   | baseline | candidate/proxy | delta |
+| -------- | -------- | --------------- | ----- |
+| log_loss | 0.6797   | 0.6962          | +0.0165 |
+| brier    | 0.2433   | 0.2513          | +0.0080 |
+| roc_auc  | 0.6073   | 0.5405          | -0.0668 |
+| accuracy | 0.6377   | 0.5372          | -0.1005 |
+
+- Live/current-season effect after promotion: `pnpm model:sensitivity:toss -- --fixture-id 20260428E9386625 --min-spread 0.001` passes with observed spread `0.003493946790695146`. Team 1 probability now moves from `0.47557685077190404` to `0.4790707975625992` across toss permutations using production `model/final_models`.
+- Confidence / caveats: this removes the CatBoost fallback and keeps post_toss production entirely XGBoost. The promoted blend intentionally prioritizes the operator contract that manual toss changes must affect post-toss odds. The available fold-level proxy metrics regress versus the prior documented production baseline because local historical fold predictions for the exact previous final tree artifact are not present; future retraining should search for a higher-quality toss-sensitive tree/linear blend before increasing the linear weight.
+
+### Decision
+
+- Outcome: promoted
+- Why: the previous XGBoost tree-only model accepted toss fields but ignored them in predictions. The promoted all-XGBoost blend makes post-toss odds responsive to toss assumptions without inference-time model-family switching.
+- Deployed model source hash after change: `0f71d70a2da05236ec405268e84c5814e260c2351ff95843aa4157d66d8ec698`
+- Supporting evidence:
+    - `model/check_toss_sensitivity.py`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_linear_toss_ensemble_20260428/summary_metrics.csv`
+    - `model/final_models_backups/post_toss_xgboost_blend_20260428T092224Z`
+
+### 2026-04-28 — rollback unsafe post-toss XGBoost blend
+
+- Status: reverted
+- Change type: model promotion rollback
+- Hypothesis: the all-XGBoost tree/linear blend made manual post-toss inputs technically responsive, but its probabilities were not safe enough for production because the linear toss component was weak and the blend regressed held-out proxy metrics.
+
+### What changed
+
+- Exact files changed: `model/final_models/manifest.json`, `model/final_models/post_toss/xgboost_linear_toss/*`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: removed `xgboost_linear_toss` from the live `post_toss` production blend, deleted its unused production artifact files, and restored `xgboost_full_recency_h3` to weight `1.0`. The toss-derived feature generation, live inference mirroring, XGBoost training knobs, and sensitivity tooling remain in the repo for the next validated retrain.
+- Whether this affects pre_toss, post_toss, or both: post_toss only.
+
+### How we tested it
+
+- Experiment/report paths:
+  - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_full_toss_linear_20260428/summary_metrics.csv`
+  - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_linear_toss_ensemble_20260428/summary_metrics.csv`
+  - `model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3/summary_metrics.csv`
+- Baseline artifact or production reference: prior tree-only `model/final_models/post_toss/xgboost_full_recency_h3` production component.
+- Comparison method: production component decomposition for fixture `20260428E9386625`, toss-permutation sensitivity checks, and fold-level summary metric comparison.
+
+### Measured impact
+
+| model | test log_loss | test brier | test roc_auc | test accuracy |
+| --- | --- | --- | --- | --- |
+| xgboost_full_recency_h3 reference | 0.6920 | 0.2492 | 0.5612 | 0.5691 |
+| xgboost_linear_toss | 0.7043 | 0.2552 | 0.5387 | 0.5085 |
+| 0.65/0.35 tree/linear blend | 0.6962 | 0.2513 | 0.5405 | 0.5372 |
+
+- Live/current-season effect after rollback: fixture `20260428E9386625` returns to the tree component probability around `0.4639399648` rather than the unsafe blend range `0.4755768508`–`0.4790707976`.
+- Confidence / caveats: this intentionally sacrifices the provisional production toss sensitivity to avoid shipping a weaker blend. The proper fix remains a validated XGBoost retrain that is both toss-sensitive and no worse than the production tree on held-out metrics.
+
+### Decision
+
+- Outcome: reverted
+- Why: the promoted linear toss component was only weakly toss-sensitive, moved prices in a way that looked operationally suspect, and degraded the available validation evidence. Keeping the toss-feature infrastructure while removing the component from the live manifest is the safest rollback.
+- Deployed model source hash after change: `970a3efafe3c75407d3bceee8456a979cce3c1ff46cf05cbf2f48eb24bcc5297`
+- Supporting evidence:
+    - `model/final_models/manifest.json`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_full_toss_linear_20260428/summary_metrics.csv`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_linear_toss_ensemble_20260428/summary_metrics.csv`
+
+### 2026-04-28 — promote toss-sensitive post-toss XGBoost tree
+
+- Status: promoted
+- Change type: model promotion | training
+- Hypothesis: post-toss production must remain XGBoost and must move probabilities when toss winner/decision changes; a single `gbtree` model trained with toss implication features, high toss feature sampling weight, and low `colsample_bytree` should satisfy that contract more cleanly than the reverted tree/linear blend.
+
+### What changed
+
+- Exact files changed: `model/final_models/manifest.json`, `model/final_models/post_toss/xgboost_tree_toss_colsample_w50/*`, `model/final_models/revision_history.jsonl`, `model/final_models_backups/*`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: replaced live post_toss `xgboost_full_recency_h3` with `xgboost_tree_toss_colsample_w50` at weight `1.0`. The promoted component consumes the post-toss implication fields (`toss_winner_is_team1`, `toss_winner_is_team2`, `toss_decision_bat`, `toss_decision_field`, `team1_batting_order_win_rate`, `team2_batting_order_win_rate`, `batting_order_win_rate_gap`, `venue_batting_order_expected_team1_win_rate`, `toss_winner_decision_preference_match`) and uses `gbtree` with `colsample_bytree=0.35` plus toss feature sampling weight from the source experiment.
+- Whether this affects pre_toss, post_toss, or both: post_toss only.
+
+### How we tested it
+
+- Experiment/report paths:
+  - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_toss_colsample_w50_20260428/summary_metrics.csv`
+  - `model/experiments/toss-sensitive-xgboost/staging/tree_colsample_w50_final_models/`
+- Baseline artifact or production reference: prior flat `model/final_models/post_toss/xgboost_full_recency_h3` production component and the rejected `0.65/0.35` tree/linear blend.
+- Comparison method: promoted to staging first, ran toss-permutation sensitivity for fixture `20260428E9386625`, then promoted the same single-component XGBoost tree into `model/final_models` and re-ran prediction/build checks.
+
+### Measured impact
+
+| model | test log_loss | test brier | test roc_auc | test accuracy |
+| --- | --- | --- | --- | --- |
+| xgboost_full_recency_h3 reference | 0.6920 | 0.2492 | 0.5612 | 0.5691 |
+| rejected 0.65/0.35 tree/linear blend | 0.6962 | 0.2513 | 0.5405 | 0.5372 |
+| xgboost_tree_toss_colsample_w50 | 0.6989 | 0.2525 | 0.5511 | 0.5189 |
+
+- Live/current-season effect after promotion: `pnpm model:sensitivity:toss -- --fixture-id 20260428E9386625 --min-spread 0.001` passes with observed spread `0.019425690174102783`. Team 1 probability now moves from `0.4728984832763672` to `0.49232417345046997` across toss permutations using production `model/final_models`.
+- Confidence / caveats: this fixes the operator contract with a single XGBoost tree component that consumes the toss implication columns. Its fold metrics are still weaker than the prior flat reference, so this promotion is a functional correctness fix, not a final model-quality win. The next training pass should search for a toss-sensitive tree that also beats or matches the flat reference on log loss and Brier score.
+
+### Decision
+
+- Outcome: promoted
+- Why: the flat post-toss production model violated the core post-toss contract by returning identical probabilities across toss scenarios. The promoted component is a model-level XGBoost fix, not a UI/display adjustment or non-XGBoost fallback, and it restores meaningful toss sensitivity immediately.
+- Deployed model source hash after change: `9e8608460caff6a54db3ef026f96ff2e3b2f0687634b8c9abad4e0fe9c491aee`
+- Supporting evidence:
+    - `model/check_toss_sensitivity.py`
+    - `model/final_models/manifest.json`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_toss_colsample_w50_20260428/summary_metrics.csv`
+
+### 2026-04-28 — enforce batting-order equivalence in post-toss XGBoost
+
+- Status: promoted
+- Change type: feature | training | validation | model promotion
+- Hypothesis: post-toss pricing should depend on the resulting innings state, not on two different wordings of the same state. For example, “Punjab Kings bat” and “Rajasthan Royals field” both mean Punjab bat first and must produce the same probability.
+
+### What changed
+
+- Exact files changed: `model/train_baselines.py`, `model/train_xgboost.py`, `model/check_toss_sensitivity.py`, `model/final_models/manifest.json`, `model/final_models/post_toss/xgboost_post_toss_state_linear/*`, `model/final_models/post_toss/xgboost_tree_toss_colsample_w50/*`, `model/final_models/revision_history.jsonl`, `model/final_models_backups/*`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: added `post_toss_state` feature mode, which removes toss-agency fields (`toss_winner`, `toss_decision`, `toss_winner_is_team1`, `toss_winner_is_team2`, `toss_decision_bat`, `toss_decision_field`, `toss_winner_decision_preference_match`) while preserving batting-order state fields (`team1_bats_first`, `team2_bats_first`, batting-order win-rate features, and venue batting-order expectation). Promoted `xgboost_post_toss_state_linear` as the live post_toss component and removed the non-invariant `xgboost_tree_toss_colsample_w50` production artifact files. Strengthened `model/check_toss_sensitivity.py` to fail when equivalent batting-order scenarios differ.
+- Whether this affects pre_toss, post_toss, or both: post_toss only.
+
+### How we tested it
+
+- Experiment/report paths:
+  - `model/experiments/toss-state-xgboost/artifacts/post_toss/xgboost_post_toss_state_linear_20260428/summary_metrics.csv`
+  - `model/experiments/toss-state-xgboost/staging/post_toss_state_linear_final_models/`
+  - `model/experiments/toss-state-xgboost/artifacts/post_toss/xgboost_post_toss_state_tree_tiny_20260428/summary_metrics.csv`
+- Baseline artifact or production reference: non-invariant `xgboost_tree_toss_colsample_w50` production model and flat `xgboost_full_recency_h3` reference.
+- Comparison method: compared raw scenario feature rows, confirmed equivalent batting-order scenarios only differed by toss-agency columns, trained state-only candidates, staged/promoted the invariant candidate, and ran the enhanced toss sensitivity/equivalence checker.
+
+### Measured impact
+
+| model | test log_loss | test brier | test roc_auc | test accuracy |
+| --- | --- | --- | --- | --- |
+| non-invariant xgboost_tree_toss_colsample_w50 | 0.6989 | 0.2525 | 0.5511 | 0.5189 |
+| xgboost_post_toss_state_linear | 0.7039 | 0.2550 | 0.5444 | 0.5119 |
+| xgboost_post_toss_state_tree_tiny | 0.7043 | 0.2550 | 0.5506 | 0.5354 |
+
+- Live/current-season effect after promotion: `pnpm model:sensitivity:toss -- --fixture-id 20260428E9386625 --min-spread 0.001` passes with observed batting-order spread `0.00203859806060791` and equivalent-state diffs of `0.0` for both batting-order groups. Punjab Kings bat and Rajasthan Royals field both produce `0.5008306503295898`; Punjab Kings field and Rajasthan Royals bat both produce `0.5028692483901978`.
+- Confidence / caveats: this fixes the semantic correctness bug and prevents equivalent toss phrasings from diverging. The promoted model is still weaker than desired on held-out metrics, so it should be replaced by a higher-quality batting-order-state XGBoost once available.
+
+### Decision
+
+- Outcome: promoted
+- Why: the prior toss-sensitive tree restored movement but violated state equivalence by pricing “team wins toss and bats” differently from “opponent wins toss and fields.” The new feature mode removes those agency fields from model input and the validation gate now enforces both sensitivity and equivalence.
+- Deployed model source hash after change: `1c2daae992c77e24db959d307e8bf80f7cfda4bbde4a4859188998cb84cca728`
+- Supporting evidence:
+    - `model/check_toss_sensitivity.py`
+    - `model/final_models/manifest.json`
+    - `model/experiments/toss-state-xgboost/artifacts/post_toss/xgboost_post_toss_state_linear_20260428/summary_metrics.csv`
+
+### 2026-04-28 — wire post-toss state validation into daily retraining
+
+- Status: promoted
+- Change type: automation | validation | documentation
+- Hypothesis: the VM's 4am daily retraining job must train the same batting-order-state post-toss model family used in production and must block auto-promotion if a candidate violates toss sensitivity or equivalent-state invariance.
+
+### What changed
+
+- Exact files changed: `model/run_daily_refresh.py`, `model/run_experiment_suite.py`, `model/README-daily-refresh.md`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: changed the daily post_toss candidate from `xgboost_full_recency_h3_daily` with `feature-mode full` to `xgboost_post_toss_state_linear_daily` with `feature-mode post_toss_state`. Added automatic staging plus `model:sensitivity:toss` validation before post-toss auto-promotion. Extended experiment-suite backtests to include `post_toss_state` CatBoost/XGBoost runs and a state-vs-full XGBoost weighted comparison.
+- Whether this affects pre_toss, post_toss, or both: post_toss automation only; pre_toss daily behavior is unchanged.
+
+### How we tested it
+
+- Experiment/report paths:
+  - `model/experiments/toss-state-xgboost/reports/leaderboard.csv`
+  - `model/experiments/toss-state-xgboost/reports/season_metrics.csv`
+  - `model/experiments/toss-state-xgboost/reports/calibration_bins.csv`
+  - `model/experiments/toss-state-xgboost/reports/confidence_backtest.csv`
+- Baseline artifact or production reference: current `model/final_models` post_toss component `xgboost_post_toss_state_linear` and existing toss-sensitive experiment artifacts.
+- Comparison method: daily refresh dry-run, post-toss experiment-suite dry-run, stored-prediction backtest report generation across `current`, `toss_state`, and `toss_sensitive` roots, and final production sensitivity/equivalence check.
+
+### Measured impact
+
+- Daily refresh dry-run now prints the post-toss training command:
+  - `python3 model/train_xgboost.py --matrix post_toss --feature-mode post_toss_state --run-label xgboost_post_toss_state_linear_daily ... --booster gblinear ...`
+- Experiment-suite dry-run now includes:
+  - `train_baselines.py --matrix post_toss --feature-mode post_toss_state`
+  - `train_xgboost.py --matrix post_toss --feature-mode post_toss_state --run-label xgboost_post_toss_state`
+  - `weighted_xgboost_state__xgboost_full`
+- Backtest leaderboard generated successfully under `model/experiments/toss-state-xgboost/reports`. The live promoted state model's stored test metrics remain modest (`xgboost_post_toss_state_linear`: accuracy `0.5135`, ROC-AUC `0.5187`, log loss `0.7043`, Brier `0.2552`), but the automation now tests the correct model family and enforces the semantic gate before promotion.
+
+### Decision
+
+- Outcome: promoted
+- Why: without this change, pushing to the VM would let the 4am job keep retraining/promoting the old full post-toss XGBoost candidate and bypass the new equivalent-state validation. The daily job now trains the state model and stages it through the same sensitivity/equivalence check before production promotion.
+- Deployed model source hash after change: unchanged from current production model artifacts (`1c2daae992c77e24db959d307e8bf80f7cfda4bbde4a4859188998cb84cca728`)
+- Supporting evidence:
+    - `pnpm model:daily-refresh -- --dry-run --auto-promote-pre-toss --auto-promote-post-toss`
+    - `pnpm model:experiment -- --name post_toss_state_smoke_20260428 --matrix post_toss --dry-run`
+    - `pnpm model:backtest -- --root current:model/artifacts --root toss_state:model/experiments/toss-state-xgboost/artifacts --root toss_sensitive:model/experiments/toss-sensitive-xgboost/artifacts --output-dir model/experiments/toss-state-xgboost/reports --focus-split test`

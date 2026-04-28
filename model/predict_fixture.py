@@ -743,6 +743,54 @@ def build_live_feature_refresh(
     return feature_overrides, summary
 
 
+def apply_post_toss_implication_features(base: dict[str, Any]) -> None:
+    team1 = str(base.get("team1", ""))
+    team2 = str(base.get("team2", ""))
+    toss_winner = str(base.get("toss_winner", ""))
+    toss_decision = str(base.get("toss_decision", ""))
+    team1_bats_first = safe_float(base.get("team1_bats_first")) >= 0.5
+    team2_bats_first = not team1_bats_first
+
+    team1_order_win_rate = safe_float(
+        base.get("team1_battingFirstWinRate" if team1_bats_first else "team1_chasingWinRate")
+    )
+    team2_order_win_rate = safe_float(
+        base.get("team2_battingFirstWinRate" if team2_bats_first else "team2_chasingWinRate")
+    )
+    venue_order_expected_team1 = safe_float(
+        base.get("venue_batting_first_win_rate" if team1_bats_first else "venue_chasing_win_rate")
+    )
+
+    if toss_winner == team1:
+        toss_winner_preference_match = (
+            safe_float(base.get("team1_prefersFieldAfterToss"))
+            if toss_decision == "field"
+            else 1.0 - safe_float(base.get("team1_prefersFieldAfterToss"))
+        )
+    elif toss_winner == team2:
+        toss_winner_preference_match = (
+            safe_float(base.get("team2_prefersFieldAfterToss"))
+            if toss_decision == "field"
+            else 1.0 - safe_float(base.get("team2_prefersFieldAfterToss"))
+        )
+    else:
+        toss_winner_preference_match = 0.0
+
+    base.update(
+        {
+            "toss_winner_is_team1": int(toss_winner == team1),
+            "toss_winner_is_team2": int(toss_winner == team2),
+            "toss_decision_bat": int(toss_decision == "bat"),
+            "toss_decision_field": int(toss_decision == "field"),
+            "team1_batting_order_win_rate": team1_order_win_rate,
+            "team2_batting_order_win_rate": team2_order_win_rate,
+            "batting_order_win_rate_gap": team1_order_win_rate - team2_order_win_rate,
+            "venue_batting_order_expected_team1_win_rate": venue_order_expected_team1,
+            "toss_winner_decision_preference_match": toss_winner_preference_match,
+        }
+    )
+
+
 def extract_jsonp_payload(text: str, callback_name: str) -> Any:
     pattern = rf"{callback_name}\((.*)\)\s*;?\s*$"
     match = re.search(pattern, text, re.S)
@@ -2120,21 +2168,29 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
             if isinstance(mode_overrides, dict)
             else None
         )
-        toss_winner = (
+        toss_winner = str(
             args.toss_winner
             or override_toss_winner
             or official_post_toss.get("toss_winner")
-        )
-        toss_decision = (
+            or ""
+        ).strip()
+        toss_decision = str(
             args.toss_decision
             or override_toss_decision
             or official_post_toss.get("toss_decision")
-        )
+            or ""
+        ).strip()
 
         if not toss_winner or not toss_decision:
             raise ValueError(
                 "post_toss mode requires --toss-winner and --toss-decision"
             )
+        if toss_winner not in {team1, team2}:
+            raise ValueError(
+                f"post_toss toss winner must be one of {team1!r} or {team2!r}"
+            )
+        if toss_decision not in {"bat", "field"}:
+            raise ValueError("post_toss toss decision must be 'bat' or 'field'")
         base["toss_winner"] = toss_winner
         base["toss_decision"] = toss_decision
         team1_bats_first = int(
@@ -2154,35 +2210,39 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
             if isinstance(override_entry, dict)
             else {}
         )
-        manual_probable_xi_summary: dict[str, Any] = {}
-        if team1_probable_xi:
-            team1_manual_overrides = build_manual_probable_xi_overrides(
-                str(team1), season, str(fixture["match_date"]), team1_probable_xi
-            )
-            base.update({f"team1_{key}": value for key, value in team1_manual_overrides.items()})
-            manual_probable_xi_summary["team1"] = {
-                "selected_count": len(team1_probable_xi),
-                "selected_players": team1_probable_xi,
-            }
-        if team2_probable_xi:
-            team2_manual_overrides = build_manual_probable_xi_overrides(
-                str(team2), season, str(fixture["match_date"]), team2_probable_xi
-            )
-            base.update({f"team2_{key}": value for key, value in team2_manual_overrides.items()})
-            manual_probable_xi_summary["team2"] = {
-                "selected_count": len(team2_probable_xi),
-                "selected_players": team2_probable_xi,
-            }
-        if manual_probable_xi_summary:
-            base["__manual_probable_xi_applied"] = True
-            base["__manual_probable_xi_summary"] = manual_probable_xi_summary
         if isinstance(mode_overrides, dict):
             feature_overrides = mode_overrides.get("feature_overrides", {})
             if isinstance(feature_overrides, dict):
                 base.update(feature_overrides)
 
+    manual_probable_xi_summary: dict[str, Any] = {}
+    if team1_probable_xi:
+        team1_manual_overrides = build_manual_probable_xi_overrides(
+            str(team1), season, str(fixture["match_date"]), team1_probable_xi
+        )
+        base.update({f"team1_{key}": value for key, value in team1_manual_overrides.items()})
+        manual_probable_xi_summary["team1"] = {
+            "selected_count": len(team1_probable_xi),
+            "selected_players": team1_probable_xi,
+        }
+    if team2_probable_xi:
+        team2_manual_overrides = build_manual_probable_xi_overrides(
+            str(team2), season, str(fixture["match_date"]), team2_probable_xi
+        )
+        base.update({f"team2_{key}": value for key, value in team2_manual_overrides.items()})
+        manual_probable_xi_summary["team2"] = {
+            "selected_count": len(team2_probable_xi),
+            "selected_players": team2_probable_xi,
+        }
+    if manual_probable_xi_summary:
+        base["__manual_probable_xi_applied"] = True
+        base["__manual_probable_xi_summary"] = manual_probable_xi_summary
+
     if args.feature_overrides_json:
         base.update(json.loads(args.feature_overrides_json))
+
+    if args.mode == "post_toss":
+        apply_post_toss_implication_features(base)
 
     return base
 

@@ -29,6 +29,7 @@
     "model:stack:pretoss": "python3 model/build_stacked_ensemble.py --matrix pre_toss --source model/artifacts/pre_toss/full:catboost_tuned:full_cat --source model/artifacts/pre_toss/delta:catboost_tuned:delta_cat --source model/artifacts_pruned/top60/pre_toss/full:catboost_tuned:top60_cat",
     "model:fit:final": "python3 model/fit_final_catboost_ensemble.py",
     "model:predict": "python3 model/predict_fixture.py",
+    "model:sensitivity:toss": "python3 model/check_toss_sensitivity.py",
     "model:promote:xgboost": "python3 model/promote_xgboost_experiment.py",
     "model:experiment": "python3 model/run_experiment_suite.py",
     "model:backtest": "python3 model/backtest_predictions.py",

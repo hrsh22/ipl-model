@@ -4,7 +4,7 @@ Derived historical feature tables.
 
 - `pre_match_team_features.csv`: one row per team per historical match using prior eligible data only
 - `pre_match_matchup_features.csv`: one row per match with venue, H2H, gap features, Elo, toss-history features, eligibility flags, and team-level pre-match features
-- `post_toss_matchup_features.csv`: one row per match with the same base features plus actual toss-known fields (`toss_winner`, `toss_decision`, `team1_bats_first`, `team2_bats_first`)
+- `post_toss_matchup_features.csv`: one row per match with the same base features plus actual toss-known fields and toss implication features (`toss_winner`, `toss_decision`, `team1_bats_first`, `team2_bats_first`, batting-order win-rate gaps, and toss-decision preference alignment)
 - `training_ready_team_features.csv`: filtered team-level rows where `training_eligible=true`
 - `training_ready_matchup_features.csv`: filtered pre-match matchup rows where `training_eligible=true`
 - `training_ready_post_toss_matchup_features.csv`: filtered post-toss matchup rows where `training_eligible=true`

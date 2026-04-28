@@ -506,11 +506,11 @@
     "components": [
       {
         "matrix": "post_toss",
-        "component": "xgboost_full_recency_h3",
+        "component": "xgboost_post_toss_state_linear",
         "weight": 1.0,
         "modelType": "xgboost",
         "matrixPath": "model/data/matrices/post_toss_model_matrix.csv",
-        "featureMode": "full",
+        "featureMode": "post_toss_state",
         "featureAllowlist": null,
         "featureColumns": [
           "venue",
@@ -521,10 +521,12 @@
           "team1_home_flag",
           "team2_home_flag",
           "match_neutral_flag",
-          "toss_winner",
-          "toss_decision",
           "team1_bats_first",
           "team2_bats_first",
+          "team1_batting_order_win_rate",
+          "team2_batting_order_win_rate",
+          "batting_order_win_rate_gap",
+          "venue_batting_order_expected_team1_win_rate",
           "venue_average_first_innings_score",
           "venue_average_second_innings_score",
           "venue_chasing_win_rate",
@@ -678,9 +680,7 @@
           "city",
           "home_team",
           "team1",
-          "team2",
-          "toss_winner",
-          "toss_decision"
+          "team2"
         ],
         "numericColumns": [
           "team1_home_flag",
@@ -688,6 +688,10 @@
           "match_neutral_flag",
           "team1_bats_first",
           "team2_bats_first",
+          "team1_batting_order_win_rate",
+          "team2_batting_order_win_rate",
+          "batting_order_win_rate_gap",
+          "venue_batting_order_expected_team1_win_rate",
           "venue_average_first_innings_score",
           "venue_average_second_innings_score",
           "venue_chasing_win_rate",
@@ -841,21 +845,22 @@
           "halfLife": 3.0
         },
         "params": {
-          "max_depth": 8,
-          "learning_rate": 0.08,
-          "reg_lambda": 8.0,
+          "max_depth": 1,
+          "learning_rate": 0.03,
+          "reg_lambda": 0.5,
           "n_estimators": 13,
           "subsample": 0.9,
-          "colsampleBytree": 0.9
+          "colsampleBytree": 0.9,
+          "booster": "gblinear"
         },
-        "modelPath": "model/final_models/post_toss/xgboost_full_recency_h3/xgboost_model.json",
-        "preprocessorPath": "model/final_models/post_toss/xgboost_full_recency_h3/preprocessor.joblib",
-        "sourceExperiment": "model/experiments/daily-refresh-runs/20260428T040000Z/artifacts/post_toss/xgboost_full_recency_h3_daily",
+        "modelPath": "model/final_models/post_toss/xgboost_post_toss_state_linear/xgboost_model.json",
+        "preprocessorPath": "model/final_models/post_toss/xgboost_post_toss_state_linear/preprocessor.joblib",
+        "sourceExperiment": "model/experiments/toss-state-xgboost/artifacts/post_toss/xgboost_post_toss_state_linear_20260428",
         "sourceModel": "xgboost_tuned"
       }
     ],
     "weights": {
-      "xgboost_full_recency_h3": 1.0
+      "xgboost_post_toss_state_linear": 1.0
     }
   }
 }
