@@ -63,4 +63,10 @@ export const config = {
     process.env.PREDICTOR_MAINTENANCE_INTERVAL_MS,
     defaultPredictorBackgroundIntervalMs,
   ),
+  experimentalBallStateShadowRefreshEnabled: parseBooleanEnv(
+    process.env.EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED,
+  ),
+  experimentalBallStateRemoteFetchEnabled: parseBooleanEnv(
+    process.env.EXPERIMENTAL_BALL_STATE_REMOTE_FETCH_ENABLED,
+  ),
 }

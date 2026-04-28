@@ -83,6 +83,56 @@ export const observerSignals = pgTable("observer_signals", {
   createdAt: timestamp("created_at", timestampColumns).defaultNow().notNull(),
 })
 
+export const observerLiveModelSnapshots = pgTable("observer_live_model_snapshots", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  fixtureId: text("fixture_id")
+    .notNull()
+    .references(() => observerFixtures.id),
+  sourceEvent: text("source_event").notNull(),
+  modelVersion: text("model_version").notNull(),
+  innings: integer("innings"),
+  battingTeam: text("batting_team"),
+  bowlingTeam: text("bowling_team"),
+  scoreRuns: integer("score_runs"),
+  scoreWickets: integer("score_wickets"),
+  overs: doublePrecision("overs"),
+  balls: integer("balls"),
+  targetRuns: integer("target_runs"),
+  expectedRunsNow: doublePrecision("expected_runs_now"),
+  expectedWicketsNow: doublePrecision("expected_wickets_now"),
+  runsDelta: doublePrecision("runs_delta"),
+  wicketsDelta: doublePrecision("wickets_delta"),
+  projectedScore: doublePrecision("projected_score"),
+  homeModelProbability: doublePrecision("home_model_probability"),
+  awayModelProbability: doublePrecision("away_model_probability"),
+  homePolymarketProbability: doublePrecision("home_polymarket_probability"),
+  awayPolymarketProbability: doublePrecision("away_polymarket_probability"),
+  homeReferenceProbability: doublePrecision("home_reference_probability"),
+  awayReferenceProbability: doublePrecision("away_reference_probability"),
+  edgeHomeVsPolymarketBps: integer("edge_home_vs_polymarket_bps"),
+  edgeAwayVsPolymarketBps: integer("edge_away_vs_polymarket_bps"),
+  confidence: text("confidence").notNull(),
+  details: jsonb("details").notNull(),
+  createdAt: timestamp("created_at", timestampColumns).defaultNow().notNull(),
+})
+
+export const observerLiveModelSignals = pgTable("observer_live_model_signals", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  fixtureId: text("fixture_id")
+    .notNull()
+    .references(() => observerFixtures.id),
+  snapshotId: integer("snapshot_id").references(() => observerLiveModelSnapshots.id),
+  selection: text("selection").notNull(),
+  modelProbability: doublePrecision("model_probability").notNull(),
+  polymarketProbability: doublePrecision("polymarket_probability"),
+  referenceProbability: doublePrecision("reference_probability"),
+  edgeVsPolymarketBps: integer("edge_vs_polymarket_bps"),
+  reason: text("reason").notNull(),
+  confidence: text("confidence").notNull(),
+  scoreContext: jsonb("score_context").notNull(),
+  createdAt: timestamp("created_at", timestampColumns).defaultNow().notNull(),
+})
+
 export const observerCheckpoints = pgTable("observer_checkpoints", {
   streamKey: text("stream_key").primaryKey(),
   lastEntryId: text("last_entry_id").notNull(),

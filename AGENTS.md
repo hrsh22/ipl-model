@@ -18,6 +18,7 @@
 - `pnpm db:migrate` — apply generated Drizzle migrations.
 - `pnpm db:push` — push schema changes directly to the configured database.
 - `pnpm db:studio` — open Drizzle Studio against the configured database.
+- Before running `pnpm dev` or `pnpm dev:all` after schema changes, apply pending migrations with `pnpm db:migrate`; otherwise new runtime tables will be unavailable even though TypeScript compiles.
 
 ## TypeScript / runtime notes
 - `tsconfig.json` uses `module` / `moduleResolution` = `NodeNext`, `strict: true`, `rootDir: src`, and `outDir: dist`.

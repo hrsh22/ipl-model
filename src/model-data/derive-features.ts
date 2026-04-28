@@ -101,12 +101,22 @@ type PlayerMatchProfile = {
   role: string
   battingRuns: number
   battingBalls: number
+  fours: number
+  sixes: number
   dismissed: number
   bowlingBalls: number
   deathBowlingBalls: number
   runsConceded: number
   wickets: number
   dotBallsBowled: number
+}
+
+type PlayerHistoryEntry = PlayerMatchProfile & {
+  matchId: string
+  season: number
+  matchDate: Date
+  team: string
+  opponent: string
 }
 
 type PlayerStyleProfile = {
@@ -497,6 +507,45 @@ const postTossMatchupHeaders = [
   ...teamFeatureKeys.map((key) => `team2_${key}`),
 ] as const
 
+const playerFeatureHeaders = [
+  "match_id",
+  "season",
+  "match_date",
+  "team",
+  "opponent",
+  "player_name",
+  "player_name_key",
+  "person_id",
+  "role",
+  "batting_position",
+  "training_eligible",
+  "training_exclusion_reasons",
+  "historical_matches_used",
+  "historical_batting_innings",
+  "historical_bowling_innings",
+  "player_batting_runs_before_match",
+  "player_batting_balls_before_match",
+  "player_batting_average_before_match",
+  "player_batting_strike_rate_before_match",
+  "player_boundary_rate_before_match",
+  "player_six_rate_before_match",
+  "player_dismissal_rate_before_match",
+  "player_recent_runs_last_5",
+  "player_recent_batting_strike_rate_last_5",
+  "player_bowling_balls_before_match",
+  "player_bowling_overs_before_match",
+  "player_wickets_before_match",
+  "player_runs_conceded_before_match",
+  "player_bowling_average_before_match",
+  "player_bowling_strike_rate_before_match",
+  "player_bowling_economy_before_match",
+  "player_dot_ball_rate_before_match",
+  "player_death_bowling_overs_before_match",
+  "player_recent_wickets_last_5",
+  "player_recent_bowling_economy_last_5",
+  "player_all_rounder_score_before_match",
+] as const
+
 const loadMatches = () =>
   readCsv(join(stagedDir, "matches.csv")).map<MatchRow>((row) => ({
     matchId: clean(row.match_id),
@@ -883,6 +932,8 @@ const loadPlayerProfiles = () => {
       role: clean(row.role),
       battingRuns: parseInteger(row.batting_runs),
       battingBalls: parseInteger(row.batting_balls),
+      fours: parseInteger(row.fours),
+      sixes: parseInteger(row.sixes),
       dismissed: parseInteger(row.dismissed),
       bowlingBalls: parseInteger(row.bowling_balls),
       deathBowlingBalls: parseInteger(row.death_bowling_balls),
@@ -895,6 +946,9 @@ const loadPlayerProfiles = () => {
 
   return result
 }
+
+const loadPlayerRegistry = () =>
+  new Map(readCsv(join(stagedDir, "player_registry.csv")).map((row) => [normalizePlayerNameKey(clean(row.player_name)), clean(row.person_id)]))
 
 const loadPlayerStyleProfiles = () => {
   const filePath = join(stagedDir, "player_style_profiles.csv")
@@ -923,6 +977,83 @@ const loadPlayerStyleProfiles = () => {
 }
 
 const getWinRate = (entries: TeamHistoryEntry[]) => safeRate(entries.filter((entry) => entry.wonMatch).length, entries.length)
+
+const sum = <T>(entries: T[], selector: (entry: T) => number) => entries.reduce((total, entry) => total + selector(entry), 0)
+
+const battingInnings = (entries: PlayerHistoryEntry[]) => entries.filter((entry) => entry.battingBalls > 0 || entry.battingRuns > 0 || entry.dismissed > 0)
+
+const bowlingInnings = (entries: PlayerHistoryEntry[]) => entries.filter((entry) => entry.bowlingBalls > 0)
+
+const buildPlayerFeatureRow = (
+  match: MatchRow,
+  team: string,
+  opponent: string,
+  profile: PlayerMatchProfile,
+  priorHistory: PlayerHistoryEntry[],
+  personId: string,
+  trainingEligible: boolean,
+  trainingExclusionReasons: string,
+): CsvRow => {
+  const battingEntries = battingInnings(priorHistory)
+  const bowlingEntries = bowlingInnings(priorHistory)
+  const recentBatting = battingInnings(priorHistory.slice(-5))
+  const recentBowling = bowlingInnings(priorHistory.slice(-5))
+  const battingRuns = sum(battingEntries, (entry) => entry.battingRuns)
+  const battingBalls = sum(battingEntries, (entry) => entry.battingBalls)
+  const dismissals = sum(battingEntries, (entry) => entry.dismissed)
+  const fours = sum(battingEntries, (entry) => entry.fours)
+  const sixes = sum(battingEntries, (entry) => entry.sixes)
+  const bowlingBalls = sum(bowlingEntries, (entry) => entry.bowlingBalls)
+  const wickets = sum(bowlingEntries, (entry) => entry.wickets)
+  const runsConceded = sum(bowlingEntries, (entry) => entry.runsConceded)
+  const dotBallsBowled = sum(bowlingEntries, (entry) => entry.dotBallsBowled)
+  const recentRuns = sum(recentBatting, (entry) => entry.battingRuns)
+  const recentBattingBalls = sum(recentBatting, (entry) => entry.battingBalls)
+  const recentWickets = sum(recentBowling, (entry) => entry.wickets)
+  const recentBowlingRuns = sum(recentBowling, (entry) => entry.runsConceded)
+  const recentBowlingBalls = sum(recentBowling, (entry) => entry.bowlingBalls)
+  const battingStrikeRate = battingBalls > 0 ? (battingRuns * 100) / battingBalls : 0
+  const bowlingEconomy = safePerSixBalls(runsConceded, bowlingBalls)
+
+  return {
+    match_id: match.matchId,
+    season: match.season,
+    match_date: dateOnly(match.matchDate),
+    team,
+    opponent,
+    player_name: profile.playerName,
+    player_name_key: profile.playerNameKey,
+    person_id: personId,
+    role: profile.role,
+    batting_position: profile.battingPosition,
+    training_eligible: trainingEligible,
+    training_exclusion_reasons: trainingExclusionReasons,
+    historical_matches_used: priorHistory.length,
+    historical_batting_innings: battingEntries.length,
+    historical_bowling_innings: bowlingEntries.length,
+    player_batting_runs_before_match: battingRuns,
+    player_batting_balls_before_match: battingBalls,
+    player_batting_average_before_match: safeRate(battingRuns, dismissals),
+    player_batting_strike_rate_before_match: battingStrikeRate,
+    player_boundary_rate_before_match: safeRate(fours + sixes, battingBalls),
+    player_six_rate_before_match: safeRate(sixes, battingBalls),
+    player_dismissal_rate_before_match: safeRate(dismissals, battingEntries.length),
+    player_recent_runs_last_5: recentRuns,
+    player_recent_batting_strike_rate_last_5: recentBattingBalls > 0 ? (recentRuns * 100) / recentBattingBalls : 0,
+    player_bowling_balls_before_match: bowlingBalls,
+    player_bowling_overs_before_match: bowlingBalls / 6,
+    player_wickets_before_match: wickets,
+    player_runs_conceded_before_match: runsConceded,
+    player_bowling_average_before_match: safeRate(runsConceded, wickets),
+    player_bowling_strike_rate_before_match: safeRate(bowlingBalls, wickets),
+    player_bowling_economy_before_match: bowlingEconomy,
+    player_dot_ball_rate_before_match: safeRate(dotBallsBowled, bowlingBalls),
+    player_death_bowling_overs_before_match: sum(bowlingEntries, (entry) => entry.deathBowlingBalls) / 6,
+    player_recent_wickets_last_5: recentWickets,
+    player_recent_bowling_economy_last_5: safePerSixBalls(recentBowlingRuns, recentBowlingBalls),
+    player_all_rounder_score_before_match: battingStrikeRate + wickets * 5 - bowlingEconomy,
+  }
+}
 
 const getPhaseMetrics = (entries: TeamHistoryEntry[], phase: "powerplay" | "middle" | "death") => {
   const battingRuns = entries.reduce((sum, entry) => sum + (phase === "powerplay" ? entry.powerplayRuns : phase === "middle" ? entry.middleRuns : entry.deathRuns), 0)
@@ -1235,6 +1366,7 @@ const main = () => {
   const rawInfoByMatch = loadRawInfo()
   const matchSquads = loadMatchSquads()
   const playerProfilesByMatchTeam = loadPlayerProfiles()
+  const playerRegistry = loadPlayerRegistry()
   const playerStyleProfiles = loadPlayerStyleProfiles()
   const teamRowsByMatch = new Map<string, TeamMatchRow[]>()
 
@@ -1245,6 +1377,7 @@ const main = () => {
   }
 
   const teamHistory = new Map<string, TeamHistoryEntry[]>()
+  const playerHistory = new Map<string, PlayerHistoryEntry[]>()
   const venueHistory = new Map<string, TeamHistoryEntry[]>()
   const venueMatchHistory = new Map<string, MatchRecord[]>()
   const pairHistory = new Map<string, MatchRecord[]>()
@@ -1253,6 +1386,7 @@ const main = () => {
   const teamFeatureRows: CsvRow[] = []
   const matchupRows: CsvRow[] = []
   const postTossMatchupRows: CsvRow[] = []
+  const playerFeatureRows: CsvRow[] = []
 
   for (const match of matches) {
     const rows = teamRowsByMatch.get(match.matchId) ?? []
@@ -1292,6 +1426,28 @@ const main = () => {
 
     const team1Features = buildTeamFeatures(team1Prior, match.venue, match.matchDate, match.season, team1Elo, eloExpectedTeam1Win, playerProfilesByMatchTeam, playerStyleProfiles)
     const team2Features = buildTeamFeatures(team2Prior, match.venue, match.matchDate, match.season, team2Elo, eloExpectedTeam2Win, playerProfilesByMatchTeam, playerStyleProfiles)
+
+    const addPlayerFeatureRows = (team: string, opponent: string) => {
+      const profiles = playerProfilesByMatchTeam.get(`${match.matchId}::${team}`) ?? []
+      for (const profile of profiles) {
+        const priorHistory = playerHistory.get(profile.playerNameKey) ?? []
+        playerFeatureRows.push(
+          buildPlayerFeatureRow(
+            match,
+            team,
+            opponent,
+            profile,
+            priorHistory,
+            playerRegistry.get(profile.playerNameKey) ?? "",
+            trainingEligible,
+            trainingExclusionReasonText,
+          ),
+        )
+      }
+    }
+
+    addPlayerFeatureRows(team1, team2)
+    addPlayerFeatureRows(team2, team1)
 
     teamFeatureRows.push({
       match_id: match.matchId,
@@ -1517,6 +1673,27 @@ const main = () => {
       teamHistory.set(team1, [...team1Prior, team1Entry])
       teamHistory.set(team2, [...team2Prior, team2Entry])
       venueHistory.set(match.venue, [...priorVenueEntries, team1Entry, team2Entry])
+
+      const addPlayerHistory = (team: string, opponent: string) => {
+        const profiles = playerProfilesByMatchTeam.get(`${match.matchId}::${team}`) ?? []
+        for (const profile of profiles) {
+          const priorHistory = playerHistory.get(profile.playerNameKey) ?? []
+          playerHistory.set(profile.playerNameKey, [
+            ...priorHistory,
+            {
+              ...profile,
+              matchId: match.matchId,
+              season: match.season,
+              matchDate: match.matchDate,
+              team,
+              opponent,
+            },
+          ])
+        }
+      }
+
+      addPlayerHistory(team1, team2)
+      addPlayerHistory(team2, team1)
     }
 
     const firstInningsRow = rows.find((row) => row.battingFirst) ?? team1Row
@@ -1560,12 +1737,18 @@ const main = () => {
   }
 
   writeCsv(join(featuresDir, "pre_match_team_features.csv"), [...teamFeatureHeaders], teamFeatureRows)
+  writeCsv(join(featuresDir, "pre_match_player_features.csv"), [...playerFeatureHeaders], playerFeatureRows)
   writeCsv(join(featuresDir, "pre_match_matchup_features.csv"), [...matchupHeaders], matchupRows)
   writeCsv(join(featuresDir, "post_toss_matchup_features.csv"), [...postTossMatchupHeaders], postTossMatchupRows)
   writeCsv(
     join(featuresDir, "training_ready_team_features.csv"),
     [...teamFeatureHeaders],
     teamFeatureRows.filter((row) => row.training_eligible === true),
+  )
+  writeCsv(
+    join(featuresDir, "training_ready_player_features.csv"),
+    [...playerFeatureHeaders],
+    playerFeatureRows.filter((row) => row.training_eligible === true),
   )
   writeCsv(
     join(featuresDir, "training_ready_matchup_features.csv"),
@@ -1580,11 +1763,12 @@ const main = () => {
 
   writeFileSync(
     join(featuresDir, "README.md"),
-    `# model/data/features\n\nDerived historical feature tables.\n\n- \`pre_match_team_features.csv\`: one row per team per historical match using prior eligible data only\n- \`pre_match_matchup_features.csv\`: one row per match with venue, H2H, gap features, Elo, toss-history features, eligibility flags, and team-level pre-match features\n- \`post_toss_matchup_features.csv\`: one row per match with the same base features plus actual toss-known fields (\`toss_winner\`, \`toss_decision\`, \`team1_bats_first\`, \`team2_bats_first\`)\n- \`training_ready_team_features.csv\`: filtered team-level rows where \`training_eligible=true\`\n- \`training_ready_matchup_features.csv\`: filtered pre-match matchup rows where \`training_eligible=true\`\n- \`training_ready_post_toss_matchup_features.csv\`: filtered post-toss matchup rows where \`training_eligible=true\`\n\nNotes:\n- Team order comes from Cricsheet match info when available, otherwise alphabetical order is used to avoid innings-order leakage.\n- XI continuity and probable-XI strength use the last known XI from the same season before the match as the V1 probable-XI proxy.\n- Continuity weights follow the markdown source of truth: 0.30 top order, 0.30 bowling core, 0.20 death bowlers, 0.20 overall XI.\n- Home/neutral context comes from a static venue mapping with season overrides.\n- Training exclusions currently remove neutral-venue seasons/legs, no-result/tie matches, D/L matches, super-over matches, and unresolved home-context rows.\n- Post-toss datasets are kept separate so toss-known fields do not leak into the pre-toss model matrix.\n`,
+    `# model/data/features\n\nDerived historical feature tables.\n\n- \`pre_match_team_features.csv\`: one row per team per historical match using prior eligible data only\n- \`pre_match_player_features.csv\`: one row per player per historical match using only that player's prior eligible match history\n- \`pre_match_matchup_features.csv\`: one row per match with venue, H2H, gap features, Elo, toss-history features, eligibility flags, and team-level pre-match features\n- \`post_toss_matchup_features.csv\`: one row per match with the same base features plus actual toss-known fields (\`toss_winner\`, \`toss_decision\`, \`team1_bats_first\`, \`team2_bats_first\`)\n- \`training_ready_team_features.csv\`: filtered team-level rows where \`training_eligible=true\`\n- \`training_ready_player_features.csv\`: filtered player-level rows where \`training_eligible=true\`\n- \`training_ready_matchup_features.csv\`: filtered pre-match matchup rows where \`training_eligible=true\`\n- \`training_ready_post_toss_matchup_features.csv\`: filtered post-toss matchup rows where \`training_eligible=true\`\n\nNotes:\n- Team order comes from Cricsheet match info when available, otherwise alphabetical order is used to avoid innings-order leakage.\n- Player pre-match rows are emitted before updating that player's history for the current match, so same-match player performance cannot leak into historical player features.\n- XI continuity and probable-XI strength use the last known XI from the same season before the match as the V1 probable-XI proxy.\n- Continuity weights follow the markdown source of truth: 0.30 top order, 0.30 bowling core, 0.20 death bowlers, 0.20 overall XI.\n- Home/neutral context comes from a static venue mapping with season overrides.\n- Training exclusions currently remove neutral-venue seasons/legs, no-result/tie matches, D/L matches, super-over matches, and unresolved home-context rows.\n- Post-toss datasets are kept separate so toss-known fields do not leak into the pre-toss model matrix.\n`,
     "utf-8",
   )
 
   const trainingReadyTeamRows = teamFeatureRows.filter((row) => row.training_eligible === true)
+  const trainingReadyPlayerRows = playerFeatureRows.filter((row) => row.training_eligible === true)
   const trainingReadyMatchupRows = matchupRows.filter((row) => row.training_eligible === true)
   const trainingReadyPostTossMatchupRows = postTossMatchupRows.filter((row) => row.training_eligible === true)
   const exclusionCounts = matchupRows.reduce<Record<string, number>>((accumulator, row) => {
@@ -1606,9 +1790,11 @@ const main = () => {
       {
         generatedAt: new Date().toISOString(),
         preMatchTeamRows: teamFeatureRows.length,
+        preMatchPlayerRows: playerFeatureRows.length,
         preMatchMatchupRows: matchupRows.length,
         postTossMatchupRows: postTossMatchupRows.length,
         trainingReadyTeamRows: trainingReadyTeamRows.length,
+        trainingReadyPlayerRows: trainingReadyPlayerRows.length,
         trainingReadyMatchupRows: trainingReadyMatchupRows.length,
         trainingReadyPostTossMatchupRows: trainingReadyPostTossMatchupRows.length,
         exclusionCounts,
@@ -1622,6 +1808,7 @@ const main = () => {
 
   console.log("Derived model/data features:")
   console.log(`- team rows: ${teamFeatureRows.length}`)
+  console.log(`- player rows: ${playerFeatureRows.length}`)
   console.log(`- matchup rows: ${matchupRows.length}`)
 }
 

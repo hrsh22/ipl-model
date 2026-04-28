@@ -120,10 +120,69 @@ button:hover {
 
 .hero-card,
 .live-panel,
+.live-model-panel,
+.ball-shadow-panel,
 .opportunity-panel,
 .diagnostics-panel,
 .tape-panel {
   padding: 22px 24px;
+}
+
+.live-model-panel {
+  border-color: rgba(105, 255, 141, 0.2);
+}
+
+.ball-shadow-panel {
+  border-color: rgba(255, 209, 102, 0.22);
+}
+
+.model-card {
+  background:
+    linear-gradient(135deg, rgba(105, 255, 141, 0.08), transparent 44%),
+    rgba(3, 11, 16, 0.88);
+}
+
+.shadow-card {
+  background:
+    linear-gradient(135deg, rgba(255, 209, 102, 0.08), transparent 44%),
+    rgba(3, 11, 16, 0.88);
+}
+
+.model-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.model-scoreline,
+.model-projection {
+  border: 1px solid rgba(105, 255, 141, 0.14);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(4, 18, 16, 0.72);
+}
+
+.model-scoreline span,
+.model-projection span {
+  display: block;
+  color: var(--success);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.model-scoreline small,
+.model-projection small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.model-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .hero-metrics {

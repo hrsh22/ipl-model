@@ -1,13 +1,20 @@
 import logger from "../logger.js"
 import { config } from "../config.js"
+import { getVenueContextStats } from "./venue-stats.js"
 import {
   getCheckpoint,
   getFixture,
   getLiveFixtureByTeams,
+  insertLiveModelSignal,
+  insertLiveModelSnapshot,
   insertSignal,
+  listFixtureLiveModelSignals,
+  listFixtureLiveModelSnapshots,
   listFixtureOdds,
   listFixtureSignals,
   listFixtures,
+  listLiveModelSignals,
+  listLiveModelSnapshots,
   listSignals,
   type ObserverFixtureRecord,
   upsertCheckpoint,
@@ -41,6 +48,9 @@ const MIN_EXECUTABLE_SHARES = 100
 const MIN_EXECUTABLE_NOTIONAL_USDC = 25
 const READY_MAX_FIXTURE_REFRESH_AGE_SECONDS = 180
 const READY_MAX_STREAM_AGE_SECONDS = 45
+const LIVE_MODEL_VERSION = "expected-state-heuristic-v0"
+const LIVE_MODEL_SNAPSHOT_INTERVAL_MS = 15_000
+const LIVE_MODEL_SIGNAL_THRESHOLD_BPS = 500
 
 const OBSERVED_BOOKS = [
   "betfair_exchange",
@@ -286,6 +296,48 @@ type OpportunitySummary = {
   updatedAt: string
 }
 
+type ParsedCricketState = {
+  innings: number | null
+  battingTeam: string | null
+  bowlingTeam: string | null
+  scoreRuns: number | null
+  scoreWickets: number | null
+  overs: number | null
+  balls: number | null
+  targetRuns: number | null
+}
+
+type LiveExpectedState = ParsedCricketState & {
+  expectedRunsNow: number | null
+  expectedWicketsNow: number | null
+  runsDelta: number | null
+  wicketsDelta: number | null
+  projectedScore: number | null
+  expectedRunRate: number | null
+}
+
+type InningsExpectedState = LiveExpectedState & {
+  status: "live" | "frozen" | "pending" | "unavailable"
+}
+
+type LiveInningsExpectedStates = {
+  activeInnings: number | null
+  first: InningsExpectedState
+  second: InningsExpectedState
+}
+
+type LiveSelectionView = {
+  selection: string
+  fairProbability: number
+  marketProbability: number
+  referenceProbability: number
+  executableAsk: number | null
+  executableBid: number | null
+  edgeVsMarketBps: number
+  edgeVsExecutableAskBps: number | null
+  feeAdjustedEdgeBps: number | null
+}
+
 type OpportunitiesOptions = {
   minEdgeBps?: number
   minConfidence?: ReferenceConfidence
@@ -468,6 +520,12 @@ class IplObserverService {
 
   private readonly subscribedTokenIds = new Set<string>()
 
+  private readonly lastLiveModelSnapshotAt = new Map<string, number>()
+
+  private readonly lastLiveModelSignalAt = new Map<string, { edgeBps: number; observedAt: number }>()
+
+  private liveModelPersistenceDisabledReason: string | null = null
+
   private readonly marketDetailsCache = new Map<string, PolymarketMarketDetails>()
 
   private polymarketCatalog: PolymarketCatalogEntry[] = []
@@ -553,6 +611,27 @@ class IplObserverService {
 
   public async getRecentSignals(limit = 50) {
     return listSignals(limit)
+  }
+
+  public async getRecentLiveModelSnapshots(limit = 50) {
+    try {
+      return await listLiveModelSnapshots(limit)
+    } catch (error) {
+      this.disableLiveModelPersistence(error)
+      return []
+    }
+  }
+
+  public async getRecentLiveModelSignals(limit = 50) {
+    try {
+      return (await listLiveModelSignals(Math.max(limit * 5, 50)))
+        .filter(isMeaningfulLiveModelSignal)
+        .filter(dedupeLiveModelSignalRecord)
+        .slice(0, limit)
+    } catch (error) {
+      this.disableLiveModelPersistence(error)
+      return []
+    }
   }
 
   public getDiagnostics() {
@@ -719,6 +798,64 @@ class IplObserverService {
       .slice(0, 10)
   }
 
+  public getLiveModelFixtures() {
+    return Array.from(this.fixtures.values())
+      .filter((fixtureState) => fixtureState.fixture.isLive || requiresActiveOddsCoverage(fixtureState.fixture))
+      .map((fixtureState) => this.buildLiveModelView(fixtureState, "api-read"))
+      .sort(
+        (left, right) =>
+          new Date(right.fixture.updatedAt).getTime() - new Date(left.fixture.updatedAt).getTime(),
+      )
+  }
+
+  public async getLiveModelHistory(limit = 20) {
+    const fixtures = (await listFixtures(Math.max(limit * 6, 60))).filter(
+      (fixture) => !fixture.isLive,
+    )
+    const historyEntries = await Promise.all(
+      fixtures.map(async (fixture) => {
+        const [snapshots, signals] = await Promise.all([
+          this.getFixtureLiveModelSnapshotsSafe(fixture.id, 500),
+          this.getFixtureLiveModelSignalsSafe(fixture.id, 5),
+        ])
+        const meaningfulSnapshots = snapshots.filter(isMeaningfulLiveModelSnapshot)
+        const latestSnapshot = meaningfulSnapshots[0] ?? null
+        const inningsSnapshots = buildLatestSnapshotsByInnings(meaningfulSnapshots)
+        const inningsStates = buildLiveInningsExpectedStates(fixture)
+        const hasFixtureInningsState =
+          hasMeaningfulExpectedState(inningsStates.first) || hasMeaningfulExpectedState(inningsStates.second)
+
+        if (!latestSnapshot && !hasFixtureInningsState) {
+          return null
+        }
+
+        return {
+          fixture: this.buildPublicFixture(fixture),
+          venueContext: getVenueContextStats(fixture.venueName),
+          latestSnapshot,
+          inningsSnapshots,
+          inningsStates,
+          recentSignals: signals
+            .filter(isMeaningfulLiveModelSignal)
+            .filter(dedupeLiveModelSignalRecord),
+          snapshotCountKnown: Boolean(latestSnapshot),
+          signalCount: signals
+            .filter(isMeaningfulLiveModelSignal)
+            .filter(dedupeLiveModelSignalRecord).length,
+        }
+      }),
+    )
+
+    return historyEntries
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+      .sort((left, right) => {
+        const leftTime = left.latestSnapshot?.createdAt ?? left.fixture.updatedAt
+        const rightTime = right.latestSnapshot?.createdAt ?? right.fixture.updatedAt
+        return new Date(rightTime).getTime() - new Date(leftTime).getTime()
+      })
+      .slice(0, limit)
+  }
+
   public getReadiness() {
     const reasons: string[] = []
     const fixtureRefreshAge = toAgeSeconds(this.status.fixtureRefreshAt)
@@ -765,9 +902,11 @@ class IplObserverService {
       return null
     }
 
-    const [odds, signals] = await Promise.all([
+    const [odds, signals, liveModelSnapshots, liveModelSignals] = await Promise.all([
       listFixtureOdds(fixtureId),
       listFixtureSignals(fixtureId, 20),
+      this.getFixtureLiveModelSnapshotsSafe(fixtureId, 50),
+      this.getFixtureLiveModelSignalsSafe(fixtureId, 20),
     ])
 
     const liveState = this.fixtures.get(fixtureId)
@@ -776,8 +915,29 @@ class IplObserverService {
       fixture: this.buildPublicFixture(fixture),
       books: this.buildBookViews(odds),
       signals,
+      liveModel: liveState ? this.buildLiveModelView(liveState, "api-read") : null,
+      liveModelSnapshots,
+      liveModelSignals,
       monitoring: this.buildFixtureMonitoringState(fixture, liveState),
       summary: liveState ? this.buildFixtureSummary(liveState) : null,
+    }
+  }
+
+  private async getFixtureLiveModelSnapshotsSafe(fixtureId: string, limit: number) {
+    try {
+      return await listFixtureLiveModelSnapshots(fixtureId, limit)
+    } catch (error) {
+      this.disableLiveModelPersistence(error)
+      return []
+    }
+  }
+
+  private async getFixtureLiveModelSignalsSafe(fixtureId: string, limit: number) {
+    try {
+      return await listFixtureLiveModelSignals(fixtureId, limit)
+    } catch (error) {
+      this.disableLiveModelPersistence(error)
+      return []
     }
   }
 
@@ -868,6 +1028,8 @@ class IplObserverService {
   }
 
   private async registerFixture(fixture: OpticOddsFixture) {
+    const existingState = this.fixtures.get(fixture.id)
+    const existingFixture = existingState?.fixture
     const record = {
       id: fixture.id,
       opticOddsGameId: fixture.game_id,
@@ -890,16 +1052,13 @@ class IplObserverService {
       awayTokenId: this.fixtures.get(fixture.id)?.fixture.awayTokenId ?? null,
       lastScore: parseScoreSummary(fixture),
       lastPeriod: parsePeriodSummary(fixture),
-      lastResultPayload: fixture.result ?? null,
+      lastResultPayload: mergeResultPayload(fixture.result ?? null, undefined, existingFixture?.lastResultPayload),
     } satisfies Omit<ObserverFixtureRecord, "createdAt" | "updatedAt"> & {
       createdAt?: Date
       updatedAt?: Date
     }
 
     await upsertFixture(record)
-
-    const existingState = this.fixtures.get(fixture.id)
-    const existingFixture = existingState?.fixture
 
     this.fixtures.set(fixture.id, {
       fixture: {
@@ -1501,6 +1660,8 @@ class IplObserverService {
       lastPeriod: fixtureState.fixture.lastPeriod,
       lastResultPayload: fixtureState.fixture.lastResultPayload,
     })
+
+    await this.recordLiveModelSnapshot(fixtureState, "opticodds-results")
   }
 
   private async applyFixtureResultsUpdate(update: OpticOddsResultUpdate) {
@@ -1515,10 +1676,11 @@ class IplObserverService {
       isLive: update.is_live,
       lastScore: stringifyScore(update.score),
       lastPeriod: stringifyPeriod(update.score) ?? fixtureState.fixture.lastPeriod,
-      lastResultPayload: {
-        score: update.score,
-        player_results: update.player_results ?? [],
-      },
+      lastResultPayload: mergeResultPayload(
+        update.score,
+        update.player_results,
+        fixtureState.fixture.lastResultPayload,
+      ),
       updatedAt: new Date(),
     }
 
@@ -1577,7 +1739,11 @@ class IplObserverService {
         return
       }
 
-      void this.handlePolymarketMessage(data)
+      void this.handlePolymarketMessage(data).catch((error: unknown) => {
+        logger.warn("Failed to handle Polymarket market message", {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      })
     })
 
     socket.addEventListener("close", () => {
@@ -1718,6 +1884,7 @@ class IplObserverService {
           existingBook.updatedAt = new Date()
 
           fixtureState.polymarketBooks.set(tokenId, existingBook)
+          await this.recordLiveModelSnapshot(fixtureState, "polymarket-price-change")
           await this.evaluateSignals(fixtureState)
         }
 
@@ -1772,6 +1939,7 @@ class IplObserverService {
 
       existingBook.updatedAt = new Date()
       fixtureState.polymarketBooks.set(tokenId, existingBook)
+      await this.recordLiveModelSnapshot(fixtureState, `polymarket-${eventType}`)
       await this.evaluateSignals(fixtureState)
     }
   }
@@ -1879,6 +2047,203 @@ class IplObserverService {
         edgeToExecutableAskBps: selectionSummary.executableAskEdgeBps,
         feeAdjustedEdgeBps: selectionSummary.feeAdjustedEdgeBps,
       })
+    }
+  }
+
+  private async recordLiveModelSnapshot(fixtureState: FixtureState, sourceEvent: string) {
+    if (this.liveModelPersistenceDisabledReason) {
+      return
+    }
+
+    const now = Date.now()
+    const liveModel = this.buildLiveModelView(fixtureState, sourceEvent)
+    const meaningfulInnings = [liveModel.inningsStates.first, liveModel.inningsStates.second]
+      .filter(hasMeaningfulExpectedState)
+
+    if (meaningfulInnings.length === 0) {
+      return
+    }
+
+    const edgeCandidates = liveModel.selections
+      .filter((selection) => selection.edgeVsMarketBps !== null)
+      .sort(
+        (left, right) =>
+          Math.abs(right.edgeVsMarketBps ?? 0) - Math.abs(left.edgeVsMarketBps ?? 0),
+      )
+    const strongestEdge = edgeCandidates[0]
+
+    let activeSnapshotId: number | null = null
+
+    for (const inningsState of meaningfulInnings) {
+      const snapshotKey = `${fixtureState.fixture.id}:${inningsState.innings ?? "unknown"}`
+      const previousSnapshotAt = this.lastLiveModelSnapshotAt.get(snapshotKey) ?? 0
+
+      if (now - previousSnapshotAt < LIVE_MODEL_SNAPSHOT_INTERVAL_MS) {
+        continue
+      }
+
+      const snapshotId = await insertLiveModelSnapshot({
+        fixtureId: fixtureState.fixture.id,
+        sourceEvent,
+        modelVersion: LIVE_MODEL_VERSION,
+        innings: inningsState.innings,
+        battingTeam: inningsState.battingTeam,
+        bowlingTeam: inningsState.bowlingTeam,
+        scoreRuns: inningsState.scoreRuns,
+        scoreWickets: inningsState.scoreWickets,
+        overs: inningsState.overs,
+        balls: inningsState.balls,
+        targetRuns: inningsState.targetRuns,
+        expectedRunsNow: inningsState.expectedRunsNow,
+        expectedWicketsNow: inningsState.expectedWicketsNow,
+        runsDelta: inningsState.runsDelta,
+        wicketsDelta: inningsState.wicketsDelta,
+        projectedScore: inningsState.projectedScore,
+        homeModelProbability: liveModel.home.fairProbability,
+        awayModelProbability: liveModel.away.fairProbability,
+        homePolymarketProbability: liveModel.home.marketProbability,
+        awayPolymarketProbability: liveModel.away.marketProbability,
+        homeReferenceProbability: liveModel.home.referenceProbability,
+        awayReferenceProbability: liveModel.away.referenceProbability,
+        edgeHomeVsPolymarketBps: liveModel.home.edgeVsMarketBps,
+        edgeAwayVsPolymarketBps: liveModel.away.edgeVsMarketBps,
+        confidence: liveModel.confidence,
+        details: {
+          ...liveModel.details,
+          inningsStatus: inningsState.status,
+          inningsStates: liveModel.inningsStates,
+        },
+      }).catch((error: unknown) => {
+        this.disableLiveModelPersistence(error)
+        return null
+      })
+
+      this.lastLiveModelSnapshotAt.set(snapshotKey, now)
+
+      if (inningsState.innings === liveModel.expectedState.innings) {
+        activeSnapshotId = snapshotId
+      }
+    }
+
+    if (
+      activeSnapshotId === null ||
+      !strongestEdge ||
+      strongestEdge.edgeVsMarketBps === null ||
+      Math.abs(strongestEdge.edgeVsMarketBps) < LIVE_MODEL_SIGNAL_THRESHOLD_BPS
+    ) {
+      return
+    }
+
+    if (!hasMeaningfulSignalState(liveModel.expectedState)) {
+      return
+    }
+
+    const signalKey = `${fixtureState.fixture.id}:${strongestEdge.selection}`
+    const previousSignal = this.lastLiveModelSignalAt.get(signalKey)
+
+    if (
+      previousSignal &&
+      now - previousSignal.observedAt < 60_000 &&
+      Math.abs(previousSignal.edgeBps - strongestEdge.edgeVsMarketBps) < 50
+    ) {
+      return
+    }
+
+    await insertLiveModelSignal({
+      fixtureId: fixtureState.fixture.id,
+      snapshotId: activeSnapshotId,
+      selection: strongestEdge.selection,
+      modelProbability: strongestEdge.fairProbability,
+      polymarketProbability: strongestEdge.marketProbability,
+      referenceProbability: strongestEdge.referenceProbability,
+      edgeVsPolymarketBps: strongestEdge.edgeVsMarketBps,
+      reason: buildLiveModelSignalReason(liveModel.expectedState, strongestEdge.edgeVsMarketBps),
+      confidence: liveModel.confidence,
+      scoreContext: {
+        score: fixtureState.fixture.lastScore,
+        period: fixtureState.fixture.lastPeriod,
+        expectedState: liveModel.expectedState,
+      },
+    }).catch((error: unknown) => {
+      this.disableLiveModelPersistence(error)
+    })
+
+    this.lastLiveModelSignalAt.set(signalKey, {
+      edgeBps: strongestEdge.edgeVsMarketBps,
+      observedAt: now,
+    })
+  }
+
+  private disableLiveModelPersistence(error: unknown) {
+    if (this.liveModelPersistenceDisabledReason) {
+      return
+    }
+
+    const message = error instanceof Error ? error.message : String(error)
+    if (!isLiveModelSchemaError(error, message)) {
+      logger.warn("Live model persistence write failed; will retry on the next snapshot", {
+        error: message,
+      })
+      return
+    }
+
+    this.liveModelPersistenceDisabledReason = message
+    logger.warn("Live model persistence disabled; run pnpm db:migrate to create observer_live_model tables", {
+      error: message,
+    })
+  }
+
+  private buildLiveModelView(fixtureState: FixtureState, sourceEvent: string) {
+    const fixture = this.buildPublicFixture(fixtureState.fixture)
+    const summary = this.buildFixtureSummary(fixtureState)
+    const inningsStates = buildLiveInningsExpectedStates(fixtureState.fixture)
+    const expectedState = getActiveExpectedState(inningsStates)
+    const selections = summary?.selections ?? []
+    const homeSelection = normalizeSelection(fixtureState.fixture.homeTeam)
+    const awaySelection = normalizeSelection(fixtureState.fixture.awayTeam)
+    const selectionViews: LiveSelectionView[] = selections.map((selection) => ({
+      selection: selection.selection,
+      fairProbability: selection.referenceProbability,
+      marketProbability: selection.polymarketSnapshotPrice,
+      referenceProbability: selection.referenceProbability,
+      executableAsk: selection.executableAsk,
+      executableBid: selection.executableBid,
+      edgeVsMarketBps: selection.snapshotEdgeBps,
+      edgeVsExecutableAskBps: selection.executableAskEdgeBps,
+      feeAdjustedEdgeBps: selection.feeAdjustedEdgeBps,
+    }))
+    const home = selectionViews.find((selection) => selection.selection === homeSelection)
+    const away = selectionViews.find((selection) => selection.selection === awaySelection)
+
+    return {
+      fixture,
+      sourceEvent,
+      modelVersion: LIVE_MODEL_VERSION,
+      confidence: summary?.referenceConfidence ?? "low",
+      expectedState,
+      inningsStates,
+      venueContext: getVenueContextStats(fixtureState.fixture.venueName),
+      home: buildSideLiveModelView(home, fixtureState.fixture.homeTeam),
+      away: buildSideLiveModelView(away, fixtureState.fixture.awayTeam),
+      selections: selectionViews,
+      details: {
+        methodology:
+          "heuristic expected-state context plus existing Betfair-first reference probability; isolated from deployed predictor artifacts",
+        score: fixtureState.fixture.lastScore,
+        period: fixtureState.fixture.lastPeriod,
+        rawScoreAvailable: fixtureState.fixture.lastResultPayload !== null,
+        reference: summary
+          ? {
+              source: summary.referenceSource,
+              confidence: summary.referenceConfidence,
+              bookCount: summary.referenceBookCount,
+              maxDispersionBps: summary.maxDispersionBps,
+              contributions: summary.contributions,
+              excludedBooks: summary.excludedBooks,
+            }
+          : null,
+      },
+      updatedAt: new Date().toISOString(),
     }
   }
 
@@ -2548,6 +2913,52 @@ const stringifyPeriod = (score: unknown) => {
   return [period, clock].filter(Boolean).join(" ")
 }
 
+const mergeResultPayload = (
+  score: unknown,
+  playerResults: unknown[] | undefined,
+  previousPayload: unknown,
+) => {
+  const previousRecord = toJsonRecord(previousPayload)
+  const previousScore = toJsonRecord(previousRecord?.score) ?? previousRecord
+  const scoreRecord = toJsonRecord(score)
+  const nextScore = mergeScorePayload(scoreRecord, previousScore) ?? score
+  const previousPlayerResults = Array.isArray(previousRecord?.player_results)
+    ? previousRecord.player_results
+    : []
+  const nextPlayerResults = playerResults && playerResults.length > 0 ? playerResults : previousPlayerResults
+
+  if (nextPlayerResults.length === 0) {
+    return nextScore
+  }
+
+  return {
+    score: nextScore,
+    player_results: nextPlayerResults,
+  }
+}
+
+const mergeScorePayload = (score: JsonRecord | null, previousScore: JsonRecord | null) => {
+  if (!score) {
+    return previousScore
+  }
+
+  if (!previousScore || score.stats) {
+    return score
+  }
+
+  if (!previousScore.stats) {
+    return score
+  }
+
+  return {
+    ...previousScore,
+    ...score,
+    scores: score.scores ?? previousScore.scores,
+    in_play: score.in_play ?? previousScore.in_play,
+    in_play_data: score.in_play_data ?? previousScore.in_play_data,
+  }
+}
+
 const classifyReferenceConfidence = (
   supportBookCount: number,
   maxDispersionBps: number,
@@ -2578,6 +2989,816 @@ const mapToRoundedRecord = (map: Map<string, number>) =>
   Object.fromEntries(
     Array.from(map.entries()).map(([key, value]) => [key, Number(value.toFixed(6))]),
   )
+
+const buildSideLiveModelView = (
+  selection: LiveSelectionView | undefined,
+  team: string,
+) => ({
+  team,
+  fairProbability: selection?.fairProbability ?? null,
+  marketProbability: selection?.marketProbability ?? null,
+  referenceProbability: selection?.referenceProbability ?? null,
+  edgeVsMarketBps: selection?.edgeVsMarketBps ?? null,
+})
+
+const buildLiveModelSignalReason = (
+  expectedState: LiveExpectedState,
+  edgeVsPolymarketBps: number,
+) => {
+  const direction = edgeVsPolymarketBps > 0 ? "fair_above_market" : "fair_below_market"
+  const runGap =
+    expectedState.runsDelta === null
+      ? "runs_delta_unavailable"
+      : `runs_delta_${expectedState.runsDelta.toFixed(1)}`
+  const wicketGap =
+    expectedState.wicketsDelta === null
+      ? "wickets_delta_unavailable"
+      : `wickets_delta_${expectedState.wicketsDelta.toFixed(1)}`
+
+  return `${direction}; ${runGap}; ${wicketGap}`
+}
+
+const hasMeaningfulExpectedState = (expectedState: LiveExpectedState) =>
+  expectedState.scoreRuns !== null &&
+  expectedState.balls !== null &&
+  expectedState.balls > 0 &&
+  expectedState.expectedRunsNow !== null &&
+  expectedState.expectedWicketsNow !== null &&
+  expectedState.runsDelta !== null &&
+  expectedState.projectedScore !== null
+
+const hasMeaningfulSignalState = (expectedState: LiveExpectedState) =>
+  expectedState.scoreRuns !== null &&
+  expectedState.scoreWickets !== null &&
+  expectedState.balls !== null &&
+  expectedState.balls > 0 &&
+  expectedState.runsDelta !== null &&
+  expectedState.wicketsDelta !== null
+
+const isMeaningfulLiveModelSnapshot = (snapshot: {
+  scoreRuns: number | null
+  scoreWickets: number | null
+  balls: number | null
+  expectedRunsNow: number | null
+  expectedWicketsNow: number | null
+  runsDelta: number | null
+  wicketsDelta: number | null
+  projectedScore: number | null
+}) =>
+  snapshot.scoreRuns !== null &&
+  snapshot.balls !== null &&
+  snapshot.balls > 0 &&
+  snapshot.expectedRunsNow !== null &&
+  snapshot.expectedWicketsNow !== null &&
+  snapshot.runsDelta !== null &&
+  snapshot.projectedScore !== null
+
+const buildLatestSnapshotsByInnings = <T extends { innings: number | null }>(snapshots: T[]) => ({
+  first: snapshots.find((snapshot) => snapshot.innings === 1) ?? null,
+  second: snapshots.find((snapshot) => snapshot.innings === 2) ?? null,
+})
+
+const isMeaningfulLiveModelSignal = (signal: { scoreContext: unknown }) => {
+  const context = toJsonRecord(signal.scoreContext)
+  const expectedState = context ? toJsonRecord(context.expectedState) : null
+
+  return Boolean(
+    expectedState &&
+      readNumber(expectedState.scoreRuns) !== null &&
+      readNumber(expectedState.scoreWickets) !== null &&
+      (readNumber(expectedState.balls) ?? 0) > 0 &&
+      readNumber(expectedState.runsDelta) !== null &&
+      readNumber(expectedState.wicketsDelta) !== null,
+  )
+}
+
+const isLiveModelSchemaError = (error: unknown, message: string) => {
+  const record = toJsonRecord(error)
+  const code = typeof record?.code === "string" ? record.code : null
+  return code === "42P01" || code === "42703" || /observer_live_model|does not exist|column .* does not exist/i.test(message)
+}
+
+const dedupeLiveModelSignalRecord = <T extends {
+  fixtureId: string
+  selection: string
+  reason: string
+  edgeVsPolymarketBps: number | null
+}>(signal: T, index: number, signals: T[]) => {
+  const edge = signal.edgeVsPolymarketBps ?? 0
+  return signals.findIndex((candidate) => {
+    const candidateEdge = candidate.edgeVsPolymarketBps ?? 0
+    return (
+      candidate.fixtureId === signal.fixtureId &&
+      candidate.selection === signal.selection &&
+      candidate.reason === signal.reason &&
+      Math.abs(candidateEdge - edge) < 50
+    )
+  }) === index
+}
+
+const buildLiveInningsExpectedStates = (fixture: ObserverFixtureRecord): LiveInningsExpectedStates => {
+  const sideStates = buildLiveSideInningsStates(fixture)
+  if (sideStates) {
+    return sideStates
+  }
+
+  const active = parseCricketState(fixture.lastResultPayload)
+  const first = buildExpectedStateFromParsed(
+    parseCricketStateForInnings(fixture.lastResultPayload, 1),
+    fixture.venueName,
+  )
+  const second = buildExpectedStateFromParsed(
+    parseCricketStateForInnings(fixture.lastResultPayload, 2),
+    fixture.venueName,
+  )
+  const activeInnings = active.innings ?? first.innings ?? second.innings
+
+  return {
+    activeInnings,
+    first: withInningsStatus(first, 1, activeInnings),
+    second: withInningsStatus(second, 2, activeInnings),
+  }
+}
+
+const buildLiveSideInningsStates = (fixture: ObserverFixtureRecord): LiveInningsExpectedStates | null => {
+  const payloadRecord = toJsonRecord(fixture.lastResultPayload)
+  const scoreRecord = toJsonRecord(payloadRecord?.score) ?? payloadRecord
+  const inningsSides = readLiveInningsSides(scoreRecord)
+
+  if (!inningsSides) {
+    return null
+  }
+
+  const first = buildExpectedStateFromParsed(
+    readLiveSideInningsState(scoreRecord, 1) ?? blankParsedInnings(1),
+    fixture.venueName,
+  )
+  const second = buildExpectedStateFromParsed(
+    readLiveSideInningsState(scoreRecord, 2) ?? blankParsedInnings(2),
+    fixture.venueName,
+  )
+
+  return {
+    activeInnings: 2,
+    first: { ...first, status: "frozen" },
+    second: { ...second, status: hasMeaningfulExpectedState(second) ? "live" : "pending" },
+  }
+}
+
+const blankParsedInnings = (innings: 1 | 2): ParsedCricketState => ({
+  innings,
+  battingTeam: null,
+  bowlingTeam: null,
+  scoreRuns: null,
+  scoreWickets: null,
+  overs: null,
+  balls: null,
+  targetRuns: null,
+})
+
+const getActiveExpectedState = (inningsStates: LiveInningsExpectedStates): LiveExpectedState => {
+  if (inningsStates.activeInnings === 2) {
+    return stripInningsStatus(inningsStates.second)
+  }
+
+  if (inningsStates.activeInnings === 1) {
+    return stripInningsStatus(inningsStates.first)
+  }
+
+  return stripInningsStatus(inningsStates.first.scoreRuns !== null ? inningsStates.first : inningsStates.second)
+}
+
+const withInningsStatus = (
+  state: LiveExpectedState,
+  innings: 1 | 2,
+  activeInnings: number | null,
+): InningsExpectedState => {
+  const hasScore = state.scoreRuns !== null || state.scoreWickets !== null || state.balls !== null
+  const hasLiveMetrics = hasMeaningfulExpectedState(state)
+  const status = hasLiveMetrics && activeInnings === innings
+    ? "live"
+    : hasScore && activeInnings !== null && activeInnings > innings
+      ? "frozen"
+      : activeInnings === innings
+        ? "pending"
+        : hasScore
+          ? "frozen"
+          : "unavailable"
+
+  return { ...state, status }
+}
+
+const stripInningsStatus = (state: InningsExpectedState): LiveExpectedState => {
+  const { status: _status, ...expectedState } = state
+  return expectedState
+}
+
+const buildExpectedStateFromParsed = (
+  parsed: ParsedCricketState,
+  venueName: string | null,
+): LiveExpectedState => {
+  const expectedRunRate = estimateExpectedRunRate(venueName)
+
+  if (parsed.balls === null || parsed.scoreRuns === null) {
+    return {
+      ...parsed,
+      expectedRunsNow: null,
+      expectedWicketsNow: null,
+      runsDelta: null,
+      wicketsDelta: null,
+      projectedScore: null,
+      expectedRunRate: null,
+    }
+  }
+
+  const expectedRunsNow = (parsed.balls / 6) * expectedRunRate
+  const expectedWicketsNow = (parsed.balls / 120) * 6.2
+  const remainingBalls = Math.max(0, 120 - parsed.balls)
+  const runsDelta = parsed.scoreRuns - expectedRunsNow
+  const wicketsDelta =
+    parsed.scoreWickets === null ? null : parsed.scoreWickets - expectedWicketsNow
+  const wicketPenalty = wicketsDelta === null ? 0 : Math.min(1.2, Math.max(-0.6, wicketsDelta * 0.18))
+  const projectedScore = parsed.scoreRuns + (remainingBalls / 6) * Math.max(4, expectedRunRate - wicketPenalty)
+
+  return {
+    ...parsed,
+    expectedRunsNow: roundMetric(expectedRunsNow),
+    expectedWicketsNow: roundMetric(expectedWicketsNow),
+    runsDelta: roundMetric(runsDelta),
+    wicketsDelta: wicketsDelta === null ? null : roundMetric(wicketsDelta),
+    projectedScore: roundMetric(projectedScore),
+    expectedRunRate: roundMetric(expectedRunRate),
+  }
+}
+
+const parseCricketState = (payload: unknown): ParsedCricketState => {
+  const records = collectJsonRecords(payload)
+  const scoreRecord = toJsonRecord(toJsonRecord(payload)?.score) ?? toJsonRecord(payload)
+  const inPlay = scoreRecord ? toJsonRecord(scoreRecord.in_play) ?? toJsonRecord(scoreRecord.in_play_data) : null
+  const activeInnings = firstInteger(
+    [inPlay, scoreRecord].filter((record): record is JsonRecord => record !== null),
+    ["current_innings", "currentInnings", "innings", "inning"],
+  )
+  const inferredActiveInnings = inferLiveActiveInnings(scoreRecord, activeInnings)
+  const activeSideState = readLiveSideInningsState(scoreRecord, inferredActiveInnings)
+
+  if (activeSideState) {
+    return activeSideState
+  }
+
+  const activeRecords = selectActiveInningsRecords(records, scoreRecord, inPlay, inferredActiveInnings)
+  const resolvedInnings = inferredActiveInnings ?? firstInteger(activeRecords, ["innings", "inning", "current_innings"])
+
+  return {
+    innings: resolvedInnings,
+    battingTeam: firstText(activeRecords, ["batting_team", "battingTeam", "batting_team_name"]),
+    bowlingTeam: firstText(activeRecords, ["bowling_team", "bowlingTeam", "bowling_team_name"]),
+    scoreRuns: firstScoreRuns(activeRecords, inPlay, scoreRecord, resolvedInnings),
+    scoreWickets: firstScoreWickets(payload, activeRecords, inPlay, scoreRecord, resolvedInnings),
+    overs: hasScoreValue(activeRecords) ? firstOverValue(activeRecords, inPlay) : null,
+    balls: hasScoreValue(activeRecords) ? firstBallValue(activeRecords, inPlay) : null,
+    targetRuns: firstInteger(activeRecords, ["target", "target_runs", "runs_to_win"]),
+  }
+}
+
+const parseCricketStateForInnings = (payload: unknown, innings: 1 | 2): ParsedCricketState => {
+  const records = collectJsonRecords(payload)
+  const scoreRecord = toJsonRecord(toJsonRecord(payload)?.score) ?? toJsonRecord(payload)
+  const inPlay = scoreRecord ? toJsonRecord(scoreRecord.in_play) ?? toJsonRecord(scoreRecord.in_play_data) : null
+  const sideState = readLiveSideInningsState(scoreRecord, innings)
+
+  if (sideState) {
+    return sideState
+  }
+
+  const inningsRecords = selectActiveInningsRecords(records, scoreRecord, inPlay, innings)
+
+  return {
+    innings,
+    battingTeam: firstText(inningsRecords, ["batting_team", "battingTeam", "batting_team_name"]),
+    bowlingTeam: firstText(inningsRecords, ["bowling_team", "bowlingTeam", "bowling_team_name"]),
+    scoreRuns: firstScoreRuns(inningsRecords, innings === 2 ? inPlay : null, scoreRecord, innings),
+    scoreWickets: firstScoreWickets(payload, inningsRecords, innings === 2 ? inPlay : null, scoreRecord, innings),
+    overs: hasScoreValue(inningsRecords) ? firstOverValue(inningsRecords, innings === 2 ? inPlay : null) : null,
+    balls: hasScoreValue(inningsRecords) ? firstBallValue(inningsRecords, innings === 2 ? inPlay : null) : null,
+    targetRuns: firstInteger(inningsRecords, ["target", "target_runs", "runs_to_win"]),
+  }
+}
+
+const hasScoreValue = (records: JsonRecord[]) =>
+  records.some((record) =>
+    firstInteger([record], [
+      "total_runs",
+      "runs_total",
+      "scoreRuns",
+      "score_runs",
+      "team_total",
+      "innings_total",
+      "batting_total",
+      "total",
+      "runs",
+      "batting_runs",
+      "batter_runs",
+      "runs_batter",
+      "runs_off_bat",
+      "total_wickets",
+      "scoreWickets",
+      "score_wickets",
+      "wickets_lost",
+      "batting_wickets",
+      "wickets",
+    ]) !== null || readSummaryScoreTotals(record).some((value) => value !== null && value > 0),
+  )
+
+const selectActiveInningsRecords = (
+  records: JsonRecord[],
+  scoreRecord: JsonRecord | null,
+  inPlay: JsonRecord | null,
+  activeInnings: number | null,
+) => {
+  const anchoredRecords = [
+    recordMatchesInnings(inPlay, activeInnings) ? inPlay : null,
+    recordMatchesInnings(scoreRecord, activeInnings) ? scoreRecord : null,
+  ].filter((record): record is JsonRecord => record !== null)
+  const matchingRecords = activeInnings === null
+    ? []
+    : records.filter((record) => {
+        if (activeInnings > 1 && record === scoreRecord) {
+          return false
+        }
+
+        const recordInnings = readNumber(record.current_innings)
+          ?? readNumber(record.currentInnings)
+          ?? readNumber(record.innings)
+          ?? readNumber(record.inning)
+
+        return recordInnings !== null && Math.round(recordInnings) === activeInnings
+      })
+
+  const ordered = [...anchoredRecords, ...matchingRecords]
+  const seen = new Set<JsonRecord>()
+  return ordered.filter((record) => {
+    if (seen.has(record)) {
+      return false
+    }
+
+    seen.add(record)
+    return true
+  })
+}
+
+const recordMatchesInnings = (record: JsonRecord | null, innings: number | null) => {
+  if (!record) {
+    return false
+  }
+
+  if (innings === null) {
+    return true
+  }
+
+  const recordInnings = readNumber(record.current_innings)
+    ?? readNumber(record.currentInnings)
+    ?? readNumber(record.innings)
+    ?? readNumber(record.inning)
+
+  return recordInnings === null ? innings <= 1 : Math.round(recordInnings) === innings
+}
+
+type CricketScoreSide = "home" | "away"
+
+const inferLiveActiveInnings = (scoreRecord: JsonRecord | null, feedInnings: number | null) => {
+  const inningsSides = readLiveInningsSides(scoreRecord)
+  return inningsSides ? 2 : feedInnings
+}
+
+const readLiveSideInningsState = (
+  scoreRecord: JsonRecord | null,
+  innings: number | null,
+): ParsedCricketState | null => {
+  const inningsSides = readLiveInningsSides(scoreRecord)
+  if (!inningsSides || (innings !== 1 && innings !== 2)) {
+    return null
+  }
+
+  const side = innings === 1 ? inningsSides.first : inningsSides.second
+  const oppositeSide = side === "home" ? "away" : "home"
+  const score = toJsonRecord(toJsonRecord(scoreRecord?.scores)?.[side])
+  const summary = readSideBattingSummary(scoreRecord, side)
+  const overs = summary.overs
+  const scoreRuns = readNumber(score?.total) ?? summary.runs
+  const firstInningsRuns = innings === 2
+    ? readNumber(toJsonRecord(toJsonRecord(scoreRecord?.scores)?.[inningsSides.first])?.total)
+    : null
+
+  return {
+    innings,
+    battingTeam: readScoreTeamName(scoreRecord, side),
+    bowlingTeam: readScoreTeamName(scoreRecord, oppositeSide),
+    scoreRuns: scoreRuns === null ? null : Math.round(scoreRuns),
+    scoreWickets: summary.wickets === null ? null : Math.round(summary.wickets),
+    overs,
+    balls: overs === null ? null : oversToBalls(overs),
+    targetRuns: innings === 2 && firstInningsRuns !== null ? Math.round(firstInningsRuns + 1) : null,
+  }
+}
+
+const readLiveInningsSides = (scoreRecord: JsonRecord | null) => {
+  const homeSummary = readSideBattingSummary(scoreRecord, "home")
+  const awaySummary = readSideBattingSummary(scoreRecord, "away")
+  const scores = toJsonRecord(scoreRecord?.scores)
+  const homeTotal = readNumber(toJsonRecord(scores?.home)?.total)
+  const awayTotal = readNumber(toJsonRecord(scores?.away)?.total)
+
+  if ((homeTotal ?? 0) <= 0 || (awayTotal ?? 0) <= 0) {
+    return null
+  }
+
+  if (isCompletedT20Innings(homeSummary.overs) && isCurrentT20Innings(awaySummary.overs)) {
+    return { first: "home" as const, second: "away" as const }
+  }
+
+  if (isCompletedT20Innings(awaySummary.overs) && isCurrentT20Innings(homeSummary.overs)) {
+    return { first: "away" as const, second: "home" as const }
+  }
+
+  return null
+}
+
+const readSideBattingSummary = (scoreRecord: JsonRecord | null, side: CricketScoreSide) => {
+  const stats = toJsonRecord(scoreRecord?.stats)
+  const rows = stats ? stats[side] : null
+  const rowRecords = Array.isArray(rows)
+    ? rows.map((row) => toJsonRecord(row)).filter((row): row is JsonRecord => row !== null)
+    : []
+  const preferredRow = rowRecords.find((row) => readText(row.period) === "period_1") ?? rowRecords[0] ?? null
+  const battingStats = toJsonRecord(preferredRow?.stats)
+  const overs = readText(battingStats?.batting_overs)
+
+  return {
+    runs: readNumber(battingStats?.batting_runs),
+    wickets: readNumber(battingStats?.batting_wickets),
+    overs: overs ? parseCricketOverNotation(overs) : null,
+  }
+}
+
+const isCompletedT20Innings = (overs: number | null) => overs !== null && overs >= 19.5
+
+const isCurrentT20Innings = (overs: number | null) => overs !== null && overs < 19.5
+
+const firstScoreRuns = (
+  activeRecords: JsonRecord[],
+  inPlay: JsonRecord | null,
+  scoreRecord: JsonRecord | null,
+  activeInnings: number | null,
+) => {
+  const liveRuns = firstInteger(activeRecords, [
+    "total_runs",
+    "runs_total",
+    "scoreRuns",
+    "score_runs",
+    "team_total",
+    "innings_total",
+    "batting_total",
+    "total",
+  ])
+
+  if (liveRuns !== null) {
+    return liveRuns
+  }
+
+  const liveRunsWithExtras = firstRunsPlusExtras(activeRecords)
+  if (liveRunsWithExtras !== null) {
+    return liveRunsWithExtras
+  }
+
+  const liveFallbackRuns = firstInteger(activeRecords, ["runs", "batting_runs", "batter_runs", "runs_batter", "runs_off_bat"])
+  if (liveFallbackRuns !== null) {
+    return liveFallbackRuns
+  }
+
+  const inningsSummaryRuns = firstSummaryScoreRuns(scoreRecord, activeInnings)
+  if (inningsSummaryRuns !== null) {
+    return inningsSummaryRuns
+  }
+
+  if (activeInnings !== null && activeInnings > 1) {
+    return null
+  }
+
+  return firstInteger([scoreRecord, inPlay].filter((record): record is JsonRecord => record !== null), [
+    "total_runs",
+    "runs_total",
+    "scoreRuns",
+    "score_runs",
+    "team_total",
+    "innings_total",
+    "batting_total",
+    "total",
+  ])
+}
+
+const firstScoreWickets = (
+  payload: unknown,
+  activeRecords: JsonRecord[],
+  inPlay: JsonRecord | null,
+  scoreRecord: JsonRecord | null,
+  activeInnings: number | null,
+) => {
+  const liveWickets = firstInteger(activeRecords, [
+    "total_wickets",
+    "scoreWickets",
+    "score_wickets",
+    "wickets_lost",
+    "batting_wickets",
+    "wickets",
+  ])
+
+  if (liveWickets !== null) {
+    return liveWickets
+  }
+
+  const dismissedBatters = countDismissedBatters(payload, scoreRecord, activeInnings)
+  if (dismissedBatters !== null) {
+    return dismissedBatters
+  }
+
+  const inningsSummaryWickets = firstSummaryScoreWickets(scoreRecord, activeInnings)
+  if (inningsSummaryWickets !== null) {
+    return inningsSummaryWickets
+  }
+
+  if (activeInnings !== null && activeInnings > 1) {
+    return null
+  }
+
+  return firstInteger([scoreRecord, inPlay].filter((record): record is JsonRecord => record !== null), [
+    "total_wickets",
+    "scoreWickets",
+    "score_wickets",
+    "wickets_lost",
+    "batting_wickets",
+    "wickets",
+  ])
+}
+
+const firstSummaryScoreRuns = (scoreRecord: JsonRecord | null, activeInnings: number | null) => {
+  if (activeInnings !== null && activeInnings > 1) {
+    return null
+  }
+
+  const totals = readSummaryScoreTotals(scoreRecord).filter((value) => value !== null)
+  const positiveTotals = totals.filter((value) => value > 0)
+
+  if (positiveTotals.length === 1) {
+    return positiveTotals[0] ?? null
+  }
+
+  return null
+}
+
+const firstSummaryScoreWickets = (scoreRecord: JsonRecord | null, activeInnings: number | null) => {
+  if (activeInnings !== null && activeInnings > 1) {
+    return null
+  }
+
+  const summaries = readSummaryScoreRecords(scoreRecord)
+  const scoredSummaries = summaries.filter((summary) => (readNumber(summary.total) ?? 0) > 0)
+  const scoredSummary = scoredSummaries.length === 1 ? scoredSummaries[0] : null
+
+  return scoredSummary ? readNumber(scoredSummary.wickets) ?? readNumber(scoredSummary.wickets_lost) : null
+}
+
+const countDismissedBatters = (
+  payload: unknown,
+  scoreRecord: JsonRecord | null,
+  activeInnings: number | null,
+) => {
+  if (activeInnings === null) {
+    return null
+  }
+
+  const battingTeamName = readSoleScoringTeamName(scoreRecord)
+  const period = `period_${activeInnings}`
+  const payloadRecord = toJsonRecord(payload)
+  const playerResults = Array.isArray(payloadRecord?.player_results) ? payloadRecord.player_results : []
+  const dismissedPlayersByTeam = new Map<string, Set<string>>()
+
+  for (const playerResult of playerResults) {
+    const resultRecord = toJsonRecord(playerResult)
+    const teamRecord = toJsonRecord(resultRecord?.team)
+    const teamName = readText(teamRecord?.name)
+    if (!teamName || (battingTeamName && teamName !== battingTeamName)) {
+      continue
+    }
+
+    const playerRecord = toJsonRecord(resultRecord?.player)
+    const playerKey = readText(playerRecord?.id) ?? readText(playerRecord?.name)
+    const statsRows = Array.isArray(resultRecord?.stats) ? resultRecord.stats : []
+
+    for (const statsRow of statsRows) {
+      const statsRecord = toJsonRecord(statsRow)
+      if (statsRecord === null) {
+        continue
+      }
+
+      if (readText(statsRecord.period) !== period) {
+        continue
+      }
+
+      const nestedStats = toJsonRecord(statsRecord.stats)
+      const battingStats = nestedStats === null ? statsRecord : nestedStats
+      const fowType = readText(battingStats.batting_fow_type)?.toLowerCase()
+      if (fowType && fowType !== "not_out") {
+        const teamDismissals = dismissedPlayersByTeam.get(teamName) ?? new Set<string>()
+        teamDismissals.add(playerKey ?? `${teamName}-${teamDismissals.size + 1}`)
+        dismissedPlayersByTeam.set(teamName, teamDismissals)
+      }
+    }
+  }
+
+  if (battingTeamName) {
+    const dismissedPlayers = dismissedPlayersByTeam.get(battingTeamName)
+    return dismissedPlayers && dismissedPlayers.size > 0 ? dismissedPlayers.size : null
+  }
+
+  return dismissedPlayersByTeam.size === 1 ? [...dismissedPlayersByTeam.values()][0]?.size ?? null : null
+}
+
+const readSoleScoringTeamName = (scoreRecord: JsonRecord | null) => {
+  const scores = toJsonRecord(scoreRecord?.scores)
+  const homeScore = toJsonRecord(scores?.home)
+  const awayScore = toJsonRecord(scores?.away)
+  const homeTotal = readNumber(homeScore?.total)
+  const awayTotal = readNumber(awayScore?.total)
+
+  if (homeTotal !== null && homeTotal > 0 && (awayTotal ?? 0) === 0) {
+    return readScoreTeamName(scoreRecord, "home")
+  }
+
+  if (awayTotal !== null && awayTotal > 0 && (homeTotal ?? 0) === 0) {
+    return readScoreTeamName(scoreRecord, "away")
+  }
+
+  return null
+}
+
+const readScoreTeamName = (scoreRecord: JsonRecord | null, side: "home" | "away") => {
+  const fixture = toJsonRecord(scoreRecord?.fixture)
+  const displayName = readText(fixture?.[`${side}_team_display`])
+
+  if (displayName) {
+    return displayName
+  }
+
+  const competitors = fixture?.[`${side}_competitors`]
+  if (!Array.isArray(competitors)) {
+    return null
+  }
+
+  return readText(toJsonRecord(competitors[0])?.name)
+}
+
+const readSummaryScoreTotals = (scoreRecord: JsonRecord | null) =>
+  readSummaryScoreRecords(scoreRecord).map((record) => readNumber(record.total))
+
+const readSummaryScoreRecords = (scoreRecord: JsonRecord | null) => {
+  const scores = toJsonRecord(scoreRecord?.scores) ?? scoreRecord
+
+  if (!scores) {
+    return []
+  }
+
+  return [toJsonRecord(scores.home), toJsonRecord(scores.away)]
+    .filter((record): record is JsonRecord => record !== null)
+}
+
+const firstRunsPlusExtras = (records: JsonRecord[]) => {
+  for (const record of records) {
+    const batterRuns = readNumber(record.batter_runs)
+      ?? readNumber(record.runs_batter)
+      ?? readNumber(record.runs_off_bat)
+      ?? readNumber(record.batting_runs)
+    const extras = readNumber(record.extras)
+      ?? readNumber(record.runs_extras)
+      ?? readNumber(record.extra_runs)
+
+    if (batterRuns !== null && extras !== null) {
+      return Math.round(batterRuns + extras)
+    }
+  }
+
+  return null
+}
+
+const collectJsonRecords = (value: unknown): JsonRecord[] => {
+  const record = toJsonRecord(value)
+
+  if (!record) {
+    return []
+  }
+
+  const nested = Object.values(record).flatMap((item) => {
+    if (Array.isArray(item)) {
+      return item.flatMap((entry) => collectJsonRecords(entry))
+    }
+
+    return collectJsonRecords(item)
+  })
+
+  return [record, ...nested]
+}
+
+const firstText = (records: JsonRecord[], keys: string[]) => {
+  for (const record of records) {
+    for (const key of keys) {
+      const value = readText(record[key])
+      if (value) {
+        return value
+      }
+    }
+  }
+
+  return null
+}
+
+const firstInteger = (records: JsonRecord[], keys: string[]) => {
+  for (const record of records) {
+    for (const key of keys) {
+      const value = readNumber(record[key])
+      if (value !== null) {
+        return Math.round(value)
+      }
+    }
+  }
+
+  return null
+}
+
+const firstOverValue = (records: JsonRecord[], inPlay: JsonRecord | null) => {
+  const raw = firstText(records, ["batting_overs", "overs", "over", "clock"])
+  if (raw) {
+    return parseCricketOverNotation(raw)
+  }
+
+  const clock = readText(inPlay?.clock)
+  if (!clock) {
+    return null
+  }
+
+  return parseCricketOverNotation(clock)
+}
+
+const firstBallValue = (records: JsonRecord[], inPlay: JsonRecord | null) => {
+  const overs = firstOverValue(records, inPlay)
+  if (overs !== null) {
+    return oversToBalls(overs)
+  }
+
+  const explicitBalls = firstInteger(records, ["valid_balls", "balls_batted"])
+  return explicitBalls !== null && explicitBalls > 0 ? explicitBalls : null
+}
+
+const oversToBalls = (overs: number) => {
+  const completedOvers = Math.trunc(overs)
+  const ballsInCurrentOver = Math.round((overs - completedOvers) * 10)
+  return completedOvers * 6 + normalizeCricketBallPart(ballsInCurrentOver)
+}
+
+const parseCricketOverNotation = (value: string) => {
+  const trimmed = value.trim()
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(trimmed)
+
+  if (!match) {
+    const parsed = Number(trimmed)
+    return Number.isFinite(parsed) ? roundMetric(parsed) : null
+  }
+
+  const completedOvers = Number(match[1])
+  const ballsInCurrentOver = match[2] ? Number(match[2]) : 0
+  const totalBalls = completedOvers * 6 + normalizeCricketBallPart(ballsInCurrentOver)
+  const normalizedOvers = Math.trunc(totalBalls / 6) + (totalBalls % 6) / 10
+
+  return roundMetric(normalizedOvers)
+}
+
+const normalizeCricketBallPart = (ballsInCurrentOver: number) => {
+  if (!Number.isFinite(ballsInCurrentOver) || ballsInCurrentOver <= 0) {
+    return 0
+  }
+
+  return Math.min(6, Math.round(ballsInCurrentOver))
+}
+
+const estimateExpectedRunRate = (venueName: string | null) => {
+  const venue = venueName?.toLowerCase() ?? ""
+  if (venue.includes("wankhede")) return 9.25
+  if (venue.includes("chinnaswamy")) return 9.35
+  if (venue.includes("eden gardens")) return 9.05
+  if (venue.includes("chidambaram") || venue.includes("chepauk")) return 8.35
+  return 8.75
+}
+
+const roundMetric = (value: number) => Number(value.toFixed(2))
 
 const parseTokenIdList = (value: unknown) => {
   if (Array.isArray(value)) {

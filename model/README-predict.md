@@ -157,6 +157,21 @@ Confirmed XI is now auto-fetched in `post_toss` mode from the IPL official match
 - If no matching Polymarket market exists, `market_overlay` will be `null` while `sportsbook_overlay` can still be populated from OpticOdds.
 - In `post_toss` mode, official toss + confirmed XI are applied before any file or CLI overrides; file overrides can still replace them if needed.
 
+## Experimental ball-state shadow flags
+
+The ball-by-ball shadow scorer is experimental and isolated from the production
+pre/post-toss predictor. Runtime refresh is opt-in:
+
+- `EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED=false` by default. When false,
+  `/observer/ball-state-shadow` is read-only and only reports existing ignored
+  experiment artifacts.
+- `EXPERIMENTAL_BALL_STATE_REMOTE_FETCH_ENABLED=false` by default. When false,
+  runtime ingestion will not fetch ESPN URLs from context files; use saved public
+  HTML under `model/experiments/ball-state/` for local experiments.
+
+Keep these disabled in production unless you are intentionally running an
+experimental live ball-state session.
+
 ## 9. Current-season prediction performance tracking
 
 The predictor now keeps a lightweight season ledger for live model calls under `model/data/live/`.

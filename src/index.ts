@@ -1,8 +1,8 @@
-import { dirname, join } from "node:path"
+import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { type Server } from "node:http"
 import { execFile } from "node:child_process"
-import { readFile, stat } from "node:fs/promises"
+import { readFile, readdir, stat } from "node:fs/promises"
 import express, {
   type Express,
   type NextFunction,
@@ -108,6 +108,7 @@ const currentDirectory = dirname(fileURLToPath(import.meta.url))
 const publicDirectory = join(currentDirectory, "..", "public")
 const modelDirectory = join(currentDirectory, "..", "model")
 const predictorScriptPath = join(modelDirectory, "predict_fixture.py")
+const ballStateExperimentsDirectory = join(modelDirectory, "experiments", "ball-state")
 const upcomingFixturesCsvPath = join(modelDirectory, "data", "live", "upcoming_fixtures.csv")
 const upcomingFixturesJsonPath = join(modelDirectory, "data", "live", "upcoming_fixtures.json")
 const upcomingFixtureEloPath = join(modelDirectory, "data", "live", "upcoming_fixture_elo_context.csv")
@@ -118,8 +119,31 @@ const predictorMaintenanceIntervalMs = config.predictorMaintenanceIntervalMs
 const automaticPreTossLookaheadMs = 24 * 60 * 60 * 1000
 const automaticPostTossWindowBeforeStartMs = 90 * 60 * 1000
 const automaticPostTossWindowAfterStartMs = 6 * 60 * 60 * 1000
+const ballStateShadowRefreshIntervalMs = 5_000
+const ballStateShadowRefreshTimeoutMs = 120_000
+const ballStateEventIngestionIntervalMs = 30_000
+const ballStateEventIngestionTimeoutMs = 60_000
+const allowedBallStateRemoteHosts = new Set(["www.espncricinfo.com", "espncricinfo.com"])
 
 let predictorLiveDataRefreshPromise: Promise<void> | null = null
+let ballStateShadowRefreshPromise: Promise<void> | null = null
+let ballStateShadowRefreshState: BallStateShadowRefresh = {
+  status: "idle",
+  ingestionStatus: "idle",
+  lastAttemptAt: null,
+  lastSuccessAt: null,
+  lastError: null,
+  ingestionLastAttemptAt: null,
+  ingestionLastSuccessAt: null,
+  ingestionLastError: null,
+  ingestionSource: null,
+  ingestionIntervalMs: ballStateEventIngestionIntervalMs,
+  eventJournalUpdatedAt: null,
+  shadowUpdatedAt: null,
+  autoRefreshIntervalMs: ballStateShadowRefreshIntervalMs,
+  autoRefreshEnabled: config.experimentalBallStateShadowRefreshEnabled,
+  remoteFetchEnabled: config.experimentalBallStateRemoteFetchEnabled,
+}
 
 type PredictorFixtureRow = {
   fixture_id: string
@@ -127,6 +151,710 @@ type PredictorFixtureRow = {
   status: string
   is_live: boolean
   is_completed: boolean
+}
+
+type JsonRecord = Record<string, unknown>
+
+type BallStateShadowScore = {
+  fixtureId: string | null
+  entryIndex: number | null
+  target: string
+  candidate: string | null
+  featureMode: string | null
+  innings: number | null
+  battingTeam: string | null
+  bowlingTeam: string | null
+  scoreRuns: number | null
+  scoreWickets: number | null
+  balls: number | null
+  shadowPrediction: number | null
+  heuristicValue: number | null
+  deltaVsHeuristic: number | null
+  snapshotDiagnostics: JsonRecord | null
+}
+
+type BallStateShadowResponse = {
+  status: "experimental"
+  source: "ball-state-shadow"
+  available: boolean
+  reason?: string
+  outputDir: string | null
+  updatedAt: string | null
+  currentState: {
+    fixtureId: string | null
+    innings: number | null
+    battingTeam: string | null
+    bowlingTeam: string | null
+    scoreRuns: number | null
+    scoreWickets: number | null
+    balls: number | null
+  }
+  predictions: {
+    finalInningsRuns: number | null
+    finalInningsWickets: number | null
+    remainingInningsRuns: number | null
+    remainingInningsWickets: number | null
+    chaseSuccessProbability: number | null
+  }
+  parity: {
+    readyForInference: boolean | null
+    featureMode: string | null
+    missingCoreFeatures: unknown[]
+    missingEventTrajectoryFeatures: unknown[]
+    snapshotDiagnostics: JsonRecord | null
+  }
+  summary: {
+    inputRows: number | null
+    scoredEntries: number | null
+    targetScores: number | null
+    rejectedRows: number | null
+    targetScoreCounts: JsonRecord | null
+    notes: unknown[]
+  }
+  refresh: BallStateShadowRefresh
+  scores: BallStateShadowScore[]
+  notes: string[]
+}
+
+type BallStateShadowRefresh = {
+  status: "idle" | "running" | "skipped" | "succeeded" | "failed"
+  ingestionStatus: "idle" | "unconfigured" | "running" | "succeeded" | "failed"
+  lastAttemptAt: string | null
+  lastSuccessAt: string | null
+  lastError: string | null
+  ingestionLastAttemptAt: string | null
+  ingestionLastSuccessAt: string | null
+  ingestionLastError: string | null
+  ingestionSource: string | null
+  ingestionIntervalMs: number
+  eventJournalUpdatedAt: string | null
+  shadowUpdatedAt: string | null
+  autoRefreshIntervalMs: number
+  autoRefreshEnabled: boolean
+  remoteFetchEnabled: boolean
+}
+
+type BallStateEventRun = {
+  outputDir: string
+  relativeOutputDir: string
+  eventsPath: string
+  contextPath: string
+  scoresPath: string
+  contextRecord: JsonRecord
+  contextUpdatedAtMs: number | null
+  sourceUrl: string | null
+  inputHtmlPath: string | null
+  inputHtmlDir: string | null
+  fixtureId: string | null
+  eventsUpdatedAtMs: number | null
+  scoresUpdatedAtMs: number | null
+}
+
+const isJsonRecord = (value: unknown): value is JsonRecord =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+
+const readStringField = (record: JsonRecord, key: string) => {
+  const value = record[key]
+  return typeof value === "string" ? value : null
+}
+
+const readNumberField = (record: JsonRecord, key: string) => {
+  const value = record[key]
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+const readRecordField = (record: JsonRecord, key: string) => {
+  const value = record[key]
+  return isJsonRecord(value) ? value : null
+}
+
+const readArrayField = (record: JsonRecord, key: string) => {
+  const value = record[key]
+  return Array.isArray(value) ? value : []
+}
+
+const readJsonFileIfPresent = async (filePath: string) => {
+  try {
+    return JSON.parse(await readFile(filePath, "utf-8")) as unknown
+  } catch {
+    return null
+  }
+}
+
+const getFileMtimeMs = async (filePath: string) =>
+  (await stat(filePath).catch(() => null))?.mtimeMs ?? null
+
+const mtimeToIso = (mtimeMs: number | null) =>
+  mtimeMs === null ? null : new Date(mtimeMs).toISOString()
+
+const isPathInside = (parent: string, candidate: string) => {
+  const relativePath = relative(parent, candidate)
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))
+}
+
+const resolveBallStateExperimentPath = (value: string) => {
+  const resolved = resolve(currentDirectory, "..", value)
+  return isPathInside(ballStateExperimentsDirectory, resolved) ? resolved : null
+}
+
+const safeBallStateSourceUrl = (value: string) => {
+  try {
+    const url = new URL(value)
+    return url.protocol === "https:" && allowedBallStateRemoteHosts.has(url.hostname)
+      ? url.toString()
+      : null
+  } catch {
+    return null
+  }
+}
+
+const firstStringField = (record: JsonRecord, keys: string[]) => {
+  for (const key of keys) {
+    const value = readStringField(record, key)
+    if (value) {
+      return value
+    }
+  }
+  return null
+}
+
+const runPythonScript = (args: string[], timeout: number) =>
+  new Promise<void>((resolve, reject) => {
+    execFile(
+      "python3",
+      args,
+      {
+        cwd: join(currentDirectory, ".."),
+        timeout,
+      },
+      (error, _stdout, stderr) => {
+        if (error) {
+          reject(new Error(stderr || error.message))
+          return
+        }
+        resolve()
+      },
+    )
+  })
+
+const readBallStateShadowScores = async (filePath: string) => {
+  const text = await readFile(filePath, "utf-8")
+  return text
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .flatMap((line): BallStateShadowScore[] => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(line) as unknown
+      } catch {
+        return []
+      }
+      if (!isJsonRecord(parsed)) {
+        return []
+      }
+
+      const target = readStringField(parsed, "target")
+      if (!target) {
+        return []
+      }
+
+      return [{
+        fixtureId: readStringField(parsed, "fixture_id"),
+        entryIndex: readNumberField(parsed, "entry_index"),
+        target,
+        candidate: readStringField(parsed, "candidate"),
+        featureMode: readStringField(parsed, "feature_mode"),
+        innings: readNumberField(parsed, "innings"),
+        battingTeam: readStringField(parsed, "batting_team"),
+        bowlingTeam: readStringField(parsed, "bowling_team"),
+        scoreRuns: readNumberField(parsed, "score_runs"),
+        scoreWickets: readNumberField(parsed, "score_wickets"),
+        balls: readNumberField(parsed, "balls"),
+        shadowPrediction: readNumberField(parsed, "shadow_prediction"),
+        heuristicValue: readNumberField(parsed, "heuristic_value"),
+        deltaVsHeuristic: readNumberField(parsed, "delta_vs_heuristic"),
+        snapshotDiagnostics: readRecordField(parsed, "snapshot_diagnostics"),
+      }]
+    })
+}
+
+const unavailableBallStateShadow = (reason: string): BallStateShadowResponse => ({
+  status: "experimental",
+  source: "ball-state-shadow",
+  available: false,
+  reason,
+  outputDir: null,
+  updatedAt: null,
+  currentState: {
+    fixtureId: null,
+    innings: null,
+    battingTeam: null,
+    bowlingTeam: null,
+    scoreRuns: null,
+    scoreWickets: null,
+    balls: null,
+  },
+  predictions: {
+    finalInningsRuns: null,
+    finalInningsWickets: null,
+    remainingInningsRuns: null,
+    remainingInningsWickets: null,
+    chaseSuccessProbability: null,
+  },
+  parity: {
+    readyForInference: null,
+    featureMode: null,
+    missingCoreFeatures: [],
+    missingEventTrajectoryFeatures: [],
+    snapshotDiagnostics: null,
+  },
+  summary: {
+    inputRows: null,
+    scoredEntries: null,
+    targetScores: null,
+    rejectedRows: null,
+    targetScoreCounts: null,
+    notes: [],
+  },
+  refresh: ballStateShadowRefreshState,
+  scores: [],
+  notes: [
+    "No production artifacts were read or modified.",
+    "This endpoint only exposes ignored experimental shadow-score outputs when present.",
+    "Experimental refresh is opt-in and disabled by default.",
+  ],
+})
+
+const findLatestBallStateEventRun = async (): Promise<BallStateEventRun | null> => {
+  const entries = await readdir(ballStateExperimentsDirectory, { withFileTypes: true }).catch(() => [])
+  const candidates = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory() && (entry.name === "live-events" || entry.name.startsWith("live-events-")))
+      .map(async (entry) => {
+        const outputDir = join(ballStateExperimentsDirectory, entry.name)
+        const contextPath = join(outputDir, "fixture-context.json")
+        const contextUpdatedAtMs = await getFileMtimeMs(contextPath)
+        const context = await readJsonFileIfPresent(contextPath)
+        const contextRecord = isJsonRecord(context) ? context : {}
+        const eventsPath = join(outputDir, "normalized_ball_events.jsonl")
+        const eventsUpdatedAtMs = await getFileMtimeMs(eventsPath)
+        if (eventsUpdatedAtMs === null && contextUpdatedAtMs === null) {
+          return null
+        }
+
+        const scoresPath = join(outputDir, "shadow-run", "shadow_scores.jsonl")
+        const scoresUpdatedAtMs = await getFileMtimeMs(scoresPath)
+        const sourceUrl = firstStringField(contextRecord, [
+          "espn_url",
+          "espnUrl",
+          "source_url",
+          "sourceUrl",
+          "commentary_url",
+          "commentaryUrl",
+          "ball_by_ball_url",
+          "ballByBallUrl",
+        ])
+        const inputHtmlDir = firstStringField(contextRecord, [
+          "input_html_dir",
+          "inputHtmlDir",
+          "saved_html_dir",
+          "savedHtmlDir",
+          "html_dir",
+          "htmlDir",
+        ])
+        const inputHtmlPath = firstStringField(contextRecord, [
+          "input_html",
+          "inputHtml",
+          "saved_html",
+          "savedHtml",
+          "html_file",
+          "htmlFile",
+        ])
+
+        return {
+          outputDir,
+          relativeOutputDir: join("model", "experiments", "ball-state", entry.name),
+          eventsPath,
+          contextPath,
+          scoresPath,
+          contextRecord,
+          contextUpdatedAtMs,
+          sourceUrl: sourceUrl ? safeBallStateSourceUrl(sourceUrl) : null,
+          inputHtmlPath: inputHtmlPath ? resolveBallStateExperimentPath(inputHtmlPath) : null,
+          inputHtmlDir: inputHtmlDir ? resolveBallStateExperimentPath(inputHtmlDir) : null,
+          fixtureId: firstStringField(contextRecord, ["fixture_id", "fixtureId", "match_id", "matchId"]),
+          eventsUpdatedAtMs,
+          scoresUpdatedAtMs,
+        }
+      }),
+  )
+
+  return candidates
+    .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
+    .sort((left, right) => Math.max(right.eventsUpdatedAtMs ?? 0, right.contextUpdatedAtMs ?? 0) - Math.max(left.eventsUpdatedAtMs ?? 0, left.contextUpdatedAtMs ?? 0))[0] ?? null
+}
+
+const findLatestBallStateShadowRun = async () => {
+  const entries = await readdir(ballStateExperimentsDirectory, { withFileTypes: true }).catch(() => [])
+  const candidates = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory() && (entry.name === "live-events" || entry.name.startsWith("live-events-")))
+      .map(async (entry) => {
+        const outputDir = join(ballStateExperimentsDirectory, entry.name)
+        const scoresPath = join(outputDir, "shadow-run", "shadow_scores.jsonl")
+        const stats = await stat(scoresPath).catch(() => null)
+        return stats
+          ? {
+              outputDir,
+              relativeOutputDir: join("model", "experiments", "ball-state", entry.name),
+              scoresPath,
+              updatedAtMs: stats.mtimeMs,
+            }
+          : null
+      }),
+  )
+
+  return candidates
+    .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
+    .sort((left, right) => right.updatedAtMs - left.updatedAtMs)[0] ?? null
+}
+
+const setBallStateShadowRefreshState = (state: Partial<BallStateShadowRefresh>) => {
+  ballStateShadowRefreshState = {
+    ...ballStateShadowRefreshState,
+    ...state,
+  }
+}
+
+type BallStateIngestionSource = {
+  label: string
+  args: string[]
+}
+
+const buildBallStateIngestionSource = (run: BallStateEventRun): BallStateIngestionSource | null => {
+  if (run.inputHtmlDir) {
+    return {
+      label: "saved-html-dir",
+      args: [
+        join(modelDirectory, "run_no_paid_ball_state_live.py"),
+        "--input-html-dir",
+        run.inputHtmlDir,
+        "--output-dir",
+        run.outputDir,
+        "--context-json",
+        run.contextPath,
+      ],
+    }
+  }
+
+  if (run.inputHtmlPath) {
+    return {
+      label: "saved-html",
+      args: [
+        join(modelDirectory, "run_no_paid_ball_state_live.py"),
+        "--input-html",
+        run.inputHtmlPath,
+        "--output-dir",
+        run.outputDir,
+        "--context-json",
+        run.contextPath,
+      ],
+    }
+  }
+
+  if (run.sourceUrl) {
+    if (!config.experimentalBallStateRemoteFetchEnabled) {
+      return null
+    }
+
+    return {
+      label: new URL(run.sourceUrl).hostname,
+      args: [
+        join(modelDirectory, "scrape_espncricinfo_ball_events.py"),
+        "--output-dir",
+        run.outputDir,
+        "--url",
+        run.sourceUrl,
+        ...(run.fixtureId ? ["--fixture-id", run.fixtureId] : []),
+      ],
+    }
+  }
+
+  return null
+}
+
+const shouldAttemptBallStateIngestion = (force: boolean) => {
+  if (force) {
+    return true
+  }
+
+  const lastAttemptAt = ballStateShadowRefreshState.ingestionLastAttemptAt
+  if (!lastAttemptAt) {
+    return true
+  }
+
+  const lastAttemptMs = Date.parse(lastAttemptAt)
+  return !Number.isFinite(lastAttemptMs) || Date.now() - lastAttemptMs >= ballStateEventIngestionIntervalMs
+}
+
+const runBallStateEventIngestion = async (run: BallStateEventRun, force: boolean) => {
+  const source = buildBallStateIngestionSource(run)
+  if (!source) {
+    setBallStateShadowRefreshState({
+      ingestionStatus: "unconfigured",
+      ingestionSource: null,
+      ingestionLastError: null,
+    })
+    return
+  }
+
+  setBallStateShadowRefreshState({ ingestionSource: source.label })
+  if (!shouldAttemptBallStateIngestion(force)) {
+    return
+  }
+
+  setBallStateShadowRefreshState({
+    ingestionStatus: "running",
+    ingestionLastAttemptAt: new Date().toISOString(),
+    ingestionLastError: null,
+  })
+
+  try {
+    await runPythonScript(source.args, ballStateEventIngestionTimeoutMs)
+    setBallStateShadowRefreshState({
+      ingestionStatus: "succeeded",
+      ingestionLastSuccessAt: new Date().toISOString(),
+      ingestionLastError: null,
+    })
+    logger.info("Ingested experimental ball-state source events", {
+      outputDir: run.relativeOutputDir,
+      source: source.label,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    setBallStateShadowRefreshState({
+      ingestionStatus: "failed",
+      ingestionLastError: "Experimental ball-state source ingestion failed; check server logs.",
+    })
+    logger.warn("Experimental ball-state source ingestion failed", {
+      outputDir: run.relativeOutputDir,
+      source: source.label,
+      error: message,
+    })
+  }
+}
+
+const runBallStateShadowPipeline = (run: BallStateEventRun) =>
+  runPythonScript([
+    join(modelDirectory, "run_no_paid_ball_state_live.py"),
+    "--skip-scrape",
+    "--output-dir",
+    run.outputDir,
+    "--context-json",
+    run.contextPath,
+    "--shadow",
+  ], ballStateShadowRefreshTimeoutMs)
+
+const refreshLatestBallStateShadowIfNeeded = async (force = false) => {
+  if (!config.experimentalBallStateShadowRefreshEnabled) {
+    setBallStateShadowRefreshState({
+      status: "skipped",
+      lastAttemptAt: new Date().toISOString(),
+      lastError: "Experimental ball-state shadow refresh is disabled.",
+    })
+    return
+  }
+
+  if (ballStateShadowRefreshPromise) {
+    return ballStateShadowRefreshPromise
+  }
+
+  ballStateShadowRefreshPromise = (async () => {
+    const run = await findLatestBallStateEventRun()
+    if (!run) {
+      setBallStateShadowRefreshState({
+        status: "skipped",
+        lastAttemptAt: new Date().toISOString(),
+        lastError: "No experimental normalized_ball_events.jsonl journal found.",
+        eventJournalUpdatedAt: null,
+        shadowUpdatedAt: null,
+      })
+      return
+    }
+
+    const contextExists = await getFileMtimeMs(run.contextPath)
+
+    if (contextExists === null) {
+      setBallStateShadowRefreshState({
+        status: "failed",
+        lastAttemptAt: new Date().toISOString(),
+        lastError: `Missing fixture-context.json for ${run.relativeOutputDir}`,
+        eventJournalUpdatedAt: mtimeToIso(run.eventsUpdatedAtMs),
+        shadowUpdatedAt: mtimeToIso(run.scoresUpdatedAtMs),
+      })
+      return
+    }
+
+    await runBallStateEventIngestion(run, force)
+
+    const eventsUpdatedAtMs = await getFileMtimeMs(run.eventsPath)
+    const scoresUpdatedAtMs = await getFileMtimeMs(run.scoresPath)
+    const eventJournalUpdatedAt = mtimeToIso(eventsUpdatedAtMs)
+    const shadowUpdatedAt = mtimeToIso(scoresUpdatedAtMs)
+
+    if (eventsUpdatedAtMs === null) {
+      setBallStateShadowRefreshState({
+        status: "skipped",
+        lastAttemptAt: new Date().toISOString(),
+        lastError: "No experimental normalized_ball_events.jsonl journal found after ingestion attempt.",
+        eventJournalUpdatedAt,
+        shadowUpdatedAt,
+      })
+      return
+    }
+
+    if (!force && scoresUpdatedAtMs !== null && scoresUpdatedAtMs >= eventsUpdatedAtMs) {
+      setBallStateShadowRefreshState({
+        status: "skipped",
+        lastAttemptAt: new Date().toISOString(),
+        lastError: null,
+        eventJournalUpdatedAt,
+        shadowUpdatedAt,
+      })
+      return
+    }
+
+    const attemptAt = new Date().toISOString()
+    setBallStateShadowRefreshState({
+      status: "running",
+      lastAttemptAt: attemptAt,
+      lastError: null,
+      eventJournalUpdatedAt,
+      shadowUpdatedAt,
+    })
+
+    try {
+      await runBallStateShadowPipeline(run)
+      const refreshedEventUpdatedAtMs = await getFileMtimeMs(run.eventsPath)
+      const refreshedShadowUpdatedAtMs = await getFileMtimeMs(run.scoresPath)
+      setBallStateShadowRefreshState({
+        status: "succeeded",
+        lastSuccessAt: new Date().toISOString(),
+        lastError: null,
+        eventJournalUpdatedAt: mtimeToIso(refreshedEventUpdatedAtMs),
+        shadowUpdatedAt: mtimeToIso(refreshedShadowUpdatedAtMs),
+      })
+      logger.info("Refreshed experimental ball-state shadow output", {
+        outputDir: run.relativeOutputDir,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setBallStateShadowRefreshState({
+        status: "failed",
+        lastError: "Experimental ball-state shadow refresh failed; check server logs.",
+        eventJournalUpdatedAt,
+        shadowUpdatedAt,
+      })
+      logger.warn("Experimental ball-state shadow refresh failed", {
+        outputDir: run.relativeOutputDir,
+        error: message,
+      })
+    }
+  })().finally(() => {
+    ballStateShadowRefreshPromise = null
+  })
+
+  return ballStateShadowRefreshPromise
+}
+
+const startBallStateShadowRefreshLoop = () => {
+  void refreshLatestBallStateShadowIfNeeded().catch((error) => {
+    logger.warn("Experimental ball-state shadow initial refresh failed", {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  })
+
+  return setInterval(() => {
+    void refreshLatestBallStateShadowIfNeeded().catch((error) => {
+      logger.warn("Experimental ball-state shadow periodic refresh failed", {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    })
+  }, ballStateShadowRefreshIntervalMs)
+}
+
+const getLatestBallStateShadow = async (): Promise<BallStateShadowResponse> => {
+  const latest = await findLatestBallStateShadowRun()
+  if (!latest) {
+    return unavailableBallStateShadow("No live-events shadow run found under model/experiments/ball-state.")
+  }
+
+  const scores = await readBallStateShadowScores(latest.scoresPath)
+  if (!scores.length) {
+    return unavailableBallStateShadow("Latest shadow run has no scored targets.")
+  }
+
+  const scoreByTarget = new Map(scores.map((score) => [score.target, score.shadowPrediction]))
+  const firstScore = scores[0]
+  if (!firstScore) {
+    return unavailableBallStateShadow("Latest shadow run has no scored targets.")
+  }
+
+  const summary = await readJsonFileIfPresent(join(latest.outputDir, "shadow-run", "summary.json"))
+  const parity = await readJsonFileIfPresent(join(latest.outputDir, "live_feature_parity_report.json"))
+  const summaryRecord = isJsonRecord(summary) ? summary : {}
+  const parityRecord = isJsonRecord(parity) ? parity : {}
+  const livePayloadRecord = readRecordField(parityRecord, "live_payload")
+  const entries = livePayloadRecord ? readArrayField(livePayloadRecord, "entries") : []
+  const parityEntry = entries.find(isJsonRecord) ?? null
+
+  return {
+    status: "experimental",
+    source: "ball-state-shadow",
+    available: true,
+    outputDir: latest.relativeOutputDir,
+    updatedAt: new Date(latest.updatedAtMs).toISOString(),
+    currentState: {
+      fixtureId: firstScore.fixtureId,
+      innings: firstScore.innings,
+      battingTeam: firstScore.battingTeam,
+      bowlingTeam: firstScore.bowlingTeam,
+      scoreRuns: firstScore.scoreRuns,
+      scoreWickets: firstScore.scoreWickets,
+      balls: firstScore.balls,
+    },
+    predictions: {
+      finalInningsRuns: scoreByTarget.get("final_innings_runs") ?? null,
+      finalInningsWickets: scoreByTarget.get("final_innings_wickets") ?? null,
+      remainingInningsRuns: scoreByTarget.get("remaining_innings_runs") ?? null,
+      remainingInningsWickets: scoreByTarget.get("remaining_innings_wickets") ?? null,
+      chaseSuccessProbability: scoreByTarget.get("chase_success") ?? null,
+    },
+    parity: {
+      readyForInference: typeof livePayloadRecord?.ready_for_inference === "boolean"
+        ? livePayloadRecord.ready_for_inference
+        : null,
+      featureMode: readStringField(parityRecord, "feature_mode"),
+      missingCoreFeatures: parityEntry ? readArrayField(parityEntry, "missing_core_features") : [],
+      missingEventTrajectoryFeatures: parityEntry ? readArrayField(parityEntry, "missing_event_trajectory_features") : [],
+      snapshotDiagnostics: parityEntry ? readRecordField(parityEntry, "snapshot_diagnostics") : null,
+    },
+    summary: {
+      inputRows: readNumberField(summaryRecord, "input_rows"),
+      scoredEntries: readNumberField(summaryRecord, "scored_entries"),
+      targetScores: readNumberField(summaryRecord, "target_scores"),
+      rejectedRows: readNumberField(summaryRecord, "rejected_rows"),
+      targetScoreCounts: readRecordField(summaryRecord, "target_score_counts"),
+      notes: readArrayField(summaryRecord, "notes"),
+    },
+    refresh: ballStateShadowRefreshState,
+    scores,
+    notes: [
+      "Experimental read-only bridge over model/experiments/ball-state live-events shadow outputs.",
+      "Does not read or modify model/final_models, model/predict_fixture.py, or model/data/live.",
+      "Refresh and remote source ingestion are opt-in runtime operations, not GET request side effects.",
+    ],
+  }
 }
 
 const runPredictFixture = (args: string[]) =>
@@ -370,6 +1098,12 @@ const createApp = Effect.sync((): Express => {
             "/observer/fixtures/:fixtureId",
             "/observer/opportunities",
             "/observer/opportunities/diagnostics",
+            "/observer/live-model",
+            "/observer/live-model/history",
+            "/observer/live-model/history/:fixtureId",
+            "/observer/live-model/snapshots",
+            "/observer/live-model/signals",
+            "/observer/ball-state-shadow",
             "/observer/tape/live",
             "/observer/history/signals",
             "/observer/signals",
@@ -791,6 +1525,135 @@ const createApp = Effect.sync((): Express => {
     )
   })
 
+  app.get("/observer/live-model", requireObserverAuth, (_req, res) => {
+    sendJson(
+      res,
+      Effect.gen(function* () {
+        if (config.predictorOnlyMode) {
+          return observerDisabledError(res)
+        }
+
+        yield* Effect.sync(() => {
+          logger.debug("Handled GET /observer/live-model")
+        })
+
+        return (yield* loadObserverService()).getLiveModelFixtures()
+      }),
+    )
+  })
+
+  app.get("/observer/live-model/history", requireObserverAuth, (req, res) => {
+    sendJson(
+      res,
+      Effect.tryPromise({
+        try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
+          const limit = parseNumberQuery(req.query.limit, 20)
+
+          logger.debug("Handled GET /observer/live-model/history", { limit })
+          return (await Effect.runPromise(loadObserverService())).getLiveModelHistory(limit)
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error(String(error)),
+      }),
+    )
+  })
+
+  app.get("/observer/live-model/history/:fixtureId", requireObserverAuth, (req, res) => {
+    sendJson(
+      res,
+      Effect.tryPromise({
+        try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
+          const fixtureId = Array.isArray(req.params.fixtureId)
+            ? req.params.fixtureId[0]
+            : req.params.fixtureId
+
+          if (!fixtureId) {
+            res.status(400)
+            return { error: "Fixture id is required" }
+          }
+
+          logger.debug("Handled GET /observer/live-model/history/:fixtureId", { fixtureId })
+          const detail = await (await Effect.runPromise(loadObserverService())).getFixtureDetail(fixtureId)
+
+          if (!detail) {
+            res.status(404)
+            return { error: "Fixture not found" }
+          }
+
+          return detail
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error(String(error)),
+      }),
+    )
+  })
+
+  app.get("/observer/live-model/snapshots", requireObserverAuth, (req, res) => {
+    sendJson(
+      res,
+      Effect.tryPromise({
+        try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
+          const limit = parseNumberQuery(req.query.limit, 50)
+
+          logger.debug("Handled GET /observer/live-model/snapshots", { limit })
+          return (await Effect.runPromise(loadObserverService())).getRecentLiveModelSnapshots(limit)
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error(String(error)),
+      }),
+    )
+  })
+
+  app.get("/observer/live-model/signals", requireObserverAuth, (req, res) => {
+    sendJson(
+      res,
+      Effect.tryPromise({
+        try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
+          const limit = parseNumberQuery(req.query.limit, 50)
+
+          logger.debug("Handled GET /observer/live-model/signals", { limit })
+          return (await Effect.runPromise(loadObserverService())).getRecentLiveModelSignals(limit)
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error(String(error)),
+      }),
+    )
+  })
+
+  app.get("/observer/ball-state-shadow", requireObserverAuth, (_req, res) => {
+    sendJson(
+      res,
+      Effect.tryPromise({
+        try: async () => {
+          if (config.predictorOnlyMode) {
+            return observerDisabledError(res)
+          }
+
+          logger.debug("Handled GET /observer/ball-state-shadow")
+          return getLatestBallStateShadow()
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error(String(error)),
+      }),
+    )
+  })
+
   app.get("/observer/signals", requireObserverAuth, (_req, res) => {
     sendJson(
       res,
@@ -932,6 +1795,9 @@ const program = Effect.gen(function* () {
   yield* Effect.sync(() => {
     logger.info(`Server listening on http://localhost:${config.port}`)
     startPredictorMaintenanceLoop()
+    if (!config.predictorOnlyMode && config.experimentalBallStateShadowRefreshEnabled) {
+      startBallStateShadowRefreshLoop()
+    }
   })
 
   if (!config.predictorOnlyMode) {

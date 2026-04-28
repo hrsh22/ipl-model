@@ -3,11 +3,15 @@ const refreshButton = document.querySelector('#refresh-now');
 const heroMetrics = document.querySelector('#hero-metrics');
 const engineMetrics = document.querySelector('#engine-metrics');
 const liveFixtures = document.querySelector('#live-fixtures');
+const liveModel = document.querySelector('#live-model');
+const ballShadow = document.querySelector('#ball-shadow');
 const opportunities = document.querySelector('#opportunities');
 const diagnostics = document.querySelector('#diagnostics');
 const history = document.querySelector('#history');
 
 const liveFixtureCount = document.querySelector('#live-fixture-count');
+const liveModelCount = document.querySelector('#live-model-count');
+const ballShadowStatus = document.querySelector('#ball-shadow-status');
 const actionableCount = document.querySelector('#actionable-count');
 const attentionCount = document.querySelector('#attention-count');
 const historyCount = document.querySelector('#history-count');
@@ -21,6 +25,40 @@ const formatBps = (value) => `${value > 0 ? '+' : ''}${value} bps`;
 const formatAge = (seconds) => (seconds === null ? '—' : `${seconds}s ago`);
 const formatUsd = (value) => (value === null ? '—' : `$${Number(value).toFixed(2)}`);
 const formatShares = (value) => (value === null ? '—' : `${Number(value).toFixed(0)} sh`);
+const formatNullableNumber = (value, digits = 1) => (
+  value === null || value === undefined ? '—' : Number(value).toFixed(digits)
+);
+const formatNullablePercent = (value) => (
+  value === null || value === undefined ? '—' : formatPercent(Number(value))
+);
+const formatNullableBps = (value) => (
+  value === null || value === undefined ? '—' : formatBps(Math.round(Number(value)))
+);
+const escapeHtml = (value) => String(value ?? '')
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
+const formatIngestionStatus = (refresh) => {
+  const status = refresh?.ingestionStatus ?? 'idle';
+  if (status === 'unconfigured') return 'source not configured';
+  const cadence = refresh?.ingestionIntervalMs ? `${Math.round(refresh.ingestionIntervalMs / 1000)}s` : '—';
+  const lastSuccess = refresh?.ingestionLastSuccessAt
+    ? new Date(refresh.ingestionLastSuccessAt).toLocaleTimeString()
+    : null;
+  return lastSuccess ? `${status} · ${lastSuccess} · ${cadence}` : `${status} · ${cadence}`;
+};
+const formatIngestionSource = (source) => {
+  if (!source) return 'not configured';
+  if (source === 'saved-html-dir' || source.startsWith('saved-html-dir:')) return 'saved HTML dir';
+  if (source === 'saved-html' || source.startsWith('saved-html:')) return 'saved HTML file';
+  try {
+    return new URL(source).hostname;
+  } catch {
+    return source;
+  }
+};
 const formatCountdown = (seconds) => {
   if (seconds === null || seconds === undefined) return '—';
   const hours = Math.floor(seconds / 3600);
@@ -55,8 +93,8 @@ const renderEmpty = (node, message) => {
 
 const metricCard = (label, value, className = '') => `
   <div class="metric ${className}">
-    <div class="metric-label">${label}</div>
-    <div class="metric-value">${value}</div>
+    <div class="metric-label">${escapeHtml(label)}</div>
+    <div class="metric-value">${escapeHtml(value)}</div>
   </div>
 `;
 
@@ -90,22 +128,132 @@ const renderLiveFixtures = (fixtures) => {
       <article class="list-card">
         <div class="list-card-header">
           <div>
-            <div class="detail-label">${fixture.league}</div>
-            <h3>${fixture.homeTeam} vs ${fixture.awayTeam}</h3>
+            <div class="detail-label">${escapeHtml(fixture.league)}</div>
+            <h3>${escapeHtml(fixture.homeTeam)} vs ${escapeHtml(fixture.awayTeam)}</h3>
           </div>
-          <span class="pill ${summary ? 'success' : 'warning'}">${monitoring.mode}</span>
+          <span class="pill ${summary ? 'success' : 'warning'}">${escapeHtml(monitoring.mode)}</span>
         </div>
         <div class="detail-grid">
-          <div class="detail-block"><span class="detail-label">Score</span><span class="detail-value">${fixture.score ?? '—'}</span></div>
-          <div class="detail-block"><span class="detail-label">Period</span><span class="detail-value">${fixture.period ?? '—'}</span></div>
-          <div class="detail-block"><span class="detail-label">Reference</span><span class="detail-value">${summary?.referenceSource ?? '—'}</span></div>
-          <div class="detail-block"><span class="detail-label">Confidence</span><span class="detail-value">${summary?.referenceConfidence ?? '—'}</span></div>
-          <div class="detail-block"><span class="detail-label">Top Selection</span><span class="detail-value">${topSelection?.selection ?? '—'}</span></div>
+          <div class="detail-block"><span class="detail-label">Score</span><span class="detail-value">${escapeHtml(fixture.score ?? '—')}</span></div>
+          <div class="detail-block"><span class="detail-label">Period</span><span class="detail-value">${escapeHtml(fixture.period ?? '—')}</span></div>
+          <div class="detail-block"><span class="detail-label">Reference</span><span class="detail-value">${escapeHtml(summary?.referenceSource ?? '—')}</span></div>
+          <div class="detail-block"><span class="detail-label">Confidence</span><span class="detail-value">${escapeHtml(summary?.referenceConfidence ?? '—')}</span></div>
+          <div class="detail-block"><span class="detail-label">Top Selection</span><span class="detail-value">${escapeHtml(topSelection?.selection ?? '—')}</span></div>
           <div class="detail-block"><span class="detail-label">Net Edge</span><span class="detail-value ${topSelection?.feeAdjustedEdgeBps > 0 ? 'edge-positive' : 'edge-negative'}">${topSelection?.feeAdjustedEdgeBps !== null && topSelection?.feeAdjustedEdgeBps !== undefined ? formatBps(topSelection.feeAdjustedEdgeBps) : '—'}</span></div>
         </div>
       </article>
     `;
   }).join('');
+};
+
+const renderLiveModel = (models) => {
+  liveModelCount.textContent = String(models.length);
+
+  if (!models.length) {
+    renderEmpty(liveModel, 'No live expected-state model views available yet.');
+    return;
+  }
+
+  liveModel.innerHTML = models.map((model) => {
+    const state = model.expectedState ?? {};
+    const fixture = model.fixture ?? {};
+    const homeEdge = model.home?.edgeVsMarketBps;
+    const awayEdge = model.away?.edgeVsMarketBps;
+    const strongestSide = [
+      { label: model.home?.team ?? fixture.homeTeam ?? 'Home', edge: homeEdge, probability: model.home?.fairProbability },
+      { label: model.away?.team ?? fixture.awayTeam ?? 'Away', edge: awayEdge, probability: model.away?.fairProbability },
+    ].filter((side) => side.edge !== null && side.edge !== undefined)
+      .sort((left, right) => Math.abs(Number(right.edge)) - Math.abs(Number(left.edge)))[0];
+    const runDelta = state.runsDelta;
+    const wicketDelta = state.wicketsDelta;
+
+    return `
+      <article class="list-card model-card">
+        <div class="list-card-header">
+          <div>
+            <div class="detail-label">${escapeHtml(model.modelVersion ?? 'live-model')} · ${escapeHtml(model.confidence ?? 'low')} confidence</div>
+            <h3>${escapeHtml(fixture.homeTeam ?? 'Home')} vs ${escapeHtml(fixture.awayTeam ?? 'Away')}</h3>
+            <div class="subdued">${escapeHtml(fixture.score ?? model.details?.score ?? 'Score unavailable')} · ${escapeHtml(fixture.period ?? model.details?.period ?? 'Period unavailable')}</div>
+          </div>
+          <span class="pill ${state.status === 'live' ? 'success' : 'warning'}">${state.innings ? `Inn ${state.innings}` : 'Model'}</span>
+        </div>
+        <div class="model-strip">
+          <div class="model-scoreline">
+            <span>${formatNullableNumber(state.scoreRuns, 0)}/${formatNullableNumber(state.scoreWickets, 0)}</span>
+            <small>${formatNullableNumber(state.balls, 0)} balls</small>
+          </div>
+          <div class="model-projection">
+            <span>${formatNullableNumber(state.projectedScore, 1)}</span>
+            <small>Projected score</small>
+          </div>
+        </div>
+        <div class="detail-grid model-grid">
+          <div class="detail-block"><span class="detail-label">Expected Runs Now</span><span class="detail-value">${formatNullableNumber(state.expectedRunsNow, 1)}</span></div>
+          <div class="detail-block"><span class="detail-label">Runs Delta</span><span class="detail-value ${Number(runDelta ?? 0) >= 0 ? 'edge-positive' : 'edge-negative'}">${formatNullableNumber(runDelta, 1)}</span></div>
+          <div class="detail-block"><span class="detail-label">Expected Wkts Now</span><span class="detail-value">${formatNullableNumber(state.expectedWicketsNow, 2)}</span></div>
+          <div class="detail-block"><span class="detail-label">Wkts Delta</span><span class="detail-value ${Number(wicketDelta ?? 0) <= 0 ? 'edge-positive' : 'edge-negative'}">${formatNullableNumber(wicketDelta, 2)}</span></div>
+          <div class="detail-block"><span class="detail-label">Home Fair</span><span class="detail-value">${formatNullablePercent(model.home?.fairProbability)}</span></div>
+          <div class="detail-block"><span class="detail-label">Away Fair</span><span class="detail-value">${formatNullablePercent(model.away?.fairProbability)}</span></div>
+          <div class="detail-block"><span class="detail-label">Top Edge</span><span class="detail-value ${Number(strongestSide?.edge ?? 0) >= 0 ? 'edge-positive' : 'edge-negative'}">${strongestSide ? `${escapeHtml(strongestSide.label)}: ${escapeHtml(formatNullableBps(strongestSide.edge))}` : '—'}</span></div>
+          <div class="detail-block"><span class="detail-label">Updated</span><span class="detail-value">${model.updatedAt ? new Date(model.updatedAt).toLocaleTimeString() : '—'}</span></div>
+        </div>
+      </article>
+    `;
+  }).join('');
+};
+
+const renderBallShadow = (shadow) => {
+  ballShadowStatus.textContent = shadow?.available ? 'LIVE' : 'WAIT';
+  ballShadowStatus.className = `pill ${shadow?.available ? 'success' : 'warning'}`;
+
+  if (!shadow?.available) {
+    renderEmpty(ballShadow, shadow?.reason ?? 'No experimental ball-by-ball shadow output available yet.');
+    return;
+  }
+
+  const state = shadow.currentState ?? {};
+  const predictions = shadow.predictions ?? {};
+  const diagnostics = shadow.parity?.snapshotDiagnostics ?? {};
+  const refresh = shadow.refresh ?? {};
+  const coverage = diagnostics.snapshot_exact_coverage_balls !== undefined
+    ? `${diagnostics.snapshot_exact_coverage_balls} balls`
+    : '—';
+
+  ballShadow.innerHTML = `
+    <article class="list-card shadow-card">
+      <div class="list-card-header">
+        <div>
+          <div class="detail-label">experimental shadow · ${escapeHtml(shadow.parity?.featureMode ?? 'feature mode pending')} · ingest ${escapeHtml(refresh.ingestionStatus ?? 'idle')}</div>
+          <h3>${escapeHtml(state.battingTeam ?? 'Batting side')} projection</h3>
+          <div class="subdued">${escapeHtml(shadow.outputDir ?? 'model/experiments/ball-state')} · auto-refresh ${escapeHtml(refresh.autoRefreshEnabled ? `${Math.round(refresh.autoRefreshIntervalMs / 1000)}s` : 'disabled')}</div>
+        </div>
+        <span class="pill ${refresh.status === 'failed' ? 'danger' : shadow.parity?.readyForInference ? 'success' : 'warning'}">${refresh.status ?? (shadow.parity?.readyForInference ? 'ready' : 'check')}</span>
+      </div>
+      <div class="model-strip">
+        <div class="model-scoreline">
+          <span>${formatNullableNumber(state.scoreRuns, 0)}/${formatNullableNumber(state.scoreWickets, 0)}</span>
+          <small>${formatNullableNumber(state.balls, 0)} balls</small>
+        </div>
+        <div class="model-projection">
+          <span>${formatNullableNumber(predictions.finalInningsRuns, 1)}</span>
+          <small>Final runs</small>
+        </div>
+      </div>
+      <div class="detail-grid model-grid">
+        <div class="detail-block"><span class="detail-label">Final wickets</span><span class="detail-value">${formatNullableNumber(predictions.finalInningsWickets, 2)}</span></div>
+        <div class="detail-block"><span class="detail-label">Remaining runs</span><span class="detail-value">${formatNullableNumber(predictions.remainingInningsRuns, 1)}</span></div>
+        <div class="detail-block"><span class="detail-label">Remaining wickets</span><span class="detail-value">${formatNullableNumber(predictions.remainingInningsWickets, 2)}</span></div>
+        <div class="detail-block"><span class="detail-label">Chase success</span><span class="detail-value">${formatNullablePercent(predictions.chaseSuccessProbability)}</span></div>
+        <div class="detail-block"><span class="detail-label">Coverage</span><span class="detail-value">${coverage}</span></div>
+        <div class="detail-block"><span class="detail-label">Shadow Updated</span><span class="detail-value">${shadow.updatedAt ? new Date(shadow.updatedAt).toLocaleTimeString() : '—'}</span></div>
+        <div class="detail-block"><span class="detail-label">Event Journal</span><span class="detail-value">${refresh.eventJournalUpdatedAt ? new Date(refresh.eventJournalUpdatedAt).toLocaleTimeString() : '—'}</span></div>
+        <div class="detail-block"><span class="detail-label">Event Ingestion</span><span class="detail-value">${escapeHtml(formatIngestionStatus(refresh))}</span></div>
+        <div class="detail-block"><span class="detail-label">Ingestion Source</span><span class="detail-value">${escapeHtml(formatIngestionSource(refresh.ingestionSource))}</span></div>
+        <div class="detail-block"><span class="detail-label">Ingestion Error</span><span class="detail-value edge-negative">${escapeHtml(refresh.ingestionLastError ?? '—')}</span></div>
+        <div class="detail-block"><span class="detail-label">Refresh Error</span><span class="detail-value edge-negative">${escapeHtml(refresh.lastError ?? '—')}</span></div>
+      </div>
+    </article>
+  `;
 };
 
 const renderOpportunities = (payload) => {
@@ -127,8 +275,8 @@ const renderOpportunities = (payload) => {
     <article class="list-card">
       <div class="list-card-header">
         <div>
-          <div class="detail-label">${opportunity.fixture}</div>
-          <h3>${opportunity.selection.replaceAll('_', ' ')}</h3>
+          <div class="detail-label">${escapeHtml(opportunity.fixture)}</div>
+          <h3>${escapeHtml(opportunity.selection.replaceAll('_', ' '))}</h3>
         </div>
         <span class="pill ${opportunity.bucket === 'Actionable' ? 'success' : 'warning'}">${opportunity.bucket}</span>
       </div>
@@ -139,7 +287,7 @@ const renderOpportunities = (payload) => {
         <div class="detail-block"><span class="detail-label">Net Edge</span><span class="detail-value ${opportunity.feeAdjustedEdgeBps > 0 ? 'edge-positive' : 'edge-negative'}">${formatBps(opportunity.feeAdjustedEdgeBps)}</span></div>
         <div class="detail-block"><span class="detail-label">Ask Size</span><span class="detail-value">${formatShares(opportunity.executableAskSize)}</span></div>
         <div class="detail-block"><span class="detail-label">Notional</span><span class="detail-value">${formatUsd(opportunity.executableNotional)}</span></div>
-        <div class="detail-block"><span class="detail-label">Confidence</span><span class="detail-value">${opportunity.referenceConfidence}</span></div>
+        <div class="detail-block"><span class="detail-label">Confidence</span><span class="detail-value">${escapeHtml(opportunity.referenceConfidence)}</span></div>
         <div class="detail-block"><span class="detail-label">Persistence</span><span class="detail-value">${Math.round(opportunity.persistenceMs / 1000)}s</span></div>
       </div>
     </article>
@@ -159,13 +307,13 @@ const renderDiagnostics = (payload) => {
     <article class="list-card">
       <div class="list-card-header">
         <div>
-          <div class="detail-label">${entry.mode.toUpperCase()}</div>
-          <h3>${entry.fixture}</h3>
+          <div class="detail-label">${escapeHtml(entry.mode.toUpperCase())}</div>
+          <h3>${escapeHtml(entry.fixture)}</h3>
           <div class="subdued">Starts in ${formatCountdown(entry.startsInSeconds)}</div>
         </div>
       </div>
       <div class="reason-list">
-        ${entry.reasons.map((reason) => `<span class="reason-chip">${describeReason(reason, entry)}</span>`).join('')}
+        ${entry.reasons.map((reason) => `<span class="reason-chip">${escapeHtml(describeReason(reason, entry))}</span>`).join('')}
       </div>
     </article>
   `).join('');
@@ -182,12 +330,12 @@ const renderHistory = (entries) => {
   history.innerHTML = entries.map((entry) => `
     <article class="list-card">
       <div class="detail-grid">
-        <div class="detail-block"><span class="detail-label">Fixture</span><span class="detail-value">${entry.fixture}</span></div>
-        <div class="detail-block"><span class="detail-label">Selection</span><span class="detail-value">${entry.selection.replaceAll('_', ' ')}</span></div>
+        <div class="detail-block"><span class="detail-label">Fixture</span><span class="detail-value">${escapeHtml(entry.fixture)}</span></div>
+        <div class="detail-block"><span class="detail-label">Selection</span><span class="detail-value">${escapeHtml(entry.selection.replaceAll('_', ' '))}</span></div>
         <div class="detail-block"><span class="detail-label">Net Edge</span><span class="detail-value ${(entry.feeAdjustedEdgeBps ?? 0) > 0 ? 'edge-positive' : 'edge-negative'}">${entry.feeAdjustedEdgeBps !== null ? formatBps(entry.feeAdjustedEdgeBps) : '—'}</span></div>
-        <div class="detail-block"><span class="detail-label">Confidence</span><span class="detail-value">${entry.confidence}</span></div>
-        <div class="detail-block"><span class="detail-label">Score</span><span class="detail-value">${entry.score ?? '—'}</span></div>
-        <div class="detail-block"><span class="detail-label">Period</span><span class="detail-value">${entry.period ?? '—'}</span></div>
+        <div class="detail-block"><span class="detail-label">Confidence</span><span class="detail-value">${escapeHtml(entry.confidence)}</span></div>
+        <div class="detail-block"><span class="detail-label">Score</span><span class="detail-value">${escapeHtml(entry.score ?? '—')}</span></div>
+        <div class="detail-block"><span class="detail-label">Period</span><span class="detail-value">${escapeHtml(entry.period ?? '—')}</span></div>
       </div>
     </article>
   `).join('');
@@ -206,10 +354,12 @@ const fetchJson = async (path) => {
 
 const loadDashboard = async () => {
   try {
-    const [ready, metrics, live, opportunityDiagnostics, diagnosticsPayload, historyPayload] = await Promise.all([
+    const [ready, metrics, live, liveModelPayload, ballShadowPayload, opportunityDiagnostics, diagnosticsPayload, historyPayload] = await Promise.all([
       fetchJson('/ready'),
       fetchJson('/observer/metrics'),
       fetchJson('/observer/fixtures/live'),
+      fetchJson('/observer/live-model'),
+      fetchJson('/observer/ball-state-shadow'),
       fetchJson('/observer/opportunities/diagnostics?minEdgeBps=1'),
       fetchJson('/observer/diagnostics'),
       fetchJson('/observer/tape/live'),
@@ -217,6 +367,8 @@ const loadDashboard = async () => {
 
     renderMetrics(ready, metrics);
     renderLiveFixtures(live);
+    renderLiveModel(liveModelPayload);
+    renderBallShadow(ballShadowPayload);
     renderOpportunities(opportunityDiagnostics);
     renderDiagnostics(diagnosticsPayload);
     renderHistory(historyPayload.slice(0, 8));
@@ -224,6 +376,8 @@ const loadDashboard = async () => {
     const message = error instanceof Error ? error.message : 'Unknown dashboard error';
 
     renderEmpty(liveFixtures, message);
+    renderEmpty(liveModel, message);
+    renderEmpty(ballShadow, message);
     renderEmpty(opportunities, message);
     renderEmpty(diagnostics, message);
     renderEmpty(history, message);
