@@ -335,15 +335,15 @@
     "halfLife": 3.0
   },
   "params": {
-    "max_depth": 4,
+    "max_depth": 8,
     "learning_rate": 0.08,
     "reg_lambda": 8.0,
-    "n_estimators": 15,
+    "n_estimators": 13,
     "subsample": 0.9,
     "colsampleBytree": 0.9
   },
   "modelPath": "model/final_models/post_toss/xgboost_full_recency_h3/xgboost_model.json",
   "preprocessorPath": "model/final_models/post_toss/xgboost_full_recency_h3/preprocessor.joblib",
-  "sourceExperiment": "model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3",
+  "sourceExperiment": "model/experiments/daily-refresh-runs/20260428T040000Z/artifacts/post_toss/xgboost_full_recency_h3_daily",
   "sourceModel": "xgboost_tuned"
 }

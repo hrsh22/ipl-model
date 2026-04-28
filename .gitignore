@@ -2,6 +2,9 @@ node_modules/
 dist/
 .env
 .playwright-mcp
+.venv
+venv
+logs
 
 # macOS / local junk
 .DS_Store

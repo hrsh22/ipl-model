@@ -2,7 +2,8 @@
   "matrix": "pre_toss",
   "component": "top60_full",
   "weight": 0.45,
-  "matrixPath": "/Users/harsh/Developer/ipl-trader/model/data/matrices/pre_toss_model_matrix.csv",
+  "modelType": "catboost",
+  "matrixPath": "model/data/matrices/pre_toss_model_matrix.csv",
   "featureMode": "full",
   "featureAllowlist": [
     "venue",
@@ -264,11 +265,17 @@
     "team2_netResourceScore",
     "team2_historicalMatchesUsed"
   ],
+  "seasonWeighting": {
+    "mode": "uniform",
+    "halfLife": 2.0
+  },
   "params": {
     "depth": 4,
-    "learning_rate": 0.05,
-    "l2_leaf_reg": 8.0,
+    "learning_rate": 0.08,
+    "l2_leaf_reg": 3.0,
     "iterations": 100
   },
-  "modelPath": "/Users/harsh/Developer/ipl-trader/model/final_models/pre_toss/top60_full/catboost_model.cbm"
+  "modelPath": "model/final_models/pre_toss/top60_full/catboost_model.cbm",
+  "sourceExperiment": "model/experiments/daily-refresh-runs/20260428T040000Z/artifacts/pre_toss/top60_full_daily",
+  "sourceModel": "catboost_tuned"
 }
