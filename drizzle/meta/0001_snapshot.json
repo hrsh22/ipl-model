@@ -1,0 +1,1272 @@
+{
+  "id": "62d93450-9514-4544-ace2-35513f847092",
+  "prevId": "a0afa63c-f30a-4ba6-adf8-04adbe3258d0",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.ipl_features": {
+      "name": "ipl_features",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "match_id": {
+          "name": "match_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team": {
+          "name": "team",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opponent": {
+          "name": "opponent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_form_ema": {
+          "name": "team_form_ema",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team_wins_last_5": {
+          "name": "team_wins_last_5",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team_wins_last_10": {
+          "name": "team_wins_last_10",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "h2h_wins": {
+          "name": "h2h_wins",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "h2h_losses": {
+          "name": "h2h_losses",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "h2h_win_rate": {
+          "name": "h2h_win_rate",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "venue_wins": {
+          "name": "venue_wins",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "venue_losses": {
+          "name": "venue_losses",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "venue_win_rate": {
+          "name": "venue_win_rate",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "toss_bias": {
+          "name": "toss_bias",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bookmakers_odds": {
+          "name": "bookmakers_odds",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bookmakers_implied_prob": {
+          "name": "bookmakers_implied_prob",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "polymarket_odds": {
+          "name": "polymarket_odds",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "polymarket_implied_prob": {
+          "name": "polymarket_implied_prob",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kl_divergence": {
+          "name": "kl_divergence",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "match_result": {
+          "name": "match_result",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ipl_features_match_id_ipl_matches_id_fk": {
+          "name": "ipl_features_match_id_ipl_matches_id_fk",
+          "tableFrom": "ipl_features",
+          "tableTo": "ipl_matches",
+          "columnsFrom": [
+            "match_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ipl_matches": {
+      "name": "ipl_matches",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "season": {
+          "name": "season",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "match_date": {
+          "name": "match_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "venue": {
+          "name": "venue",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team1": {
+          "name": "team1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team2": {
+          "name": "team2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "toss_winner": {
+          "name": "toss_winner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "toss_decision": {
+          "name": "toss_decision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "winner": {
+          "name": "winner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "winner_runs": {
+          "name": "winner_runs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "winner_wickets": {
+          "name": "winner_wickets",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team1_runs": {
+          "name": "team1_runs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team1_wickets": {
+          "name": "team1_wickets",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team2_runs": {
+          "name": "team2_runs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team2_wickets": {
+          "name": "team2_wickets",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "player_of_match": {
+          "name": "player_of_match",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "match_metadata": {
+          "name": "match_metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ipl_players": {
+      "name": "ipl_players",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team": {
+          "name": "team",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ipl_predictions": {
+      "name": "ipl_predictions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "match_id": {
+          "name": "match_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team": {
+          "name": "team",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opponent": {
+          "name": "opponent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_probability": {
+          "name": "model_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_confidence": {
+          "name": "model_confidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bookmakers_prob": {
+          "name": "bookmakers_prob",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "polymarket_prob": {
+          "name": "polymarket_prob",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "edge_vs_bookmakers": {
+          "name": "edge_vs_bookmakers",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "edge_vs_polymarket": {
+          "name": "edge_vs_polymarket",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actual_result": {
+          "name": "actual_result",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ipl_predictions_match_id_ipl_matches_id_fk": {
+          "name": "ipl_predictions_match_id_ipl_matches_id_fk",
+          "tableFrom": "ipl_predictions",
+          "tableTo": "ipl_matches",
+          "columnsFrom": [
+            "match_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ipl_teams": {
+      "name": "ipl_teams",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "short_name": {
+          "name": "short_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "ipl_teams_name_unique": {
+          "name": "ipl_teams_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.observer_checkpoints": {
+      "name": "observer_checkpoints",
+      "schema": "",
+      "columns": {
+        "stream_key": {
+          "name": "stream_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "last_entry_id": {
+          "name": "last_entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.observer_fixtures": {
+      "name": "observer_fixtures",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "optic_odds_game_id": {
+          "name": "optic_odds_game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sport": {
+          "name": "sport",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "league": {
+          "name": "league",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "home_team": {
+          "name": "home_team",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "away_team": {
+          "name": "away_team",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "home_team_id": {
+          "name": "home_team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "away_team_id": {
+          "name": "away_team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_live": {
+          "name": "is_live",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "venue_name": {
+          "name": "venue_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "venue_location": {
+          "name": "venue_location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "polymarket_event_slug": {
+          "name": "polymarket_event_slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "polymarket_market_slug": {
+          "name": "polymarket_market_slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "polymarket_condition_id": {
+          "name": "polymarket_condition_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "home_token_id": {
+          "name": "home_token_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "away_token_id": {
+          "name": "away_token_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_score": {
+          "name": "last_score",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_period": {
+          "name": "last_period",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_result_payload": {
+          "name": "last_result_payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.observer_live_model_signals": {
+      "name": "observer_live_model_signals",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "observer_live_model_signals_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "fixture_id": {
+          "name": "fixture_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "snapshot_id": {
+          "name": "snapshot_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "selection": {
+          "name": "selection",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_probability": {
+          "name": "model_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "polymarket_probability": {
+          "name": "polymarket_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reference_probability": {
+          "name": "reference_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "edge_vs_polymarket_bps": {
+          "name": "edge_vs_polymarket_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "score_context": {
+          "name": "score_context",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "observer_live_model_signals_fixture_id_observer_fixtures_id_fk": {
+          "name": "observer_live_model_signals_fixture_id_observer_fixtures_id_fk",
+          "tableFrom": "observer_live_model_signals",
+          "tableTo": "observer_fixtures",
+          "columnsFrom": [
+            "fixture_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "observer_live_model_signals_snapshot_id_observer_live_model_snapshots_id_fk": {
+          "name": "observer_live_model_signals_snapshot_id_observer_live_model_snapshots_id_fk",
+          "tableFrom": "observer_live_model_signals",
+          "tableTo": "observer_live_model_snapshots",
+          "columnsFrom": [
+            "snapshot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.observer_live_model_snapshots": {
+      "name": "observer_live_model_snapshots",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "observer_live_model_snapshots_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "fixture_id": {
+          "name": "fixture_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_event": {
+          "name": "source_event",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_version": {
+          "name": "model_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "innings": {
+          "name": "innings",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "batting_team": {
+          "name": "batting_team",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bowling_team": {
+          "name": "bowling_team",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "score_runs": {
+          "name": "score_runs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "score_wickets": {
+          "name": "score_wickets",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "overs": {
+          "name": "overs",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "balls": {
+          "name": "balls",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "target_runs": {
+          "name": "target_runs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expected_runs_now": {
+          "name": "expected_runs_now",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expected_wickets_now": {
+          "name": "expected_wickets_now",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "runs_delta": {
+          "name": "runs_delta",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "wickets_delta": {
+          "name": "wickets_delta",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "projected_score": {
+          "name": "projected_score",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "home_model_probability": {
+          "name": "home_model_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "away_model_probability": {
+          "name": "away_model_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "home_polymarket_probability": {
+          "name": "home_polymarket_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "away_polymarket_probability": {
+          "name": "away_polymarket_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "home_reference_probability": {
+          "name": "home_reference_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "away_reference_probability": {
+          "name": "away_reference_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "edge_home_vs_polymarket_bps": {
+          "name": "edge_home_vs_polymarket_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "edge_away_vs_polymarket_bps": {
+          "name": "edge_away_vs_polymarket_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "observer_live_model_snapshots_fixture_id_observer_fixtures_id_fk": {
+          "name": "observer_live_model_snapshots_fixture_id_observer_fixtures_id_fk",
+          "tableFrom": "observer_live_model_snapshots",
+          "tableTo": "observer_fixtures",
+          "columnsFrom": [
+            "fixture_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.observer_odds": {
+      "name": "observer_odds",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "fixture_id": {
+          "name": "fixture_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sportsbook_id": {
+          "name": "sportsbook_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sportsbook": {
+          "name": "sportsbook",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market_id": {
+          "name": "market_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market": {
+          "name": "market",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "selection": {
+          "name": "selection",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalized_selection": {
+          "name": "normalized_selection",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_probability": {
+          "name": "price_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_main": {
+          "name": "is_main",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_live": {
+          "name": "is_live",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_locked": {
+          "name": "is_locked",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_stake": {
+          "name": "max_stake",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "odds_timestamp": {
+          "name": "odds_timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_ids": {
+          "name": "source_ids",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "order_book": {
+          "name": "order_book",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deep_link": {
+          "name": "deep_link",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "observer_odds_fixture_id_observer_fixtures_id_fk": {
+          "name": "observer_odds_fixture_id_observer_fixtures_id_fk",
+          "tableFrom": "observer_odds",
+          "tableTo": "observer_fixtures",
+          "columnsFrom": [
+            "fixture_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.observer_signals": {
+      "name": "observer_signals",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "observer_signals_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "fixture_id": {
+          "name": "fixture_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "market_slug": {
+          "name": "market_slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "selection": {
+          "name": "selection",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference_source": {
+          "name": "reference_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference_probability": {
+          "name": "reference_probability",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference_timestamp": {
+          "name": "reference_timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "polymarket_price": {
+          "name": "polymarket_price",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "polymarket_best_level": {
+          "name": "polymarket_best_level",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "polymarket_timestamp": {
+          "name": "polymarket_timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edge_to_price_bps": {
+          "name": "edge_to_price_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edge_to_best_level_bps": {
+          "name": "edge_to_best_level_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "observer_signals_fixture_id_observer_fixtures_id_fk": {
+          "name": "observer_signals_fixture_id_observer_fixtures_id_fk",
+          "tableFrom": "observer_signals",
+          "tableTo": "observer_fixtures",
+          "columnsFrom": [
+            "fixture_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
