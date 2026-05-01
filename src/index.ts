@@ -87,6 +87,86 @@ const parseConfidenceQuery = (value: unknown) => {
     : undefined
 }
 
+const parsePredictorMode = (value: unknown) => {
+  if (value === "pre_toss" || value === "post_toss") {
+    return value
+  }
+  return null
+}
+
+const parseProbableXiSource = (value: unknown) => {
+  if (value === "suggested" || value === "manual") {
+    return value
+  }
+  return "none" as const
+}
+
+const parseOptionalString = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
+const allowedPredictorFeatureOverrideKeys = new Set([
+  "team1_probableXiStrength",
+  "team2_probableXiStrength",
+  "team1_xiContinuityScore",
+  "team2_xiContinuityScore",
+  "team1_missingKeyBatterCount",
+  "team2_missingKeyBatterCount",
+  "team1_missingKeyBowlerCount",
+  "team2_missingKeyBowlerCount",
+  "team1_missingOpenerFlag",
+  "team2_missingOpenerFlag",
+  "team1_missingDeathBowlerFlag",
+  "team2_missingDeathBowlerFlag",
+])
+
+const parseStringArray = (value: unknown) => {
+  if (value === undefined) {
+    return []
+  }
+
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  const parsed = value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  return parsed.length === value.length ? parsed : null
+}
+
+const parseFeatureOverrides = (value: unknown) => {
+  if (value === undefined) {
+    return null
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { error: "featureOverrides must be an object" } as const
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).filter(([, entryValue]) => entryValue !== null && entryValue !== undefined)
+  const parsed: Record<string, number> = {}
+  for (const [key, entryValue] of entries) {
+    if (!allowedPredictorFeatureOverrideKeys.has(key)) {
+      return { error: `Unsupported feature override: ${key}` } as const
+    }
+    const numericValue = Number(entryValue)
+    if (!Number.isFinite(numericValue)) {
+      return { error: `Feature override ${key} must be numeric` } as const
+    }
+    parsed[key] = numericValue
+  }
+
+  return Object.keys(parsed).length ? parsed : null
+}
+
 const requireObserverAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!config.observerApiToken) {
     next()
@@ -1054,11 +1134,12 @@ const runAutomaticPredictorSnapshots = async () => {
         fixtureId,
         mode,
         tossWinner: null,
-        tossDecision: null,
-        team1ProbableXi: [],
-        team2ProbableXi: [],
-        featureOverrides: null,
-      },
+          tossDecision: null,
+          team1ProbableXi: [],
+          team2ProbableXi: [],
+          probableXiSource: "none",
+          featureOverrides: null,
+        },
       result as never,
     )
     snapshotKeys.add(snapshotKey)
@@ -1095,8 +1176,12 @@ const startPredictorMaintenanceLoop = () => {
   const runMaintenance = async () => {
     try {
       await refreshPredictorLiveData()
-      await runAutomaticPredictorSnapshots()
-      await backfillHistoricalPostTossSnapshots()
+      if (config.opticOddsEnabled) {
+        await runAutomaticPredictorSnapshots()
+        await backfillHistoricalPostTossSnapshots()
+      } else {
+        logger.debug("Skipped automatic predictor snapshot maintenance because OPTICODDS_ENABLED is false")
+      }
       await refreshPredictorPerformanceSummary()
       logger.debug("Refreshed predictor maintenance data in background")
     } catch (error) {
@@ -1139,7 +1224,20 @@ const ensurePredictorLiveDataFresh = () =>
         })
       }
 
-      await predictorLiveDataRefreshPromise
+      try {
+        await predictorLiveDataRefreshPromise
+      } catch (error) {
+        const fallbackMtime = await getOldestPredictorLiveDataMtimeMs().catch(() => 0)
+        if (fallbackMtime > 0) {
+          logger.warn("Using stale predictor live data after refresh failed", {
+            ageMs: now - fallbackMtime,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return
+        }
+
+        throw error
+      }
     },
     catch: (error) => (error instanceof Error ? error : new Error(String(error))),
   })
@@ -1164,7 +1262,6 @@ const createApp = Effect.sync((): Express => {
         const endpoints = [
           "/",
           "/health",
-          "/predictor",
           "/predictor/api/fixtures",
           "/predictor/api/context",
           "/predictor/api/predict",
@@ -1269,10 +1366,6 @@ const createApp = Effect.sync((): Express => {
     res.sendFile(join(publicDirectory, "observer-dashboard.html"))
   })
 
-  app.get("/predictor", (_req, res) => {
-    res.sendFile(join(publicDirectory, "predictor.html"))
-  })
-
   app.get("/predictor/api/fixtures", (_req, res) => {
     sendJson(
       res,
@@ -1292,29 +1385,63 @@ const createApp = Effect.sync((): Express => {
       Effect.gen(function* () {
         const body = req.body as Record<string, unknown>
         const fixtureId = typeof body.fixtureId === "string" ? body.fixtureId : null
-        const mode = body.mode === "post_toss" ? "post_toss" : "pre_toss"
+        const mode = parsePredictorMode(body.mode)
 
         if (!fixtureId) {
           res.status(400)
           return { error: "fixtureId is required" }
         }
+        if (!mode) {
+          res.status(400)
+          return { error: "mode must be pre_toss or post_toss" }
+        }
 
         const args = ["--fixture-id", fixtureId, "--mode", mode]
+        const tossWinner = parseOptionalString(body.tossWinner)
+        const tossDecision = parseOptionalString(body.tossDecision)
+        const team1ProbableXi = parseStringArray(body.team1ProbableXi)
+        const team2ProbableXi = parseStringArray(body.team2ProbableXi)
+        const featureOverrides = parseFeatureOverrides(body.featureOverrides)
 
-        if (typeof body.tossWinner === "string" && body.tossWinner.trim()) {
-          args.push("--toss-winner", body.tossWinner)
+        if (!team1ProbableXi || !team2ProbableXi) {
+          res.status(400)
+          return { error: "team probable XI fields must be arrays of non-empty strings" }
         }
-        if (typeof body.tossDecision === "string" && body.tossDecision.trim()) {
-          args.push("--toss-decision", body.tossDecision)
+        if (
+          (team1ProbableXi.length > 0 && team1ProbableXi.length !== 11) ||
+          (team2ProbableXi.length > 0 && team2ProbableXi.length !== 11)
+        ) {
+          res.status(400)
+          return { error: "team probable XI fields must contain exactly 11 players when supplied" }
         }
-        if (Array.isArray(body.team1ProbableXi) && body.team1ProbableXi.every((item) => typeof item === "string")) {
-          args.push("--team1-probable-xi-json", JSON.stringify(body.team1ProbableXi))
+        if (featureOverrides && "error" in featureOverrides) {
+          res.status(400)
+          return { error: featureOverrides.error }
         }
-        if (Array.isArray(body.team2ProbableXi) && body.team2ProbableXi.every((item) => typeof item === "string")) {
-          args.push("--team2-probable-xi-json", JSON.stringify(body.team2ProbableXi))
+
+        const probableXiSource = team1ProbableXi.length || team2ProbableXi.length
+          ? parseProbableXiSource(body.probableXiSource) === "none"
+            ? "manual"
+            : parseProbableXiSource(body.probableXiSource)
+          : "none"
+
+        if (tossWinner) {
+          args.push("--toss-winner", tossWinner)
         }
-        if (body.featureOverrides && typeof body.featureOverrides === "object") {
-          args.push("--feature-overrides-json", JSON.stringify(body.featureOverrides))
+        if (tossDecision) {
+          args.push("--toss-decision", tossDecision)
+        }
+        if (team1ProbableXi.length) {
+          args.push("--team1-probable-xi-json", JSON.stringify(team1ProbableXi))
+        }
+        if (team2ProbableXi.length) {
+          args.push("--team2-probable-xi-json", JSON.stringify(team2ProbableXi))
+        }
+        if (probableXiSource !== "none" && (team1ProbableXi.length || team2ProbableXi.length)) {
+          args.push("--probable-xi-source", probableXiSource)
+        }
+        if (featureOverrides) {
+          args.push("--feature-overrides-json", JSON.stringify(featureOverrides))
         }
 
         logger.debug("Handled POST /predictor/api/predict", {
@@ -1332,24 +1459,12 @@ const createApp = Effect.sync((): Express => {
               {
                 fixtureId,
                 mode,
-                tossWinner:
-                  typeof body.tossWinner === "string" ? body.tossWinner : null,
-                tossDecision:
-                  typeof body.tossDecision === "string" ? body.tossDecision : null,
-                team1ProbableXi:
-                  Array.isArray(body.team1ProbableXi) &&
-                  body.team1ProbableXi.every((item) => typeof item === "string")
-                    ? body.team1ProbableXi
-                    : [],
-                team2ProbableXi:
-                  Array.isArray(body.team2ProbableXi) &&
-                  body.team2ProbableXi.every((item) => typeof item === "string")
-                    ? body.team2ProbableXi
-                    : [],
-                featureOverrides:
-                  body.featureOverrides && typeof body.featureOverrides === "object"
-                    ? (body.featureOverrides as Record<string, unknown>)
-                    : null,
+                tossWinner,
+                tossDecision,
+                team1ProbableXi,
+                team2ProbableXi,
+                probableXiSource,
+                featureOverrides,
               },
               result as never,
             ),
@@ -1393,11 +1508,15 @@ const createApp = Effect.sync((): Express => {
       Effect.gen(function* () {
         const body = req.body as Record<string, unknown>
         const fixtureId = typeof body.fixtureId === "string" ? body.fixtureId : null
-        const mode = body.mode === "post_toss" ? "post_toss" : "pre_toss"
+        const mode = parsePredictorMode(body.mode)
 
         if (!fixtureId) {
           res.status(400)
           return { error: "fixtureId is required" }
+        }
+        if (!mode) {
+          res.status(400)
+          return { error: "mode must be pre_toss or post_toss" }
         }
 
         logger.debug("Handled POST /predictor/api/context", {

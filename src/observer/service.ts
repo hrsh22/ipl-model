@@ -54,6 +54,14 @@ const LIVE_MODEL_VERSION = "expected-state-heuristic-v0"
 const LIVE_MODEL_SNAPSHOT_INTERVAL_MS = 15_000
 const LIVE_MODEL_SIGNAL_THRESHOLD_BPS = 500
 
+const getOpticOddsHeaders = () => {
+  if (!config.opticOddsApiKey) {
+    throw new Error("OPTICODDS_API_KEY is required when OPTICODDS_ENABLED is true")
+  }
+
+  return { "X-Api-Key": config.opticOddsApiKey }
+}
+
 const OBSERVED_BOOKS = [
   "betfair_exchange",
   "1xbet",
@@ -587,6 +595,11 @@ class IplObserverService {
     this.status.oddsCheckpoint = this.oddsCheckpoint
     this.status.resultsCheckpoint = this.resultsCheckpoint
 
+    if (!config.opticOddsEnabled) {
+      logger.warn("Started IPL observer with OpticOdds disabled; live fixture and odds streams are inactive")
+      return
+    }
+
     await this.refreshFixtures()
 
     this.refreshTimer = setInterval(() => {
@@ -870,6 +883,18 @@ class IplObserverService {
   }
 
   public getReadiness() {
+    if (!config.opticOddsEnabled) {
+      return {
+        ready: this.started,
+        reasons: this.started ? [] : ["observer-not-started"],
+        fixtureRefreshAgeSeconds: null,
+        oddsStreamAgeSeconds: null,
+        polymarketStreamAgeSeconds: null,
+        trackedFixtures: this.fixtures.size,
+        trackedPolymarketTokens: this.status.trackedPolymarketTokens,
+      }
+    }
+
     const reasons: string[] = []
     const fixtureRefreshAge = toAgeSeconds(this.status.fixtureRefreshAt)
     const oddsStreamAge = toAgeSeconds(this.status.lastOddsEventAt)
@@ -1026,9 +1051,7 @@ class IplObserverService {
     url.searchParams.append("league", IPL_LEAGUE_NAME)
 
     const response = await fetch(url, {
-      headers: {
-        "X-Api-Key": config.opticOddsApiKey,
-      },
+      headers: getOpticOddsHeaders(),
     })
 
     if (!response.ok) {
@@ -1101,9 +1124,7 @@ class IplObserverService {
     }
 
     const response = await fetch(url, {
-      headers: {
-        "X-Api-Key": config.opticOddsApiKey,
-      },
+      headers: getOpticOddsHeaders(),
     })
 
     if (!response.ok) {
@@ -1274,9 +1295,7 @@ class IplObserverService {
 
       try {
         const response = await fetch(url, {
-          headers: {
-            "X-Api-Key": config.opticOddsApiKey,
-          },
+          headers: getOpticOddsHeaders(),
         })
 
         if (!response.ok || !response.body) {
@@ -1339,9 +1358,7 @@ class IplObserverService {
 
       try {
         const response = await fetch(url, {
-          headers: {
-            "X-Api-Key": config.opticOddsApiKey,
-          },
+          headers: getOpticOddsHeaders(),
         })
 
         if (!response.ok || !response.body) {

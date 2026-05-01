@@ -135,7 +135,13 @@ def build_commands(root: Path, args: argparse.Namespace) -> tuple[list[list[str]
     commands: list[list[str]] = []
 
     for matrix in selected_matrices:
-        for feature_mode in ["full", "delta", "full_no_identity", "delta_plus_mean"]:
+        feature_modes = ["full", "delta", "full_no_identity", "delta_plus_mean"]
+        xgboost_feature_modes = ["full", "delta"]
+        if matrix == "post_toss":
+            feature_modes.append("post_toss_state")
+            xgboost_feature_modes.append("post_toss_state")
+
+        for feature_mode in feature_modes:
             commands.append(
                 build_train_command(
                     root=root,
@@ -148,7 +154,7 @@ def build_commands(root: Path, args: argparse.Namespace) -> tuple[list[list[str]
                 )
             )
 
-        for feature_mode in ["full", "delta"]:
+        for feature_mode in xgboost_feature_modes:
             commands.append(
                 [
                     "python3",
@@ -266,6 +272,10 @@ def build_commands(root: Path, args: argparse.Namespace) -> tuple[list[list[str]
                 f"{experiment_artifacts_dir.relative_to(root).as_posix()}/{matrix}/delta:catboost_tuned:delta",
                 f"{experiment_artifacts_dir.relative_to(root).as_posix()}/{matrix}/full_no_identity:catboost_tuned:no_identity",
             ]
+            if matrix == "post_toss":
+                stacked_sources.append(
+                    f"{experiment_artifacts_dir.relative_to(root).as_posix()}/{matrix}/post_toss_state:catboost_tuned:state"
+                )
 
         commands.append(
             [
@@ -331,6 +341,22 @@ def build_commands(root: Path, args: argparse.Namespace) -> tuple[list[list[str]
                     f"{experiment_artifacts_dir.relative_to(root).as_posix()}/{matrix}/xgboost_full:xgboost_tuned:xgb_full",
                     "--source-b",
                     "model/artifacts/post_toss/ensemble_catboost:catboost_ensemble:cat_ens",
+                ]
+            )
+            commands.append(
+                [
+                    "python3",
+                    str(root / "model" / "build_weighted_ensemble.py"),
+                    "--matrix",
+                    matrix,
+                    "--artifacts-dir",
+                    str(experiment_artifacts_dir.relative_to(root)),
+                    "--output-name",
+                    "weighted_xgboost_state__xgboost_full",
+                    "--source-a",
+                    f"{experiment_artifacts_dir.relative_to(root).as_posix()}/{matrix}/xgboost_post_toss_state:xgboost_tuned:xgb_state",
+                    "--source-b",
+                    f"{experiment_artifacts_dir.relative_to(root).as_posix()}/{matrix}/xgboost_full:xgboost_tuned:xgb_full",
                 ]
             )
             commands.append(

@@ -207,6 +207,6 @@
     "iterations": 100
   },
   "modelPath": "model/final_models/pre_toss/delta/catboost_model.cbm",
-  "sourceExperiment": "model/experiments/daily-refresh-runs/20260428T040000Z/artifacts/pre_toss/delta_daily",
+  "sourceExperiment": "model/experiments/daily-refresh-runs/20260430T040001Z/artifacts/pre_toss/delta_daily",
   "sourceModel": "catboost_tuned"
 }

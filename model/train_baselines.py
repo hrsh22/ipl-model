@@ -22,6 +22,16 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 RANDOM_STATE = 42
 
+POST_TOSS_STATE_AGENCY_COLUMNS = {
+    "toss_winner",
+    "toss_decision",
+    "toss_winner_is_team1",
+    "toss_winner_is_team2",
+    "toss_decision_bat",
+    "toss_decision_field",
+    "toss_winner_decision_preference_match",
+}
+
 
 @dataclass(frozen=True)
 class FoldDefinition:
@@ -94,7 +104,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--feature-mode",
-        choices=["full", "full_no_identity", "delta", "delta_plus_mean"],
+        choices=[
+            "full",
+            "full_no_identity",
+            "post_toss_state",
+            "delta",
+            "delta_plus_mean",
+        ],
         default="full",
         help="Feature view used for modeling",
     )
@@ -394,6 +410,27 @@ def build_feature_view(
             feature_columns=reduced_feature_columns,
             categorical_columns=reduced_categorical_columns,
             numeric_columns=reduced_numeric_columns,
+        )
+
+    if mode == "post_toss_state":
+        state_feature_columns = [
+            column
+            for column in feature_columns
+            if column not in POST_TOSS_STATE_AGENCY_COLUMNS
+        ]
+        state_categorical_columns = [
+            column for column in categorical_columns if column in state_feature_columns
+        ]
+        state_numeric_columns = [
+            column
+            for column in state_feature_columns
+            if column not in state_categorical_columns
+        ]
+        return FeatureView(
+            frame=dataframe[state_feature_columns].copy(),
+            feature_columns=state_feature_columns,
+            categorical_columns=state_categorical_columns,
+            numeric_columns=state_numeric_columns,
         )
 
     team1_prefixed = [

@@ -219,6 +219,13 @@ Each entry should explain:
 - what happened to the key metrics
 - whether the change was promoted, rejected, or reverted
 
+Also keep the two model-history summaries current:
+
+- `model/PRODUCTION_MODEL_HISTORY.md` for production pre-toss/post-toss model changes, promotions, reversions, and production-relevant results.
+- `model/EXPERIMENTAL_MODEL_HISTORY.md` for experiments, rejected candidates, reverted ideas, and the experimental ball-by-ball/ball-state workstream.
+
+Those files should explain model behavior, metric impact, decision, and reason. They should not become file/path inventories.
+
 Automatic logs are still useful, but they are **supporting evidence**, not the readable narrative source of truth. The main supporting files are:
 
 - `model/final_models/revision_history.jsonl`

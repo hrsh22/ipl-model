@@ -119,6 +119,23 @@ def parse_args() -> argparse.Namespace:
         default=0.005,
         help="Maximum allowed ROC-AUC drop during automatic post-toss promotion",
     )
+    parser.add_argument(
+        "--post-toss-sensitivity-fixture-id",
+        default=None,
+        help="Fixture id used to validate post-toss sensitivity before auto-promotion; defaults to the first live/upcoming fixture",
+    )
+    parser.add_argument(
+        "--post-toss-min-sensitivity-spread",
+        type=float,
+        default=0.001,
+        help="Minimum probability spread across post-toss batting-order scenarios before auto-promotion",
+    )
+    parser.add_argument(
+        "--post-toss-max-equivalent-state-diff",
+        type=float,
+        default=1e-9,
+        help="Maximum allowed probability difference between equivalent batting-order scenarios before auto-promotion",
+    )
     argv = sys.argv[1:]
     if argv and argv[0] == "--":
         argv = argv[1:]
@@ -267,30 +284,32 @@ def build_candidates(run_artifacts_dir: Path) -> list[Candidate]:
             ],
         ),
         Candidate(
-            key="post_toss_xgboost_full_recency_h3",
+            key="post_toss_xgboost_state_linear",
             matrix="post_toss",
-            run_label="xgboost_full_recency_h3_daily",
+            run_label="xgboost_post_toss_state_linear_daily",
             focus_model="xgboost_tuned",
-            promotion_component_name="xgboost_full_recency_h3",
+            promotion_component_name="xgboost_post_toss_state_linear",
             command=[
                 "python3",
                 "model/train_xgboost.py",
                 "--matrix",
                 "post_toss",
                 "--feature-mode",
-                "full",
+                "post_toss_state",
                 "--run-label",
-                "xgboost_full_recency_h3_daily",
+                "xgboost_post_toss_state_linear_daily",
                 "--artifacts-dir",
                 str(relative_artifacts),
                 "--calibration-methods",
                 "platt",
                 "--depth-options",
-                "4,6,8",
+                "1",
                 "--learning-rate-options",
-                "0.03,0.05,0.08",
+                "0.03,0.05",
                 "--reg-lambda-options",
-                "3,8,12",
+                "0.5,1,3",
+                "--booster",
+                "gblinear",
                 "--season-weight-mode",
                 "exponential_half_life",
                 "--season-half-life",
@@ -447,6 +466,24 @@ def decide_guarded_promotion(
     return PromotionDecision(True, f"promote: log-loss delta {log_loss_improvement:.6f}, brier delta {brier_improvement:.6f}, roc-auc delta {roc_auc_delta:.6f}", candidate_metrics, baseline_metrics)
 
 
+def resolve_post_toss_sensitivity_fixture_id(args: argparse.Namespace) -> str | None:
+    if args.post_toss_sensitivity_fixture_id:
+        return str(args.post_toss_sensitivity_fixture_id)
+
+    fixtures_path = LIVE_DIR / "upcoming_fixtures.csv"
+    if not fixtures_path.exists():
+        return None
+
+    fixtures = pd.read_csv(fixtures_path)
+    if fixtures.empty or "fixture_id" not in fixtures.columns:
+        return None
+
+    usable_fixtures = fixtures.dropna(subset=["fixture_id"])
+    if usable_fixtures.empty:
+        return None
+    return str(usable_fixtures.iloc[0]["fixture_id"])
+
+
 def append_promotion_history(run_id: str, payload: dict[str, object]) -> None:
     LIVE_DIR.mkdir(parents=True, exist_ok=True)
     history_path = LIVE_DIR / "daily_promotion_history.jsonl"
@@ -559,6 +596,65 @@ def maybe_promote_post_toss_candidate(
         return
 
     artifact_dir = run_root / "artifacts" / candidate.matrix / candidate.run_label
+    staging_root = run_root / "promotion_staging" / candidate.run_label
+    fixture_id = resolve_post_toss_sensitivity_fixture_id(args)
+    if not fixture_id:
+        payload["shouldPromote"] = False
+        payload["decision"] = "post-toss sensitivity fixture missing"
+        append_promotion_history(args.run_id, payload)
+        print("\nPost-toss auto-promotion skipped: post-toss sensitivity fixture missing")
+        return
+
+    staging_command = [
+        "python3",
+        "model/promote_xgboost_experiment.py",
+        "--matrix",
+        candidate.matrix,
+        "--artifact-dir",
+        str(artifact_dir.relative_to(ROOT)),
+        "--output-root",
+        str(staging_root.relative_to(ROOT)),
+        "--component-name",
+        str(candidate.promotion_component_name or candidate.run_label),
+        "--base-final-models-root",
+        "model/final_models",
+        "--revision-note",
+        f"stage post_toss auto-promotion validation: {decision.reason}",
+    ]
+    sensitivity_command = [
+        "pnpm",
+        "model:sensitivity:toss",
+        "--",
+        "--fixture-id",
+        fixture_id,
+        "--final-models-dir",
+        str(staging_root.relative_to(ROOT)),
+        "--min-spread",
+        str(args.post_toss_min_sensitivity_spread),
+        "--max-equivalent-state-diff",
+        str(args.post_toss_max_equivalent_state_diff),
+    ]
+    payload["stagingCommand"] = staging_command
+    payload["sensitivityCommand"] = sensitivity_command
+    payload["sensitivityFixtureId"] = fixture_id
+    payload["sensitivityApplied"] = not args.promotion_dry_run
+
+    print(f"\nPost-toss auto-promotion decision: {decision.reason}")
+    if args.promotion_dry_run:
+        run_command(staging_command, dry_run=True)
+        run_command(sensitivity_command, dry_run=True)
+    else:
+        try:
+            run_command(staging_command, dry_run=False)
+            run_command(sensitivity_command, dry_run=False)
+        except subprocess.CalledProcessError as error:
+            payload["shouldPromote"] = False
+            payload["promotionApplied"] = False
+            payload["decision"] = f"post-toss sensitivity validation failed with exit code {error.returncode}"
+            append_promotion_history(args.run_id, payload)
+            print(f"\nPost-toss auto-promotion skipped: {payload['decision']}")
+            return
+
     command = [
         "python3",
         "model/promote_xgboost_experiment.py",
@@ -580,7 +676,6 @@ def maybe_promote_post_toss_candidate(
     payload["promotionCommand"] = command
     payload["promotionApplied"] = not args.promotion_dry_run
 
-    print(f"\nPost-toss auto-promotion decision: {decision.reason}")
     run_command(command, dry_run=args.promotion_dry_run)
     append_promotion_history(args.run_id, payload)
 
@@ -716,7 +811,7 @@ def main() -> None:
         post_toss_candidate = next(
             candidate
             for candidate in candidates
-            if candidate.key == "post_toss_xgboost_full_recency_h3"
+            if candidate.key == "post_toss_xgboost_state_linear"
         )
         maybe_promote_post_toss_candidate(
             args=args,

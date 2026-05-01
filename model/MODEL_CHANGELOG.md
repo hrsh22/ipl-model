@@ -65,235 +65,126 @@ Copy this block for every material model change:
 
 ## Log
 
-### 2026-04-28 — add experimental model-backed expected-now targets
-
-- Status: tested
-- Change type: feature / training / inference
-- Hypothesis: explicit expected-now targets can replace the heuristic live par score in the experimental dashboard without leaking the observed score into the target.
-
-### What changed
-
-- Exact files changed: `model/build_ball_state_matrix.py`, `model/train_ball_state.py`, `model/validate_ball_state_live_parity.py`, `model/shadow_score_ball_state_live.py`, `src/index.ts`, `frontend/src/routes/index.tsx`, `public/observer-dashboard.js`, `model/MODEL_CHANGELOG.md`
-- Exact data points / features / rules added, removed, or modified: added experimental `expected_runs_now` and `expected_wickets_now` targets; added `live_expected_now` feature mode that excludes observed score/wicket outcome fields and event trajectory fields so expected-now training cannot simply copy `current_runs` or `current_wickets`; mapped scored expected-now targets through `/observer/ball-state-shadow`; React/static dashboards use model-backed expected-now values for the matching live fixture when available and otherwise fall back to heuristic par.
-- Whether this affects pre_toss, post_toss, or both: neither deployed predictor path; this only affects the isolated experimental ball-state matrix/training/scoring flow and dashboard display.
-
-### How we tested it
-
-- Experiment/report paths: `model/experiments/ball-state/live-expected-now-artifacts/manifest.json`, `model/experiments/ball-state/tuned/expected_now_depth4_lr003_l28_wickets/manifest.json`, `model/experiments/ball-state/live_candidate_selection_report.json`.
-- Baseline artifact or production reference: existing heuristic `expected-state-heuristic-v0` and current experimental selected shadow candidates.
-- Comparison method: walk-forward training for `expected_runs_now` / `expected_wickets_now` with `--feature-mode live_expected_now`.
-
-### Measured impact
-
-| metric | baseline | candidate | delta |
-| ------ | -------- | --------- | ----- |
-| MAE expected_runs_now | 17.0886 | 14.1230 | -2.9656 |
-| MAE expected_wickets_now | 1.0705 | 1.0833 | +0.0128 |
-
-- Live/current-season effect after promotion: not promoted to production; the dashboard only uses these fields when experimental shadow scoring emits them.
-- Confidence / caveats: expected runs improves walk-forward MAE materially; expected wickets is slightly worse than the simple historical ball baseline by MAE but has slightly better RMSE/R2 in the tuned artifact, so treat the wicket par as experimental.
-
-### Decision
-
-- Outcome: not promoted
-- Why: experimental shadow artifacts were generated and selected, but no deployed predictor path was changed.
-- Deployed model source hash after change: unchanged.
-- Supporting evidence:
-    - `model/experiments/ball-state/live_candidate_selection_report.json`
-    - `model/experiments/ball-state/live-expected-now-artifacts/manifest.json`
-
-### 2026-04-27 — harden experimental ball-state shadow refresh
+### 2026-05-01 — post-toss XI contract and UI state audit fixes
 
 - Status: tested
 - Change type: inference
-- Hypothesis: opt-in source refresh, read-only dashboard access, and confined source paths can keep the experimental ball-by-ball frontend useful without creating production runtime side effects.
+- Hypothesis: post-toss automatic predictions should only run when official toss plus confirmed/effective XI are available, and the UI must not accidentally submit unchanged official XI through the manual probable-XI override path.
 
 ### What changed
 
-- Exact files changed: `src/config.ts`, `.env.example`, `src/index.ts`, `frontend/src/routes/index.tsx`, `public/observer-dashboard.js`, `model/scrape_espncricinfo_ball_events.py`, `model/build_live_event_snapshots.py`, `model/LIVE_BALL_EVENT_CONTRACT.md`, `model/README-predict.md`, `model/MODEL_CHANGELOG.md`
-- Exact data points / features / rules added, removed, or modified: added opt-in runtime flags for experimental shadow refresh and remote ESPN fetches, made `GET /observer/ball-state-shadow` read-only, confined saved HTML paths to the ignored ball-state experiment directory, whitelisted ESPN HTTPS hosts for remote fetches, sanitized public refresh errors/source labels, tolerated partial JSONL reads, added event-hash dedupe in the ESPN scraper, and preserved illegal deliveries as score-only snapshots so legal-ball trajectory deltas do not absorb wide/no-ball runs.
-- Whether this affects pre_toss, post_toss, or both: neither deployed predictor path; this only affects the isolated experimental `/observer/ball-state-shadow` surface and ignored `model/experiments/ball-state/` outputs.
+- Exact files changed: `model/predict_fixture.py`, `apps/web/src/routes/predictor.tsx`, `model/MODEL_CHANGELOG.md`, `model/PRODUCTION_MODEL_HISTORY.md`.
+- Exact data points / features / rules added, removed, or modified: post-toss XI suggestions now preselect the official effective XI before falling back to confirmed XI, so impact-player substitutions align with the feature overrides used by inference. `official_post_toss_applied` now requires official lineups, not merely a non-empty official context. Auto post-toss CLI prediction now fails fast when no manual fallback inputs are supplied and official lineups are missing. The web predictor considers post-toss auto ready only when official toss and XI are both available, ignores stale context responses, parses live flags explicitly, and avoids sending unchanged post-toss official XI back as a manual probable-XI override.
+- Whether this affects pre_toss, post_toss, or both: primarily post_toss; pre_toss UI behavior is affected only through safer stale-state handling and live-flag parsing.
 
 ### How we tested it
 
-- Experiment/report paths: `model/experiments/ball-state/live-events-dc-rcb-1529282/`, `model/experiments/ball-state/live-events-ingestion-smoke/`
-- Baseline artifact or production reference: production predictor artifacts in `model/final_models/` and `model/predict_fixture.py` remain unchanged.
-- Comparison method: syntax/type/build validation plus protected-path diff check.
+- Experiment/report paths: direct predictor contract smoke checks for live fixture `2483` and future fixture `2484`.
+- Baseline artifact or production reference: existing `model/final_models/manifest.json` production models; model weights unchanged.
+- Comparison method: manual fixture review and targeted CLI assertions for context/prediction flags.
 
 ### Measured impact
 
-| metric | baseline | candidate | delta |
-| --- | --- | --- | --- |
-| backend typecheck errors | 0 | 0 | 0 |
-| React frontend build failures | 0 | 0 | 0 |
-| static dashboard JS syntax errors | 0 | 0 | 0 |
-| protected production path diffs | 0 | 0 | 0 |
-| saved-HTML smoke normalized rows appended | 0 | 3 | +3 |
-| repeat saved-HTML duplicate rows skipped | 0 | 3 | +3 |
+| metric   | baseline | candidate | delta |
+| -------- | -------- | --------- | ----- |
+| log_loss | n/a      | n/a       | n/a   |
+| brier    | n/a      | n/a       | n/a   |
+| roc_auc  | n/a      | n/a       | n/a   |
+| accuracy | n/a      | n/a       | n/a   |
 
-- Live/current-season effect after promotion: none; not promoted into production predictor/data paths.
-- Confidence / caveats: runtime refresh and remote fetch are disabled by default. Direct ESPN fetch can still return 403 when explicitly enabled, so saved public HTML remains the robust fallback.
+- Live/current-season effect after promotion: fixture `2483` post-toss auto remains an official-feed prediction with `official_post_toss_applied: true`, `probable_xi_applied: false`, and `official_post_toss_context.lineups_available: true`. Fixture `2484` pre-toss suggested-XI smoke still reports `probable_xi_source: suggested` and `manual_probable_xi_applied: false`.
+- Confidence / caveats: model artifacts are unchanged; this is an inference-contract and UI-state correctness fix. Historical benchmark metrics were not rerun because no training artifacts changed.
 
 ### Decision
 
-- Outcome: not promoted
-- Why: improves experimental live shadow safety/automation only; production pre/post-toss predictor behavior is intentionally unchanged.
-- Deployed model source hash after change: unchanged; no `model/final_models/` artifact changed.
+- Outcome: promoted
+- Why: the audited bugs were contract/state issues around inference inputs. The fix prevents half-official post-toss auto predictions and prevents the unchanged official XI from being reinterpreted through a different manual feature path.
+- Deployed model source hash after change: unchanged model artifacts; runtime input contract changed.
 - Supporting evidence:
+    - `python3 -m py_compile model/predict_fixture.py`
+    - direct `python3 model/predict_fixture.py` contract smoke assertions for fixtures `2483` and `2484`
+
+### 2026-05-01 — official fixture kickoff times preserved
+
+- Status: tested
+- Change type: data | inference
+- Hypothesis: preserving the official IPL kickoff time should prevent predictor dashboards and time-window logic from treating scheduled matches as midnight-UTC events.
+
+### What changed
+
+- Exact files changed: `src/model-data/fetch-upcoming-fixtures.ts`, `model/data/live/active_fixtures.csv`, `model/data/live/active_fixtures.json`, `model/data/live/upcoming_fixtures.csv`, `model/data/live/upcoming_fixtures.json`.
+- Exact data points / features / rules added, removed, or modified: official IPL fixture ingestion now combines `GMTMatchDate` + `GMTMatchTime` into the serialized `match_date`, falling back to `MatchDate` + `MatchTime` as Asia/Kolkata local time only when GMT time is absent. Previously date-only rows serialized as midnight UTC. The related player-name canonicalization maps official/full-name variants to staged Cricsheet initials for inference-time XI feature lookup.
+- Whether this affects pre_toss, post_toss, or both: both, through live fixture ordering, status/time-window checks, and any inference-time features keyed to fixture date/time.
+
+### How we tested it
+
+- Experiment/report paths: regenerated live fixture datasets with `pnpm model:data:fixtures`.
+- Baseline artifact or production reference: prior fixture `2483` serialized as `2026-05-01T00:00:00.000Z`, displaying as 5:30 AM IST.
+- Comparison method: manual fixture review and build/typecheck validation.
+
+### Measured impact
+
+| metric   | baseline | candidate | delta |
+| -------- | -------- | --------- | ----- |
+| log_loss | n/a      | n/a       | n/a   |
+| brier    | n/a      | n/a       | n/a   |
+| roc_auc  | n/a      | n/a       | n/a   |
+| accuracy | n/a      | n/a       | n/a   |
+
+- Live/current-season effect after promotion: fixture `2483` now serializes as `2026-05-01T14:00:00.000Z`, which renders as 7:30 PM IST. The player-name canonicalization moved the same fixture's suggested-XI pre-toss Delhi probability from `0.55077` to `0.52990` by matching official full names to historical player records.
+- Confidence / caveats: model weights are unchanged; this is an inference-data correctness fix.
+
+### Decision
+
+- Outcome: promoted
+- Why: the official feed exposes `GMTMatchTime`, so using it preserves the actual kickoff instant and avoids incorrect dashboard/operator timing.
+- Deployed model source hash after change: unchanged model artifacts; source/data contract changed.
+- Supporting evidence:
+    - `model/data/live/upcoming_fixtures.json`
     - `pnpm typecheck`
     - `pnpm build`
-    - `pnpm build:frontend`
-    - `node --check public/observer-dashboard.js`
-    - `python3 -m py_compile model/scrape_espncricinfo_ball_events.py`
-    - `model/experiments/ball-state/live-events-ingestion-smoke/latest_espncricinfo_capture_manifest.json`
+    - `pnpm web:typecheck`
+    - `pnpm web:build`
 
-### 2026-04-27 — add no-paid experimental live ball-event workflow
+### 2026-05-01 — official fixture fallback and XI source audit hardening
 
 - Status: tested
-- Change type: data | feature | inference
-- Hypothesis: public ESPNcricinfo page-embedded commentary can provide enough recent delivery state to test selected live trajectory features without paid APIs or production wiring.
+- Change type: data | inference
+- Hypothesis: removing the OpticOdds hard dependency should keep fixture discovery and prediction usable while making automatic suggested-XI inputs explicit and auditable.
 
 ### What changed
 
-- Exact files changed: `model/scrape_espncricinfo_ball_events.py`, `model/capture_live_ball_events.py`, `model/build_live_event_snapshots.py`, `model/build_live_payload_from_events.py`, `model/run_no_paid_ball_state_live.py`, `model/shadow_score_ball_state_live.py`, `model/LIVE_BALL_EVENT_CONTRACT.md`, `model/espncricinfo_next_data_sample.html`, `model/no_paid_live_context_sample.json`, `package.json`, `model/MODEL_CHANGELOG.md`
-- Exact data points / features / rules added, removed, or modified: added an experiment-only append-only `live-ball-event-v0` journal contract, ESPNcricinfo `__NEXT_DATA__` scraper, event-to-snapshot converter, event-to-live-payload builder, no-paid orchestration command, and shadow-scoring numeric dtype handling so optional numeric missing values remain numeric NaN instead of categorical sentinels. All generated outputs stay under ignored `model/experiments/ball-state/live-events/`.
-- Whether this affects pre_toss, post_toss, or both: neither deployed predictor path; this is an experimental live ball-state inference workflow and is not wired into `model/final_models/`, `model/predict_fixture.py`, or `model/data/live/`.
+- Exact files changed: `src/model-data/fetch-upcoming-fixtures.ts`, `src/model-data/fetch-completed-results.ts`, `src/model-data/refresh-current-player-stats.ts`, `src/index.ts`, `model/predict_fixture.py`, `model/check_toss_sensitivity.py`, `public/predictor.js`, `apps/web/src/routes/predictor.tsx`, `src/predictor-performance.ts`.
+- Exact data points / features / rules added, removed, or modified: live fixture IDs now come from official IPL `MatchID` when OpticOdds is disabled; no-result/unknown completed rows are excluded from current-season result supplements; player-match stats no longer count full squad bench members as zero-stat appearances; probable-XI payloads are validated as exactly 11 players and labelled as `suggested` vs `manual`; common full-name/initial variants are canonicalized for XI feature lookup.
+- Whether this affects pre_toss, post_toss, or both: both. Pre-toss is affected most through suggested XI and live form/player inputs; post-toss is affected through validated toss/XI payloads and cleaner current-season supplements.
 
 ### How we tested it
 
-- Experiment/report paths: `model/experiments/ball-state/live-events-context-test/`, `model/experiments/ball-state/live-events-dir-test/`, `model/experiments/ball-state/live-events-sample-shadow-fixed/`
-- Baseline artifact or production reference: selected experimental ball-state candidates from `model/experiments/ball-state/live_candidate_selection_report.json`; production predictor artifacts remain unchanged.
-- Comparison method: offline fixture replay from `model/espncricinfo_next_data_sample.html` through scrape → normalized events → snapshots → live payload → feature parity → shadow scoring.
+- Experiment/report paths: direct predictor smoke tests for fixture `2483`; regenerated `model/data/live/completed_results_2026.csv`, `model/data/live/current_season_player_match_stats.csv`, and `model/data/live/upcoming_fixture_elo_context.csv`.
+- Baseline artifact or production reference: existing `model/final_models/manifest.json` production models; no model weights changed.
+- Comparison method: manual fixture review and live-data contract checks.
 
 ### Measured impact
 
-| metric | baseline | candidate | delta |
-| --- | --- | --- | --- |
-| no-paid normalized event rows from fixture | 0 | 3 | +3 |
-| event-derived snapshot rows from fixture | 0 | 4 | +4 |
-| selected-trajectory parity ready entries | 0 | 1 | +1 |
-| first-innings shadow-scored targets | 0 | 4 | +4 |
+| metric   | baseline | candidate | delta |
+| -------- | -------- | --------- | ----- |
+| log_loss | n/a      | n/a       | n/a   |
+| brier    | n/a      | n/a       | n/a   |
+| roc_auc  | n/a      | n/a       | n/a   |
+| accuracy | n/a      | n/a       | n/a   |
 
-- Live/current-season effect after promotion: none; no promotion or runtime integration.
-- Confidence / caveats: the offline fixture proves the experimental plumbing and feature contract, not real ESPN live completeness. ESPN embedded comments may be a recent window, direct script fetch may be blocked, and real live-match readiness still requires polling saved public HTML during an actual match to measure gaps/revisions/latency.
-
-### Decision
-
-- Outcome: not promoted
-- Why: the no-paid workflow is ready for experimental live shadow testing, but it has not yet been proven across a real live match and remains intentionally outside production inference.
-- Deployed model source hash after change: unchanged; no `model/final_models/` artifact changed.
-- Supporting evidence:
-    - `model/experiments/ball-state/live-events-context-test/live_feature_parity_report.json`
-    - `model/experiments/ball-state/live-events-context-test/shadow-run/summary.json`
-    - `model/experiments/ball-state/live-events-dir-test/live_feature_parity_report.json`
-
-### 2026-04-27 — add reusable leak-safe player history feature CSVs
-
-- Status: tested
-- Change type: data | feature
-- Hypothesis: player-level prior batting/bowling form and role summaries can become useful inputs for future IPL models if generated as reusable, separate, pre-match-safe feature tables.
-
-### What changed
-
-- Exact files changed: `src/model-data/derive-features.ts`, `model/data/features/README.md`, `model/data/metadata/feature_summary.json`, `model/data/features/pre_match_player_features.csv`, `model/data/features/training_ready_player_features.csv`, `model/MODEL_CHANGELOG.md`
-- Exact data points / features / rules added, removed, or modified: added player-wise pre-match rows from `model/data/staged/player_match_stats.csv` joined with `model/data/staged/player_registry.csv`; each row includes match/team/player identity, registry `person_id`, role and batting position, training eligibility flags, prior-only historical match counts, batting runs/balls/outs/average/strike-rate/boundary-rate/six-rate, bowling balls/runs/wickets/economy/dot-ball-rate, recent last-5 batting and bowling summaries, and an all-rounder score. Same-match `current_*` player outcome columns are intentionally excluded from the pre-match/training-ready outputs.
-- Whether this affects pre_toss, post_toss, or both: neither deployed predictor path yet; these are reusable generated data/features for future model experiments and are not wired into `model/final_models/` or `model/predict_fixture.py`.
-
-### How we tested it
-
-- Experiment/report paths: `model/data/features/pre_match_player_features.csv`, `model/data/features/training_ready_player_features.csv`, `model/data/metadata/feature_summary.json`
-- Baseline artifact or production reference: existing team and matchup feature generation in `src/model-data/derive-features.ts`; production artifacts in `model/final_models/` remain unchanged.
-- Comparison method: data-generation validation plus TypeScript/build checks; no predictive model comparison yet because the new player table has not been joined into a training matrix.
-
-### Measured impact
-
-| metric | baseline | candidate | delta |
-| --- | --- | --- | --- |
-| pre-match player feature rows | 0 | 24,956 | +24,956 |
-| training-ready player feature rows | 0 | 18,305 | +18,305 |
-| player feature columns | 0 | 36 | +36 |
-| duplicate match/team/player keys | n/a | 0 | n/a |
-
-- Live/current-season effect after promotion: none; no promotion or runtime integration.
-- Confidence / caveats: the row contract is leak-safe for historical features because player history is updated only after emitting the current match's pre-match player rows. These CSVs are intentionally separate so future models can opt in without changing current production inference.
+- Live/current-season effect after promotion: fixture `2483` pre-toss with suggested XI now reports `probable_xi_source: suggested`, `manual_probable_xi_applied: false`; after alias canonicalization the Delhi win probability is `0.52990` instead of the earlier `0.55077` generated before player identities were merged. Partial one-player XI payloads now fail validation instead of mutating features.
+- Confidence / caveats: no historical backtest was run because model weights were unchanged; this is an inference/data-contract correction. Remaining caveats include player-name alias fragmentation in current-season squad/stat feeds and calibration review for production CatBoost/XGBoost probabilities.
 
 ### Decision
 
-- Outcome: not promoted
-- Why: generated and validated as a reusable feature input, but not yet evaluated inside pre_toss/post_toss matrices or deployed predictor artifacts.
-- Deployed model source hash after change: unchanged; no `model/final_models/` artifact changed.
+- Outcome: promoted
+- Why: fixes runtime dependency and input-contract bugs without changing trained model artifacts; validation passed for predictor commands, TypeScript, and frontend builds.
+- Deployed model source hash after change: unchanged model artifacts; runtime data and input contracts changed.
 - Supporting evidence:
-    - `model/data/metadata/feature_summary.json`
-    - `model/data/features/pre_match_player_features.csv`
-    - `model/data/features/training_ready_player_features.csv`
-
-### 2026-04-26 — add experimental ball-state expected model scaffold
-
-- Status: tested
-- Change type: data | feature | training
-- Hypothesis: a delivery-state model trained from historical ball-by-ball rows should provide a stronger live expected-runs/wickets baseline than venue-average run-rate heuristics.
-
-### What changed
-
-- Exact files changed: `model/build_ball_state_matrix.py`, `model/train_ball_state.py`, `package.json`, `model/MODEL_CHANGELOG.md`
-- Exact data points / features / rules added, removed, or modified: added an experimental matrix from `model/data/IPL.csv` with one row per legal delivery, current score/wickets/balls, scheduled balls, innings phase, recent scoring/wicket momentum windows, pre-match venue/team priors, and labels for `final_innings_runs`, `final_innings_wickets`, `remaining_innings_runs`, `remaining_innings_wickets`, and `chase_success`; recomputed second-innings targets from first-innings terminal score instead of trusting polluted raw `runs_target`; added CatBoost walk-forward season validation, phase-sliced metrics, simple baselines, regressors for final/remaining runs and wickets, and a chase-success classifier. Generated outputs are under ignored `model/experiments/ball-state/`.
-- Whether this affects pre_toss, post_toss, or both: neither deployed predictor path; this is an experimental live expected-state pipeline and is not wired into `model/final_models/` or `model/predict_fixture.py`.
-
-### How we tested it
-
-- Experiment/report paths: `model/experiments/ball-state/ball_state_matrix_manifest.json`, `model/experiments/ball-state/artifacts/manifest.json`, `model/experiments/ball-state/live-compatible-artifacts/manifest.json`, `model/experiments/ball-state/live-compatible-selected-trajectory-artifacts/manifest.json`, `model/experiments/ball-state/live-compatible-platt-artifacts/manifest.json`, `model/experiments/ball-state/live-compatible-isotonic-artifacts/manifest.json`, `model/experiments/ball-state/live_candidate_selection_report.json`, `model/experiments/ball-state/live_tuning_report.json`, `model/experiments/ball-state/tuned/stable_depth4_lr0045_l210/manifest.json`, `model/experiments/ball-state/runs/acceptance-smoke-tuned/summary.json`, `model/experiments/ball-state/runs/acceptance-missing-fields/summary.json`, `model/experiments/ball-state/live_compatible_feature_parity_report.json`, `model/experiments/ball-state/live_compatible_selected_trajectory_parity_report.json`
-- Baseline artifact or production reference: current observer heuristic in `src/observer/service.ts` using venue run-rate constants.
-- Comparison method: season walk-forward folds for 2023, 2024, and 2025 with match-level separation.
-
-### Measured impact
-
-| metric                       | baseline | candidate | delta  |
-| ---------------------------- | -------- | --------- | ------ |
-| final runs MAE               | 20.01    | 16.53     | -3.48  |
-| final runs RMSE              | 26.65    | 22.96     | -3.69  |
-| final wickets MAE            | 1.58     | 1.47      | -0.11  |
-| remaining runs MAE           | 20.09    | 15.68     | -4.41  |
-| remaining wickets MAE        | 1.59     | 1.43      | -0.16  |
-| chase success log_loss       | 0.696    | 0.501     | -0.195 |
-| chase success brier          | 0.252    | 0.162     | -0.090 |
-| chase success roc_auc        | 0.500    | 0.836     | +0.336 |
-| chase success ECE            | 0.049    | 0.060     | +0.012 |
-
-- Live/current-season effect after promotion: none; no promotion or runtime integration yet.
-- Live-compatible 109-feature contract: added an explicit `live_compatible` mode that excludes toss fields and event trajectory fields. It remains the best live-shaped candidate: final runs MAE `16.66`, final wickets MAE `1.46`, remaining runs MAE `15.65`, remaining wickets MAE `1.44`, chase log_loss `0.509`, chase Brier `0.164`, chase ROC AUC `0.835`, chase ECE `0.067`.
-- Event trajectory upgrade: added causal replayed trajectory fields to the matrix contract, including last-ball/last-3/6/12/24 runs and wickets, dot/high-run/six-plus windows, current-over runs/wickets/dots, balls since wicket/high-run, and consecutive dots. Added `live_compatible_trajectory` mode plus snapshot-derived parity support that only fills event features from exact one-ball snapshot deltas and treats snapshot gaps as missing.
-- Trajectory A/B result: the 141-feature live-compatible trajectory candidate did **not** beat the stable 109-feature live-compatible model on aggregate walk-forward metrics: final runs MAE `16.70`, remaining runs MAE `15.68`, chase log_loss `0.522`, chase Brier `0.168`, chase ROC AUC `0.828`, chase ECE `0.073`. The trajectory branch is therefore retained as experimental evidence, not promoted.
-- Selected trajectory / calibration follow-up: added `live_compatible_selected_trajectory` and chronological chase calibration (`platt`, `isotonic`) support. Calibration did not improve the chase classifier (`stable_platt` log_loss `0.521`, ECE `0.071`; `stable_isotonic` log_loss `0.606`, ECE `0.084`), so raw stable chase probabilities remain the best candidate by log_loss. The selected trajectory subset improved only target-specific regressions: final runs MAE `16.59` and remaining wickets MAE `1.43`.
-- Experimental target-level selector: added `model/experiments/ball-state/live_candidate_selection_report.json`, selecting per target by walk-forward primary metric. Current best live candidate mix: selected trajectory for `final_innings_runs` and `remaining_innings_wickets`; stable 109-feature contract for `final_innings_wickets`, `remaining_innings_runs`, and `chase_success`.
-- Bounded CatBoost tuning: added tunable CatBoost params and a 6-run fixed search budget. The only accepted improvement was the chase head: `live_compatible`, depth `4`, learning rate `0.045`, `l2_leaf_reg=10`, `iterations=120`, improving chase log_loss from `0.509` to `0.484`, Brier from `0.164` to `0.157`, accuracy from `0.765` to `0.788`, and ROC AUC from `0.835` to `0.852`. The tuned regression candidates were worse and were not selected.
-- Updated target-level selector: current best live candidate mix is selected trajectory for `final_innings_runs` and `remaining_innings_wickets`, stable 109-feature contract for `final_innings_wickets` and `remaining_innings_runs`, and tuned stable chase for `chase_success`.
-- Offline shadow scoring: added an experiment-only CLI that reads captured `/observer/live-model` payloads, loads the selected experimental artifacts, scores targets out-of-band, and writes `shadow_scores.jsonl`, `live_comparison.jsonl`, `rejections.jsonl`, `summary.json`, and `summary.md` under `model/experiments/ball-state/runs/`. It does not modify the observer runtime, dashboard, trading logic, `model/final_models/`, or `model/predict_fixture.py`.
-- Shadow scoring smoke checks: `acceptance-smoke-tuned` scored 3 stable/tuned targets and rejected 2 selected-trajectory targets because no exact snapshot event history was supplied; `acceptance-missing-fields` rejected all 5 target rows for missing core fields; invalid candidate manifest fails closed with `invalid candidate manifest: missing selected candidates`.
-- Live-compatible parity: matrix-only parity validates for both the stable 109-feature contract and the trajectory 141-feature contract. Live endpoint validation could not be rerun in this pass because the local observer server was not reachable; prior live endpoint validation passed for the stable contract before trajectory features were split out.
-- Confidence / caveats: stronger than the initial random split because matches are held out by season and match, and now better aligned with live payload realities. Still not promoted: calibration is not better than the constant-rate baseline on ECE, and snapshot-derived trajectory features need denser/authoritative ball-event coverage before they are useful. Next steps are calibration tuning, better prior coverage, and a true per-ball event feed or less noisy trajectory feature selection.
-
-### Decision
-
-- Outcome: not promoted
-- Why: the experiment beats simple baselines across recent-season walk-forward folds, but it is not yet calibrated or wired enough to replace live observer heuristics.
-- Deployed model source hash after change: unchanged; no `model/final_models/` artifact changed.
-- Supporting evidence:
-    - `model/experiments/ball-state/artifacts/manifest.json`
-    - `model/experiments/ball-state/live-compatible-artifacts/manifest.json`
-    - `model/experiments/ball-state/live-compatible-selected-trajectory-artifacts/manifest.json`
-    - `model/experiments/ball-state/live-compatible-platt-artifacts/manifest.json`
-    - `model/experiments/ball-state/live-compatible-isotonic-artifacts/manifest.json`
-    - `model/experiments/ball-state/live-compatible-trajectory-artifacts/manifest.json`
-    - `model/experiments/ball-state/live_candidate_selection_report.json`
-    - `model/experiments/ball-state/live_tuning_report.json`
-    - `model/experiments/ball-state/tuned/stable_depth4_lr0045_l210/manifest.json`
-    - `model/experiments/ball-state/runs/acceptance-smoke-tuned/summary.json`
-    - `model/experiments/ball-state/runs/acceptance-missing-fields/summary.json`
-    - `model/experiments/ball-state/ball_state_matrix_manifest.json`
-    - `model/experiments/ball-state/live_feature_parity_report.json`
-    - `model/experiments/ball-state/live_compatible_feature_parity_report.json`
-    - `model/experiments/ball-state/live_compatible_selected_trajectory_parity_report.json`
-    - `model/experiments/ball-state/live_compatible_trajectory_parity_report.json`
+    - `model/data/live/completed_results_2026.csv`
+    - `model/data/live/current_season_player_match_stats.csv`
+    - `model/data/live/upcoming_fixture_elo_context.csv`
 
 ### 2026-04-23 — establish readable model change tracking
 
@@ -351,31 +242,31 @@ Copy this block for every material model change:
 
 - Experiment/report paths: `model/experiments/daily-refresh-runs/20260423-elo-reset-metrics/README.md`, `model/experiments/daily-refresh-runs/20260423-elo-reset-metrics/reports/leaderboard.csv`, candidate `summary_metrics.csv` files under the same run root.
 - Baseline artifact or production reference:
-  - pre_toss: `model/artifacts/pre_toss/ensemble_catboost__full__delta/summary.json`
-  - post_toss: `model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3/summary_metrics.csv`
+    - pre_toss: `model/artifacts/pre_toss/ensemble_catboost__full__delta/summary.json`
+    - post_toss: `model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3/summary_metrics.csv`
 - Comparison method: full `python3 model/run_daily_refresh.py --run-id 20260423-elo-reset-metrics` retrain/backtest with focus split `test`.
 
 ### Measured impact
 
 #### pre_toss
 
-| metric | baseline | candidate | delta |
-| --- | --- | --- | --- |
-| log_loss | 0.6987 | 0.6940 | -0.0047 |
-| brier | 0.2527 | 0.2504 | -0.0023 |
-| roc_auc | 0.5300 | 0.5495 | +0.0195 |
-| accuracy | 0.5365 | 0.5348 | -0.0018 |
+| metric   | baseline | candidate | delta   |
+| -------- | -------- | --------- | ------- |
+| log_loss | 0.6987   | 0.6940    | -0.0047 |
+| brier    | 0.2527   | 0.2504    | -0.0023 |
+| roc_auc  | 0.5300   | 0.5495    | +0.0195 |
+| accuracy | 0.5365   | 0.5348    | -0.0018 |
 
 The season-reset Elo helped pre_toss overall: better log loss, Brier, and ROC-AUC, with a very small accuracy drop.
 
 #### post_toss
 
-| metric | baseline | candidate | delta |
-| --- | --- | --- | --- |
-| log_loss | 0.6920 | 0.6991 | +0.0071 |
-| brier | 0.2492 | 0.2526 | +0.0034 |
-| roc_auc | 0.5612 | 0.5436 | -0.0175 |
-| accuracy | 0.5691 | 0.5351 | -0.0340 |
+| metric   | baseline | candidate | delta   |
+| -------- | -------- | --------- | ------- |
+| log_loss | 0.6920   | 0.6991    | +0.0071 |
+| brier    | 0.2492   | 0.2526    | +0.0034 |
+| roc_auc  | 0.5612   | 0.5436    | -0.0175 |
+| accuracy | 0.5691   | 0.5351    | -0.0340 |
 
 The same change hurt post_toss materially against the currently deployed production source experiment.
 
@@ -408,8 +299,8 @@ The same change hurt post_toss materially against the currently deployed product
 
 - Experiment/report paths: `model/experiments/season-cutoff-2018/README.md`, `model/experiments/season-cutoff-2018/reports/leaderboard.csv`, `model/experiments/season-cutoff-2018/reports/season_metrics.csv`
 - Baseline artifact or production reference:
-  - pre_toss current-like ensemble comparison built from `model/artifacts_pruned/top60/pre_toss/full` + `model/artifacts/pre_toss/delta`
-  - post_toss deployed source experiment `model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3`
+    - pre_toss current-like ensemble comparison built from `model/artifacts_pruned/top60/pre_toss/full` + `model/artifacts/pre_toss/delta`
+    - post_toss deployed source experiment `model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3`
 - Comparison method: copied-data experiment only; no writes to `model/data/`. Generated 2018+ features/matrices under the experiment root, then retrained with `--min-train-seasons 3` so the single walk-forward fold becomes train `2018-2019`, calibration `2023`, validation `2024`, test `2025`.
 
 ### Measured impact
@@ -418,12 +309,12 @@ The same change hurt post_toss materially against the currently deployed product
 
 Compared against a current-like 0.45/0.55 pre_toss ensemble rebuilt from the present production-style components.
 
-| metric | baseline | candidate | delta |
-| --- | --- | --- | --- |
-| log_loss | 0.7010 | 0.6858 | -0.0152 |
-| brier | 0.2539 | 0.2463 | -0.0076 |
-| roc_auc | 0.4444 | 0.5833 | +0.1389 |
-| accuracy | 0.4493 | 0.5507 | +0.1014 |
+| metric   | baseline | candidate | delta   |
+| -------- | -------- | --------- | ------- |
+| log_loss | 0.7010   | 0.6858    | -0.0152 |
+| brier    | 0.2539   | 0.2463    | -0.0076 |
+| roc_auc  | 0.4444   | 0.5833    | +0.1389 |
+| accuracy | 0.4493   | 0.5507    | +0.1014 |
 
 Best 2018+ pre_toss candidate was the `delta_2018plus` CatBoost model; the 2018+ ensemble collapsed to the full model and was weaker than the delta-only candidate.
 
@@ -431,12 +322,12 @@ Best 2018+ pre_toss candidate was the `delta_2018plus` CatBoost model; the 2018+
 
 Compared against the actually deployed production source experiment `post_toss/xgboost_full_recency_h3`.
 
-| metric | baseline | candidate | delta |
-| --- | --- | --- | --- |
-| log_loss | 0.6797 | 0.6963 | +0.0166 |
-| brier | 0.2433 | 0.2514 | +0.0081 |
-| roc_auc | 0.6073 | 0.5593 | -0.0480 |
-| accuracy | 0.6377 | 0.5217 | -0.1159 |
+| metric   | baseline | candidate | delta   |
+| -------- | -------- | --------- | ------- |
+| log_loss | 0.6797   | 0.6963    | +0.0166 |
+| brier    | 0.2433   | 0.2514    | +0.0081 |
+| roc_auc  | 0.6073   | 0.5593    | -0.0480 |
+| accuracy | 0.6377   | 0.5217    | -0.1159 |
 
 The 2018+ cutoff hurt post_toss materially.
 
@@ -463,9 +354,9 @@ The 2018+ cutoff hurt post_toss materially.
 
 - Exact files changed: no additional production behavior changes; reused the copied 2018+ experiment dataset and trainer plumbing already added above.
 - Exact data points / features / rules added, removed, or modified: trained multiple post-toss candidates against the copied `2018+` manifest only:
-  - CatBoost: `full`, `delta`, `full_no_identity`
-  - XGBoost: `full` (uniform), `delta` (uniform), `full_no_identity` (uniform)
-  - Ensembles: weighted `catboost_delta + xgboost_delta`, weighted `catboost_delta + catboost_full_no_identity`, stacked `catboost_delta + catboost_full_no_identity + xgboost_delta`
+    - CatBoost: `full`, `delta`, `full_no_identity`
+    - XGBoost: `full` (uniform), `delta` (uniform), `full_no_identity` (uniform)
+    - Ensembles: weighted `catboost_delta + xgboost_delta`, weighted `catboost_delta + catboost_full_no_identity`, stacked `catboost_delta + catboost_full_no_identity + xgboost_delta`
 - Whether this affects `pre_toss`, `post_toss`, or both: post_toss only, experimentally.
 
 ### How we tested it
@@ -478,21 +369,21 @@ The 2018+ cutoff hurt post_toss materially.
 
 Deployed post_toss baseline on 2025:
 
-| metric | baseline |
-| --- | --- |
-| accuracy | 0.6377 |
-| roc_auc | 0.6073 |
-| log_loss | 0.6797 |
-| brier | 0.2433 |
+| metric   | baseline |
+| -------- | -------- |
+| accuracy | 0.6377   |
+| roc_auc  | 0.6073   |
+| log_loss | 0.6797   |
+| brier    | 0.2433   |
 
 Best 2018+ post_toss candidates:
 
-| candidate | accuracy | roc_auc | log_loss | brier | take |
-| --- | --- | --- | --- | --- | --- |
-| `catboost_delta_2018plus` | 0.5362 | 0.6120 | 0.6854 | 0.2461 | best single-model probabilistic candidate; slight ROC-AUC win, but still worse log loss/Brier/accuracy than baseline |
-| `weighted_cb_delta__xgb_delta_2018plus` | 0.5217 | 0.6187 | 0.6850 | 0.2460 | best ROC-AUC in the sweep, but still worse log loss/Brier/accuracy than baseline |
-| `catboost_full_no_identity_2018plus` | 0.5507 | 0.5631 | 0.6877 | 0.2473 | best CatBoost accuracy among the sweep, still materially below baseline |
-| `xgboost_delta_uniform_2018plus` | 0.5652 | 0.5438 | 0.6970 | 0.2515 | best raw accuracy among XGBoost sweep, but weak probability quality |
+| candidate                               | accuracy | roc_auc | log_loss | brier  | take                                                                                                                 |
+| --------------------------------------- | -------- | ------- | -------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
+| `catboost_delta_2018plus`               | 0.5362   | 0.6120  | 0.6854   | 0.2461 | best single-model probabilistic candidate; slight ROC-AUC win, but still worse log loss/Brier/accuracy than baseline |
+| `weighted_cb_delta__xgb_delta_2018plus` | 0.5217   | 0.6187  | 0.6850   | 0.2460 | best ROC-AUC in the sweep, but still worse log loss/Brier/accuracy than baseline                                     |
+| `catboost_full_no_identity_2018plus`    | 0.5507   | 0.5631  | 0.6877   | 0.2473 | best CatBoost accuracy among the sweep, still materially below baseline                                              |
+| `xgboost_delta_uniform_2018plus`        | 0.5652   | 0.5438  | 0.6970   | 0.2515 | best raw accuracy among XGBoost sweep, but weak probability quality                                                  |
 
 Nothing in the sweep beat the deployed post_toss model on log loss, Brier, and accuracy together.
 
@@ -524,8 +415,8 @@ Nothing in the sweep beat the deployed post_toss model on log loss, Brier, and a
 ### How we tested it
 
 - Experiment/report paths:
-  - season-reset: `model/experiments/season-cutoff-2018/`
-  - carry-over: `model/experiments/season-cutoff-2018-elo-carry/`
+    - season-reset: `model/experiments/season-cutoff-2018/`
+    - carry-over: `model/experiments/season-cutoff-2018-elo-carry/`
 - Baseline artifact or production reference: compare the same 2018+ candidate families against each other first, then keep the previously documented production post_toss baseline as context.
 - Comparison method: same copied 2018+ rows, same train/calibration/validation/test split, same model configs; only Elo mode changes.
 
@@ -533,28 +424,28 @@ Nothing in the sweep beat the deployed post_toss model on log loss, Brier, and a
 
 #### pre_toss delta CatBoost (2018+)
 
-| elo mode | accuracy | roc_auc | log_loss | brier |
-| --- | --- | --- | --- | --- |
-| season-reset | 0.5507 | 0.5833 | 0.6858 | 0.2463 |
-| carry-over | 0.5507 | 0.5833 | 0.6858 | 0.2463 |
+| elo mode     | accuracy | roc_auc | log_loss | brier  |
+| ------------ | -------- | ------- | -------- | ------ |
+| season-reset | 0.5507   | 0.5833  | 0.6858   | 0.2463 |
+| carry-over   | 0.5507   | 0.5833  | 0.6858   | 0.2463 |
 
 No measurable difference in this experiment. For the strongest 2018+ pre_toss candidate, cross-season Elo carry-over did not move the result.
 
 #### post_toss delta CatBoost (2018+)
 
-| elo mode | accuracy | roc_auc | log_loss | brier |
-| --- | --- | --- | --- | --- |
-| season-reset | 0.5362 | 0.6120 | 0.6854 | 0.2461 |
-| carry-over | 0.5652 | 0.5568 | 0.6901 | 0.2485 |
+| elo mode     | accuracy | roc_auc | log_loss | brier  |
+| ------------ | -------- | ------- | -------- | ------ |
+| season-reset | 0.5362   | 0.6120  | 0.6854   | 0.2461 |
+| carry-over   | 0.5652   | 0.5568  | 0.6901   | 0.2485 |
 
 Carry-over Elo raised raw accuracy, but it **worsened** probability quality materially: worse ROC-AUC, log loss, and Brier.
 
 #### post_toss weighted delta ensemble (2018+)
 
-| elo mode | accuracy | roc_auc | log_loss | brier |
-| --- | --- | --- | --- | --- |
-| season-reset | 0.5217 | 0.6187 | 0.6850 | 0.2460 |
-| carry-over | 0.5652 | 0.5568 | 0.6901 | 0.2485 |
+| elo mode     | accuracy | roc_auc | log_loss | brier  |
+| ------------ | -------- | ------- | -------- | ------ |
+| season-reset | 0.5217   | 0.6187  | 0.6850   | 0.2460 |
+| carry-over   | 0.5652   | 0.5568  | 0.6901   | 0.2485 |
 
 With carry-over Elo, the ensemble collapsed to pure CatBoost delta and lost the ROC-AUC/log-loss edge that the season-reset blend had.
 
@@ -581,8 +472,8 @@ With carry-over Elo, the ensemble collapsed to pure CatBoost delta and lost the 
 ### What changed
 
 - Exact files changed:
-  - added temporarily: `src/model-data/build-model-matrices.ts`
-  - kept as final record only: `model/MODEL_CHANGELOG.md`
+    - added temporarily: `src/model-data/build-model-matrices.ts`
+    - kept as final record only: `model/MODEL_CHANGELOG.md`
 - Exact data points / features / rules added, removed, or modified: added temporary experiment-only matrix-builder support to exclude Elo-derived feature columns from copied all-data matrices, then removed that plumbing after the experiment was complete.
 - Whether this affects `pre_toss`, `post_toss`, or both: both, experimentally only.
 
@@ -590,16 +481,16 @@ With carry-over Elo, the ensemble collapsed to pure CatBoost delta and lost the 
 
 - Experiment/report paths: copied all-data no-Elo artifacts under `model/experiments/no-elo-all-data/artifacts/`
 - Baseline artifact or production reference:
-  - pre_toss current-like ensemble comparison: `model/experiments/season-cutoff-2018/artifacts/pre_toss/current_pre_toss_ensemble_compare/summary_metrics.csv`
-  - post_toss deployed source experiment: `model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3/summary_metrics.csv`
+    - pre_toss current-like ensemble comparison: `model/experiments/season-cutoff-2018/artifacts/pre_toss/current_pre_toss_ensemble_compare/summary_metrics.csv`
+    - post_toss deployed source experiment: `model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3/summary_metrics.csv`
 - Comparison method: full all-data walk-forward retrain using copied matrices only; training rows/folds stayed the same and only Elo-derived features were removed.
 
 ### Measured impact
 
-| candidate | accuracy delta | roc_auc delta | log_loss delta | brier delta |
-| --- | --- | --- | --- | --- |
-| pre_toss current-like ensemble | -0.0479 | -0.0244 | +0.0120 | +0.0054 |
-| post_toss deployed-style XGBoost full | -0.0621 | -0.0249 | +0.0071 | +0.0035 |
+| candidate                             | accuracy delta | roc_auc delta | log_loss delta | brier delta |
+| ------------------------------------- | -------------- | ------------- | -------------- | ----------- |
+| pre_toss current-like ensemble        | -0.0479        | -0.0244       | +0.0120        | +0.0054     |
+| post_toss deployed-style XGBoost full | -0.0621        | -0.0249       | +0.0071        | +0.0035     |
 
 Removing Elo alone hurt both current-like all-data candidates.
 
@@ -614,3 +505,213 @@ Removing Elo alone hurt both current-like all-data candidates.
 - Supporting evidence:
     - `model/experiments/no-elo-all-data/artifacts/pre_toss/ensemble_top60_full__delta_no_elo_all_data/summary_metrics.csv`
     - `model/experiments/no-elo-all-data/artifacts/post_toss/xgboost_full_no_elo_all_data/summary_metrics.csv`
+
+### 2026-04-28 — make post-toss XGBoost toss-sensitive
+
+- Status: promoted
+- Change type: feature | training | ensemble | inference
+- Hypothesis: the post-toss production model should respond to actual toss winner/decision changes by learning direct toss implication features inside XGBoost, instead of relying on inference-time fallback behavior.
+
+### What changed
+
+- Exact files changed: `src/model-data/derive-features.ts`, `model/data/features/*`, `model/data/matrices/post_toss_model_matrix.csv`, `model/data/metadata/model_matrix_manifest.json`, `model/predict_fixture.py`, `model/train_xgboost.py`, `model/promote_xgboost_experiment.py`, `model/run_daily_refresh.py`, `model/check_toss_sensitivity.py`, `package.json`, `model/final_models/manifest.json`, `model/final_models/post_toss/xgboost_linear_toss/*`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: added post-toss toss implication features (`toss_winner_is_team1`, `toss_winner_is_team2`, `toss_decision_bat`, `toss_decision_field`, `team1_batting_order_win_rate`, `team2_batting_order_win_rate`, `batting_order_win_rate_gap`, `venue_batting_order_expected_team1_win_rate`, `toss_winner_decision_preference_match`) and mirrored them in live inference. Added XGBoost `feature_weights` support and `gblinear` booster support. Production post_toss is now an all-XGBoost blend: existing tree XGBoost component at 0.65 plus new linear XGBoost toss component at 0.35.
+- Whether this affects pre_toss, post_toss, or both: post_toss only.
+
+### How we tested it
+
+- Experiment/report paths:
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_full_toss_features_w1_20260428/summary_metrics.csv`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_full_toss_linear_20260428/summary_metrics.csv`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_linear_toss_ensemble_20260428/summary_metrics.csv`
+- Baseline artifact or production reference: prior `model/final_models/post_toss/xgboost_full_recency_h3` tree-only production model; prior documented 2025 baseline from `model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3/summary_metrics.csv`.
+- Comparison method: walk-forward training/proxy ensemble metrics plus production runtime toss-permutation sensitivity gate.
+
+### Measured impact
+
+| metric   | baseline | candidate/proxy | delta   |
+| -------- | -------- | --------------- | ------- |
+| log_loss | 0.6797   | 0.6962          | +0.0165 |
+| brier    | 0.2433   | 0.2513          | +0.0080 |
+| roc_auc  | 0.6073   | 0.5405          | -0.0668 |
+| accuracy | 0.6377   | 0.5372          | -0.1005 |
+
+- Live/current-season effect after promotion: `pnpm model:sensitivity:toss -- --fixture-id 20260428E9386625 --min-spread 0.001` passes with observed spread `0.003493946790695146`. Team 1 probability now moves from `0.47557685077190404` to `0.4790707975625992` across toss permutations using production `model/final_models`.
+- Confidence / caveats: this removes the CatBoost fallback and keeps post_toss production entirely XGBoost. The promoted blend intentionally prioritizes the operator contract that manual toss changes must affect post-toss odds. The available fold-level proxy metrics regress versus the prior documented production baseline because local historical fold predictions for the exact previous final tree artifact are not present; future retraining should search for a higher-quality toss-sensitive tree/linear blend before increasing the linear weight.
+
+### Decision
+
+- Outcome: promoted
+- Why: the previous XGBoost tree-only model accepted toss fields but ignored them in predictions. The promoted all-XGBoost blend makes post-toss odds responsive to toss assumptions without inference-time model-family switching.
+- Deployed model source hash after change: `0f71d70a2da05236ec405268e84c5814e260c2351ff95843aa4157d66d8ec698`
+- Supporting evidence:
+    - `model/check_toss_sensitivity.py`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_linear_toss_ensemble_20260428/summary_metrics.csv`
+    - `model/final_models_backups/post_toss_xgboost_blend_20260428T092224Z`
+
+### 2026-04-28 — rollback unsafe post-toss XGBoost blend
+
+- Status: reverted
+- Change type: model promotion rollback
+- Hypothesis: the all-XGBoost tree/linear blend made manual post-toss inputs technically responsive, but its probabilities were not safe enough for production because the linear toss component was weak and the blend regressed held-out proxy metrics.
+
+### What changed
+
+- Exact files changed: `model/final_models/manifest.json`, `model/final_models/post_toss/xgboost_linear_toss/*`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: removed `xgboost_linear_toss` from the live `post_toss` production blend, deleted its unused production artifact files, and restored `xgboost_full_recency_h3` to weight `1.0`. The toss-derived feature generation, live inference mirroring, XGBoost training knobs, and sensitivity tooling remain in the repo for the next validated retrain.
+- Whether this affects pre_toss, post_toss, or both: post_toss only.
+
+### How we tested it
+
+- Experiment/report paths:
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_full_toss_linear_20260428/summary_metrics.csv`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_linear_toss_ensemble_20260428/summary_metrics.csv`
+    - `model/experiments/recency-second-pass/artifacts/post_toss/xgboost_full_recency_h3/summary_metrics.csv`
+- Baseline artifact or production reference: prior tree-only `model/final_models/post_toss/xgboost_full_recency_h3` production component.
+- Comparison method: production component decomposition for fixture `20260428E9386625`, toss-permutation sensitivity checks, and fold-level summary metric comparison.
+
+### Measured impact
+
+| model                             | test log_loss | test brier | test roc_auc | test accuracy |
+| --------------------------------- | ------------- | ---------- | ------------ | ------------- |
+| xgboost_full_recency_h3 reference | 0.6920        | 0.2492     | 0.5612       | 0.5691        |
+| xgboost_linear_toss               | 0.7043        | 0.2552     | 0.5387       | 0.5085        |
+| 0.65/0.35 tree/linear blend       | 0.6962        | 0.2513     | 0.5405       | 0.5372        |
+
+- Live/current-season effect after rollback: fixture `20260428E9386625` returns to the tree component probability around `0.4639399648` rather than the unsafe blend range `0.4755768508`–`0.4790707976`.
+- Confidence / caveats: this intentionally sacrifices the provisional production toss sensitivity to avoid shipping a weaker blend. The proper fix remains a validated XGBoost retrain that is both toss-sensitive and no worse than the production tree on held-out metrics.
+
+### Decision
+
+- Outcome: reverted
+- Why: the promoted linear toss component was only weakly toss-sensitive, moved prices in a way that looked operationally suspect, and degraded the available validation evidence. Keeping the toss-feature infrastructure while removing the component from the live manifest is the safest rollback.
+- Deployed model source hash after change: `970a3efafe3c75407d3bceee8456a979cce3c1ff46cf05cbf2f48eb24bcc5297`
+- Supporting evidence:
+    - `model/final_models/manifest.json`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_full_toss_linear_20260428/summary_metrics.csv`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_linear_toss_ensemble_20260428/summary_metrics.csv`
+
+### 2026-04-28 — promote toss-sensitive post-toss XGBoost tree
+
+- Status: promoted
+- Change type: model promotion | training
+- Hypothesis: post-toss production must remain XGBoost and must move probabilities when toss winner/decision changes; a single `gbtree` model trained with toss implication features, high toss feature sampling weight, and low `colsample_bytree` should satisfy that contract more cleanly than the reverted tree/linear blend.
+
+### What changed
+
+- Exact files changed: `model/final_models/manifest.json`, `model/final_models/post_toss/xgboost_tree_toss_colsample_w50/*`, `model/final_models/revision_history.jsonl`, `model/final_models_backups/*`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: replaced live post_toss `xgboost_full_recency_h3` with `xgboost_tree_toss_colsample_w50` at weight `1.0`. The promoted component consumes the post-toss implication fields (`toss_winner_is_team1`, `toss_winner_is_team2`, `toss_decision_bat`, `toss_decision_field`, `team1_batting_order_win_rate`, `team2_batting_order_win_rate`, `batting_order_win_rate_gap`, `venue_batting_order_expected_team1_win_rate`, `toss_winner_decision_preference_match`) and uses `gbtree` with `colsample_bytree=0.35` plus toss feature sampling weight from the source experiment.
+- Whether this affects pre_toss, post_toss, or both: post_toss only.
+
+### How we tested it
+
+- Experiment/report paths:
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_toss_colsample_w50_20260428/summary_metrics.csv`
+    - `model/experiments/toss-sensitive-xgboost/staging/tree_colsample_w50_final_models/`
+- Baseline artifact or production reference: prior flat `model/final_models/post_toss/xgboost_full_recency_h3` production component and the rejected `0.65/0.35` tree/linear blend.
+- Comparison method: promoted to staging first, ran toss-permutation sensitivity for fixture `20260428E9386625`, then promoted the same single-component XGBoost tree into `model/final_models` and re-ran prediction/build checks.
+
+### Measured impact
+
+| model                                | test log_loss | test brier | test roc_auc | test accuracy |
+| ------------------------------------ | ------------- | ---------- | ------------ | ------------- |
+| xgboost_full_recency_h3 reference    | 0.6920        | 0.2492     | 0.5612       | 0.5691        |
+| rejected 0.65/0.35 tree/linear blend | 0.6962        | 0.2513     | 0.5405       | 0.5372        |
+| xgboost_tree_toss_colsample_w50      | 0.6989        | 0.2525     | 0.5511       | 0.5189        |
+
+- Live/current-season effect after promotion: `pnpm model:sensitivity:toss -- --fixture-id 20260428E9386625 --min-spread 0.001` passes with observed spread `0.019425690174102783`. Team 1 probability now moves from `0.4728984832763672` to `0.49232417345046997` across toss permutations using production `model/final_models`.
+- Confidence / caveats: this fixes the operator contract with a single XGBoost tree component that consumes the toss implication columns. Its fold metrics are still weaker than the prior flat reference, so this promotion is a functional correctness fix, not a final model-quality win. The next training pass should search for a toss-sensitive tree that also beats or matches the flat reference on log loss and Brier score.
+
+### Decision
+
+- Outcome: promoted
+- Why: the flat post-toss production model violated the core post-toss contract by returning identical probabilities across toss scenarios. The promoted component is a model-level XGBoost fix, not a UI/display adjustment or non-XGBoost fallback, and it restores meaningful toss sensitivity immediately.
+- Deployed model source hash after change: `9e8608460caff6a54db3ef026f96ff2e3b2f0687634b8c9abad4e0fe9c491aee`
+- Supporting evidence:
+    - `model/check_toss_sensitivity.py`
+    - `model/final_models/manifest.json`
+    - `model/experiments/toss-sensitive-xgboost/artifacts/post_toss/xgboost_tree_toss_colsample_w50_20260428/summary_metrics.csv`
+
+### 2026-04-28 — enforce batting-order equivalence in post-toss XGBoost
+
+- Status: promoted
+- Change type: feature | training | validation | model promotion
+- Hypothesis: post-toss pricing should depend on the resulting innings state, not on two different wordings of the same state. For example, “Punjab Kings bat” and “Rajasthan Royals field” both mean Punjab bat first and must produce the same probability.
+
+### What changed
+
+- Exact files changed: `model/train_baselines.py`, `model/train_xgboost.py`, `model/check_toss_sensitivity.py`, `model/final_models/manifest.json`, `model/final_models/post_toss/xgboost_post_toss_state_linear/*`, `model/final_models/post_toss/xgboost_tree_toss_colsample_w50/*`, `model/final_models/revision_history.jsonl`, `model/final_models_backups/*`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: added `post_toss_state` feature mode, which removes toss-agency fields (`toss_winner`, `toss_decision`, `toss_winner_is_team1`, `toss_winner_is_team2`, `toss_decision_bat`, `toss_decision_field`, `toss_winner_decision_preference_match`) while preserving batting-order state fields (`team1_bats_first`, `team2_bats_first`, batting-order win-rate features, and venue batting-order expectation). Promoted `xgboost_post_toss_state_linear` as the live post_toss component and removed the non-invariant `xgboost_tree_toss_colsample_w50` production artifact files. Strengthened `model/check_toss_sensitivity.py` to fail when equivalent batting-order scenarios differ.
+- Whether this affects pre_toss, post_toss, or both: post_toss only.
+
+### How we tested it
+
+- Experiment/report paths:
+    - `model/experiments/toss-state-xgboost/artifacts/post_toss/xgboost_post_toss_state_linear_20260428/summary_metrics.csv`
+    - `model/experiments/toss-state-xgboost/staging/post_toss_state_linear_final_models/`
+    - `model/experiments/toss-state-xgboost/artifacts/post_toss/xgboost_post_toss_state_tree_tiny_20260428/summary_metrics.csv`
+- Baseline artifact or production reference: non-invariant `xgboost_tree_toss_colsample_w50` production model and flat `xgboost_full_recency_h3` reference.
+- Comparison method: compared raw scenario feature rows, confirmed equivalent batting-order scenarios only differed by toss-agency columns, trained state-only candidates, staged/promoted the invariant candidate, and ran the enhanced toss sensitivity/equivalence checker.
+
+### Measured impact
+
+| model                                         | test log_loss | test brier | test roc_auc | test accuracy |
+| --------------------------------------------- | ------------- | ---------- | ------------ | ------------- |
+| non-invariant xgboost_tree_toss_colsample_w50 | 0.6989        | 0.2525     | 0.5511       | 0.5189        |
+| xgboost_post_toss_state_linear                | 0.7039        | 0.2550     | 0.5444       | 0.5119        |
+| xgboost_post_toss_state_tree_tiny             | 0.7043        | 0.2550     | 0.5506       | 0.5354        |
+
+- Live/current-season effect after promotion: `pnpm model:sensitivity:toss -- --fixture-id 20260428E9386625 --min-spread 0.001` passes with observed batting-order spread `0.00203859806060791` and equivalent-state diffs of `0.0` for both batting-order groups. Punjab Kings bat and Rajasthan Royals field both produce `0.5008306503295898`; Punjab Kings field and Rajasthan Royals bat both produce `0.5028692483901978`.
+- Confidence / caveats: this fixes the semantic correctness bug and prevents equivalent toss phrasings from diverging. The promoted model is still weaker than desired on held-out metrics, so it should be replaced by a higher-quality batting-order-state XGBoost once available.
+
+### Decision
+
+- Outcome: promoted
+- Why: the prior toss-sensitive tree restored movement but violated state equivalence by pricing “team wins toss and bats” differently from “opponent wins toss and fields.” The new feature mode removes those agency fields from model input and the validation gate now enforces both sensitivity and equivalence.
+- Deployed model source hash after change: `1c2daae992c77e24db959d307e8bf80f7cfda4bbde4a4859188998cb84cca728`
+- Supporting evidence:
+    - `model/check_toss_sensitivity.py`
+    - `model/final_models/manifest.json`
+    - `model/experiments/toss-state-xgboost/artifacts/post_toss/xgboost_post_toss_state_linear_20260428/summary_metrics.csv`
+
+### 2026-04-28 — wire post-toss state validation into daily retraining
+
+- Status: promoted
+- Change type: automation | validation | documentation
+- Hypothesis: the VM's 4am daily retraining job must train the same batting-order-state post-toss model family used in production and must block auto-promotion if a candidate violates toss sensitivity or equivalent-state invariance.
+
+### What changed
+
+- Exact files changed: `model/run_daily_refresh.py`, `model/run_experiment_suite.py`, `model/README-daily-refresh.md`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: changed the daily post_toss candidate from `xgboost_full_recency_h3_daily` with `feature-mode full` to `xgboost_post_toss_state_linear_daily` with `feature-mode post_toss_state`. Added automatic staging plus `model:sensitivity:toss` validation before post-toss auto-promotion. Extended experiment-suite backtests to include `post_toss_state` CatBoost/XGBoost runs and a state-vs-full XGBoost weighted comparison.
+- Whether this affects pre_toss, post_toss, or both: post_toss automation only; pre_toss daily behavior is unchanged.
+
+### How we tested it
+
+- Experiment/report paths:
+    - `model/experiments/toss-state-xgboost/reports/leaderboard.csv`
+    - `model/experiments/toss-state-xgboost/reports/season_metrics.csv`
+    - `model/experiments/toss-state-xgboost/reports/calibration_bins.csv`
+    - `model/experiments/toss-state-xgboost/reports/confidence_backtest.csv`
+- Baseline artifact or production reference: current `model/final_models` post_toss component `xgboost_post_toss_state_linear` and existing toss-sensitive experiment artifacts.
+- Comparison method: daily refresh dry-run, post-toss experiment-suite dry-run, stored-prediction backtest report generation across `current`, `toss_state`, and `toss_sensitive` roots, and final production sensitivity/equivalence check.
+
+### Measured impact
+
+- Daily refresh dry-run now prints the post-toss training command:
+    - `python3 model/train_xgboost.py --matrix post_toss --feature-mode post_toss_state --run-label xgboost_post_toss_state_linear_daily ... --booster gblinear ...`
+- Experiment-suite dry-run now includes:
+    - `train_baselines.py --matrix post_toss --feature-mode post_toss_state`
+    - `train_xgboost.py --matrix post_toss --feature-mode post_toss_state --run-label xgboost_post_toss_state`
+    - `weighted_xgboost_state__xgboost_full`
+- Backtest leaderboard generated successfully under `model/experiments/toss-state-xgboost/reports`. The live promoted state model's stored test metrics remain modest (`xgboost_post_toss_state_linear`: accuracy `0.5135`, ROC-AUC `0.5187`, log loss `0.7043`, Brier `0.2552`), but the automation now tests the correct model family and enforces the semantic gate before promotion.
+
+### Decision
+
+- Outcome: promoted
+- Why: without this change, pushing to the VM would let the 4am job keep retraining/promoting the old full post-toss XGBoost candidate and bypass the new equivalent-state validation. The daily job now trains the state model and stages it through the same sensitivity/equivalence check before production promotion.
+- Deployed model source hash after change: unchanged from current production model artifacts (`1c2daae992c77e24db959d307e8bf80f7cfda4bbde4a4859188998cb84cca728`)
+- Supporting evidence:
+    - `pnpm model:daily-refresh -- --dry-run --auto-promote-pre-toss --auto-promote-post-toss`
+    - `pnpm model:experiment -- --name post_toss_state_smoke_20260428 --matrix post_toss --dry-run`
+    - `pnpm model:backtest -- --root current:model/artifacts --root toss_state:model/experiments/toss-state-xgboost/artifacts --root toss_sensitive:model/experiments/toss-sensitive-xgboost/artifacts --output-dir model/experiments/toss-state-xgboost/reports --focus-split test`

@@ -475,6 +475,15 @@ const postTossMatchupHeaders = [
   "toss_decision",
   "team1_bats_first",
   "team2_bats_first",
+  "toss_winner_is_team1",
+  "toss_winner_is_team2",
+  "toss_decision_bat",
+  "toss_decision_field",
+  "team1_batting_order_win_rate",
+  "team2_batting_order_win_rate",
+  "batting_order_win_rate_gap",
+  "venue_batting_order_expected_team1_win_rate",
+  "toss_winner_decision_preference_match",
   "team1_won",
   "venue_average_first_innings_score",
   "venue_average_second_innings_score",
@@ -1163,8 +1172,8 @@ const getXiContinuityComponents = (
   const continuityForSelection = (players: string[]) =>
     players.length > 0
       ? average(
-          players.map((player) => safeRate(playerStats.get(player)?.appearances ?? 0, window.length)),
-        )
+        players.map((player) => safeRate(playerStats.get(player)?.appearances ?? 0, window.length)),
+      )
       : overallXiContinuity
 
   const topOrderPlayers = Array.from(playerStats.entries())
@@ -1662,6 +1671,19 @@ const main = () => {
       toss_decision: match.tossDecision,
       team1_bats_first: team1Row.battingFirst,
       team2_bats_first: team2Row.battingFirst,
+      toss_winner_is_team1: match.tossWinner === team1,
+      toss_winner_is_team2: match.tossWinner === team2,
+      toss_decision_bat: match.tossDecision === "bat",
+      toss_decision_field: match.tossDecision === "field",
+      team1_batting_order_win_rate: team1Row.battingFirst ? team1Features.battingFirstWinRate : team1Features.chasingWinRate,
+      team2_batting_order_win_rate: team2Row.battingFirst ? team2Features.battingFirstWinRate : team2Features.chasingWinRate,
+      batting_order_win_rate_gap: (team1Row.battingFirst ? team1Features.battingFirstWinRate : team1Features.chasingWinRate) - (team2Row.battingFirst ? team2Features.battingFirstWinRate : team2Features.chasingWinRate),
+      venue_batting_order_expected_team1_win_rate: team1Row.battingFirst ? venueAggregates.battingFirstWinRate : venueAggregates.chasingWinRate,
+      toss_winner_decision_preference_match: match.tossWinner === team1
+        ? (match.tossDecision === "field" ? team1Features.prefersFieldAfterToss : 1 - team1Features.prefersFieldAfterToss)
+        : match.tossWinner === team2
+          ? (match.tossDecision === "field" ? team2Features.prefersFieldAfterToss : 1 - team2Features.prefersFieldAfterToss)
+          : 0,
     })
 
     const team1Squad = matchSquads.get(`${match.matchId}::${team1}`) ?? new Set<string>()
@@ -1763,7 +1785,7 @@ const main = () => {
 
   writeFileSync(
     join(featuresDir, "README.md"),
-    `# model/data/features\n\nDerived historical feature tables.\n\n- \`pre_match_team_features.csv\`: one row per team per historical match using prior eligible data only\n- \`pre_match_player_features.csv\`: one row per player per historical match using only that player's prior eligible match history\n- \`pre_match_matchup_features.csv\`: one row per match with venue, H2H, gap features, Elo, toss-history features, eligibility flags, and team-level pre-match features\n- \`post_toss_matchup_features.csv\`: one row per match with the same base features plus actual toss-known fields (\`toss_winner\`, \`toss_decision\`, \`team1_bats_first\`, \`team2_bats_first\`)\n- \`training_ready_team_features.csv\`: filtered team-level rows where \`training_eligible=true\`\n- \`training_ready_player_features.csv\`: filtered player-level rows where \`training_eligible=true\`\n- \`training_ready_matchup_features.csv\`: filtered pre-match matchup rows where \`training_eligible=true\`\n- \`training_ready_post_toss_matchup_features.csv\`: filtered post-toss matchup rows where \`training_eligible=true\`\n\nNotes:\n- Team order comes from Cricsheet match info when available, otherwise alphabetical order is used to avoid innings-order leakage.\n- Player pre-match rows are emitted before updating that player's history for the current match, so same-match player performance cannot leak into historical player features.\n- XI continuity and probable-XI strength use the last known XI from the same season before the match as the V1 probable-XI proxy.\n- Continuity weights follow the markdown source of truth: 0.30 top order, 0.30 bowling core, 0.20 death bowlers, 0.20 overall XI.\n- Home/neutral context comes from a static venue mapping with season overrides.\n- Training exclusions currently remove neutral-venue seasons/legs, no-result/tie matches, D/L matches, super-over matches, and unresolved home-context rows.\n- Post-toss datasets are kept separate so toss-known fields do not leak into the pre-toss model matrix.\n`,
+    `# model/data/features\n\nDerived historical feature tables.\n\n- \`pre_match_team_features.csv\`: one row per team per historical match using prior eligible data only\n- \`pre_match_matchup_features.csv\`: one row per match with venue, H2H, gap features, Elo, toss-history features, eligibility flags, and team-level pre-match features\n- \`post_toss_matchup_features.csv\`: one row per match with the same base features plus actual toss-known fields and toss implication features (\`toss_winner\`, \`toss_decision\`, \`team1_bats_first\`, \`team2_bats_first\`, batting-order win-rate gaps, and toss-decision preference alignment)\n- \`training_ready_team_features.csv\`: filtered team-level rows where \`training_eligible=true\`\n- \`training_ready_matchup_features.csv\`: filtered pre-match matchup rows where \`training_eligible=true\`\n- \`training_ready_post_toss_matchup_features.csv\`: filtered post-toss matchup rows where \`training_eligible=true\`\n\nNotes:\n- Team order comes from Cricsheet match info when available, otherwise alphabetical order is used to avoid innings-order leakage.\n- XI continuity and probable-XI strength use the last known XI from the same season before the match as the V1 probable-XI proxy.\n- Continuity weights follow the markdown source of truth: 0.30 top order, 0.30 bowling core, 0.20 death bowlers, 0.20 overall XI.\n- Home/neutral context comes from a static venue mapping with season overrides.\n- Training exclusions currently remove neutral-venue seasons/legs, no-result/tie matches, D/L matches, super-over matches, and unresolved home-context rows.\n- Post-toss datasets are kept separate so toss-known fields do not leak into the pre-toss model matrix.\n`,
     "utf-8",
   )
 

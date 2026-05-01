@@ -143,7 +143,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Predict IPL fixture win probabilities"
     )
-    parser.add_argument("--fixture-id", help="Fixture id from upcoming_fixtures.csv")
+    parser.add_argument("--fixture-id", help="Fixture id from upcoming_fixtures live data")
     parser.add_argument(
         "--fixture-row-json",
         default=None,
@@ -170,6 +170,12 @@ def parse_args() -> argparse.Namespace:
         help="Optional JSON array of selected probable XI player names for team2",
     )
     parser.add_argument(
+        "--probable-xi-source",
+        choices=["manual", "suggested"],
+        default="manual",
+        help="Source label for supplied probable XI arrays",
+    )
+    parser.add_argument(
         "--final-models-dir",
         default=None,
         help="Optional alternate final_models directory for staged promotion validation",
@@ -182,6 +188,52 @@ def parse_args() -> argparse.Namespace:
 
 def load_csv(path: Path) -> pd.DataFrame:
     return pd.read_csv(path)
+
+
+def normalize_identifier(value: Any) -> str:
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except Exception:
+        pass
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
+def parse_boolish(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    return text in {"1", "true", "yes", "y"}
+
+
+def normalize_identifier_columns(frame: pd.DataFrame) -> pd.DataFrame:
+    normalized = frame.copy()
+    for column in ("fixture_id", "official_match_id", "opticodds_game_id"):
+        if column in normalized.columns:
+            normalized[column] = normalized[column].map(normalize_identifier)
+    return normalized
+
+
+def load_live_fixtures() -> pd.DataFrame:
+    json_path = LIVE_DIR / "upcoming_fixtures.json"
+    csv_path = LIVE_DIR / "upcoming_fixtures.csv"
+    if json_path.exists():
+        payload = json.loads(json_path.read_text())
+        fixtures = pd.DataFrame(payload)
+    else:
+        fixtures = load_csv(csv_path)
+    return normalize_identifier_columns(fixtures)
+
+
+def find_fixture_rows(frame: pd.DataFrame, fixture_id: Any) -> pd.DataFrame:
+    normalized = normalize_identifier_columns(frame)
+    if "fixture_id" not in normalized.columns:
+        return normalized.iloc[0:0]
+    return normalized[normalized["fixture_id"] == normalize_identifier(fixture_id)]
 
 
 def safe_float(value: Any) -> float:
@@ -212,7 +264,7 @@ def normalize_timestamp(value: Any) -> pd.Timestamp:
 
 
 def list_fixtures() -> None:
-    fixtures = load_csv(LIVE_DIR / "upcoming_fixtures.csv")
+    fixtures = load_live_fixtures()
     print(
         fixtures[["fixture_id", "match_date", "team1", "team2", "venue"]].to_string(
             index=False
@@ -221,8 +273,8 @@ def list_fixtures() -> None:
 
 
 def load_fixture_row_from_args(args: argparse.Namespace) -> pd.Series:
-    fixtures = load_csv(LIVE_DIR / "upcoming_fixtures.csv")
-    fixture_row = fixtures[fixtures["fixture_id"] == args.fixture_id]
+    fixtures = load_live_fixtures()
+    fixture_row = find_fixture_rows(fixtures, args.fixture_id)
     if not fixture_row.empty:
         return fixture_row.iloc[0]
 
@@ -293,7 +345,29 @@ def normalize_text(value: str) -> str:
 
 
 def normalize_player_name_key(value: str) -> str:
-    return normalize_text(value)
+    key = normalize_text(strip_player_suffixes(value))
+    return PLAYER_NAME_ALIASES.get(key, key)
+
+
+PLAYER_NAME_ALIASES = {
+    "ar patel": "axar patel",
+    "da miller": "david miller",
+    "d ferreira": "donovan ferreira",
+    "jc archer": "jofra archer",
+    "kl rahul": "k l rahul",
+    "l ngidi": "lungisani ngidi",
+    "n burger": "nandre burger",
+    "n rana": "nitish rana",
+    "p nissanka": "pathum nissanka",
+    "r parag": "riyan parag",
+    "ra jadeja": "ravindra jadeja",
+    "so hetmyer": "shimron hetmyer",
+    "t stubbs": "tristan stubbs",
+    "tu deshpande": "tushar deshpande",
+    "v nigam": "vipraj nigam",
+    "v suryavanshi": "vaibhav sooryavanshi",
+    "ybk jaiswal": "yashasvi jaiswal",
+}
 
 
 def strip_player_suffixes(value: str) -> str:
@@ -743,6 +817,54 @@ def build_live_feature_refresh(
     return feature_overrides, summary
 
 
+def apply_post_toss_implication_features(base: dict[str, Any]) -> None:
+    team1 = str(base.get("team1", ""))
+    team2 = str(base.get("team2", ""))
+    toss_winner = str(base.get("toss_winner", ""))
+    toss_decision = str(base.get("toss_decision", ""))
+    team1_bats_first = safe_float(base.get("team1_bats_first")) >= 0.5
+    team2_bats_first = not team1_bats_first
+
+    team1_order_win_rate = safe_float(
+        base.get("team1_battingFirstWinRate" if team1_bats_first else "team1_chasingWinRate")
+    )
+    team2_order_win_rate = safe_float(
+        base.get("team2_battingFirstWinRate" if team2_bats_first else "team2_chasingWinRate")
+    )
+    venue_order_expected_team1 = safe_float(
+        base.get("venue_batting_first_win_rate" if team1_bats_first else "venue_chasing_win_rate")
+    )
+
+    if toss_winner == team1:
+        toss_winner_preference_match = (
+            safe_float(base.get("team1_prefersFieldAfterToss"))
+            if toss_decision == "field"
+            else 1.0 - safe_float(base.get("team1_prefersFieldAfterToss"))
+        )
+    elif toss_winner == team2:
+        toss_winner_preference_match = (
+            safe_float(base.get("team2_prefersFieldAfterToss"))
+            if toss_decision == "field"
+            else 1.0 - safe_float(base.get("team2_prefersFieldAfterToss"))
+        )
+    else:
+        toss_winner_preference_match = 0.0
+
+    base.update(
+        {
+            "toss_winner_is_team1": int(toss_winner == team1),
+            "toss_winner_is_team2": int(toss_winner == team2),
+            "toss_decision_bat": int(toss_decision == "bat"),
+            "toss_decision_field": int(toss_decision == "field"),
+            "team1_batting_order_win_rate": team1_order_win_rate,
+            "team2_batting_order_win_rate": team2_order_win_rate,
+            "batting_order_win_rate_gap": team1_order_win_rate - team2_order_win_rate,
+            "venue_batting_order_expected_team1_win_rate": venue_order_expected_team1,
+            "toss_winner_decision_preference_match": toss_winner_preference_match,
+        }
+    )
+
+
 def extract_jsonp_payload(text: str, callback_name: str) -> Any:
     pattern = rf"{callback_name}\((.*)\)\s*;?\s*$"
     match = re.search(pattern, text, re.S)
@@ -1058,7 +1180,15 @@ def parse_string_array(raw_value: str | None, field_name: str) -> list[str]:
         raise ValueError(f"{field_name} must be a valid JSON array") from error
     if not isinstance(payload, list):
         raise ValueError(f"{field_name} must be a JSON array")
-    return [str(item).strip() for item in payload if str(item).strip()]
+    parsed = [str(item).strip() for item in payload if str(item).strip()]
+    if len(parsed) != len(payload):
+        raise ValueError(f"{field_name} must contain only non-empty player names")
+    if parsed and len(parsed) != 11:
+        raise ValueError(f"{field_name} must contain exactly 11 players when supplied")
+    normalized_keys = [normalize_player_name_key(name) for name in parsed]
+    if len(normalized_keys) != len(set(normalized_keys)):
+        raise ValueError(f"{field_name} must not contain duplicate players")
+    return parsed
 
 
 def build_manual_probable_xi_overrides(
@@ -1522,6 +1652,11 @@ def is_overseas_player(player: dict[str, Any]) -> bool:
     return str(player.get("IsNonDomestic") or "0") == "1"
 
 
+def has_unique_players(players: list[dict[str, Any]]) -> bool:
+    keys = [normalize_player_name_key(official_player_name(player)) for player in players]
+    return len(keys) == len(set(keys))
+
+
 def parse_official_matchday_squad(players: list[dict[str, Any]]) -> dict[str, Any]:
     ordered = sorted(
         players,
@@ -1572,6 +1707,8 @@ def parse_official_matchday_squad(players: list[dict[str, Any]]) -> dict[str, An
     overseas_in_effective_xi = sum(
         1 for player in effective_xi if is_overseas_player(player)
     )
+    confirmed_xi_unique = has_unique_players(confirmed_xi)
+    effective_xi_unique = has_unique_players(effective_xi)
     eligible_impact_substitutes = [
         official_player_name(player)
         for player in declared_substitutes
@@ -1591,12 +1728,44 @@ def parse_official_matchday_squad(players: list[dict[str, Any]]) -> dict[str, An
         ],
         "replaced_players": [official_player_name(player) for player in replaced_players],
         "eligible_impact_substitutes": eligible_impact_substitutes,
-        "confirmed_xi_available": len(confirmed_xi) == 11,
-        "effective_xi_available": len(effective_xi) == 11,
+        "confirmed_xi_available": len(confirmed_xi) == 11 and confirmed_xi_unique,
+        "effective_xi_available": len(effective_xi) == 11 and effective_xi_unique,
         "overseas_in_confirmed_xi": overseas_in_confirmed_xi,
         "overseas_in_effective_xi": overseas_in_effective_xi,
         "impact_rule_ok": overseas_in_effective_xi <= 4,
     }
+
+
+def canonical_team_key(team: str) -> str:
+    normalized_team = normalize_text(team)
+    for canonical, aliases in TEAM_ALIASES.items():
+        if normalized_team in {normalize_text(alias) for alias in aliases}:
+            return normalize_text(canonical)
+    return normalized_team
+
+
+def resolve_official_squad_order(
+    fixture: pd.Series, official_match: dict[str, Any]
+) -> tuple[str, str] | None:
+    team1_key = canonical_team_key(str(fixture["team1"]))
+    team2_key = canonical_team_key(str(fixture["team2"]))
+    home_key = canonical_team_key(str(official_match.get("HomeTeamName", "")))
+    away_key = canonical_team_key(str(official_match.get("AwayTeamName", "")))
+    if {team1_key, team2_key} != {home_key, away_key}:
+        return None
+    if home_key == team1_key and away_key == team2_key:
+        return "squadA", "squadB"
+    if home_key == team2_key and away_key == team1_key:
+        return "squadB", "squadA"
+    return None
+
+
+def canonical_fixture_team_name(fixture: pd.Series, team_name: str) -> str:
+    requested_key = canonical_team_key(team_name)
+    for fixture_team in (str(fixture["team1"]), str(fixture["team2"])):
+        if canonical_team_key(fixture_team) == requested_key:
+            return fixture_team
+    return team_name.strip()
 
 
 def fetch_official_post_toss_context(fixture: pd.Series) -> dict[str, Any]:
@@ -1604,7 +1773,9 @@ def fetch_official_post_toss_context(fixture: pd.Series) -> dict[str, Any]:
     if not official_match:
         return {}
 
-    toss_team = str(official_match.get("TossTeam") or "").strip()
+    toss_team = canonical_fixture_team_name(
+        fixture, str(official_match.get("TossTeam") or "").strip()
+    )
     toss_details = str(official_match.get("TossDetails") or "").strip()
     if not toss_team or not toss_details:
         return {}
@@ -1615,9 +1786,25 @@ def fetch_official_post_toss_context(fixture: pd.Series) -> dict[str, Any]:
         else "bat"
     )
     squads = fetch_iplt20_confirmed_squads(int(official_match["MatchID"]))
-    squad_a = parse_official_matchday_squad(squads.get("squadA", []) or [])
-    squad_b = parse_official_matchday_squad(squads.get("squadB", []) or [])
-    if not squad_a["confirmed_xi_available"] or not squad_b["confirmed_xi_available"]:
+    squad_order = resolve_official_squad_order(fixture, official_match)
+    if not squad_order:
+        return {
+            "toss_winner": toss_team,
+            "toss_decision": toss_decision,
+            "match_id": official_match.get("MatchID"),
+            "official_lineups_available": False,
+        }
+    team1_squad_key, team2_squad_key = squad_order
+    squad_a = parse_official_matchday_squad(squads.get(team1_squad_key, []) or [])
+    squad_b = parse_official_matchday_squad(squads.get(team2_squad_key, []) or [])
+    if (
+        not squad_a["confirmed_xi_available"]
+        or not squad_b["confirmed_xi_available"]
+        or not squad_a["effective_xi_available"]
+        or not squad_b["effective_xi_available"]
+        or not squad_a["impact_rule_ok"]
+        or not squad_b["impact_rule_ok"]
+    ):
         return {
             "toss_winner": toss_team,
             "toss_decision": toss_decision,
@@ -1975,7 +2162,7 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
 
     fixture = load_fixture_row_from_args(args)
 
-    elo_row = elo[elo["fixture_id"] == args.fixture_id]
+    elo_row = find_fixture_rows(elo, args.fixture_id)
     live_elo = elo_row.iloc[0] if not elo_row.empty else build_historical_elo_row(fixture)
 
     team1 = fixture["team1"]
@@ -1993,10 +2180,14 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
 
     base = {
         "__file_overrides_applied": bool(override_entry),
-        "__official_post_toss_applied": bool(official_post_toss),
+        "__official_post_toss_applied": args.mode == "post_toss"
+        and bool(official_post_toss.get("official_lineups_available")),
         "__official_lineups_available": bool(
             official_post_toss.get("official_lineups_available")
         ),
+        "__probable_xi_applied": False,
+        "__probable_xi_source": "none",
+        "__probable_xi_summary": {},
         "__manual_probable_xi_applied": False,
         "__manual_probable_xi_summary": {},
         "__live_feature_refresh_applied": False,
@@ -2043,7 +2234,7 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
         "fixture_id": fixture["fixture_id"],
         "opticodds_game_id": fixture["opticodds_game_id"],
         "fixture_status": fixture["status"],
-        "fixture_is_live": bool(fixture["is_live"]),
+        "fixture_is_live": parse_boolish(fixture["is_live"]),
         "match_date": fixture["match_date"],
         "venue": venue,
         "city": fixture["city"],
@@ -2120,21 +2311,44 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
             if isinstance(mode_overrides, dict)
             else None
         )
-        toss_winner = (
+        toss_winner = str(
             args.toss_winner
             or override_toss_winner
             or official_post_toss.get("toss_winner")
-        )
-        toss_decision = (
+            or ""
+        ).strip()
+        toss_decision = str(
             args.toss_decision
             or override_toss_decision
             or official_post_toss.get("toss_decision")
+            or ""
+        ).strip()
+        has_manual_post_toss_inputs = bool(
+            args.toss_winner
+            or args.toss_decision
+            or team1_probable_xi
+            or team2_probable_xi
+            or args.feature_overrides_json
         )
+
+        if (
+            not has_manual_post_toss_inputs
+            and not official_post_toss.get("official_lineups_available")
+        ):
+            raise ValueError(
+                "post_toss auto mode requires official toss and confirmed XI; switch to manual mode to supply fallback assumptions"
+            )
 
         if not toss_winner or not toss_decision:
             raise ValueError(
                 "post_toss mode requires --toss-winner and --toss-decision"
             )
+        if toss_winner not in {team1, team2}:
+            raise ValueError(
+                f"post_toss toss winner must be one of {team1!r} or {team2!r}"
+            )
+        if toss_decision not in {"bat", "field"}:
+            raise ValueError("post_toss toss decision must be 'bat' or 'field'")
         base["toss_winner"] = toss_winner
         base["toss_decision"] = toss_decision
         team1_bats_first = int(
@@ -2154,35 +2368,43 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
             if isinstance(override_entry, dict)
             else {}
         )
-        manual_probable_xi_summary: dict[str, Any] = {}
-        if team1_probable_xi:
-            team1_manual_overrides = build_manual_probable_xi_overrides(
-                str(team1), season, str(fixture["match_date"]), team1_probable_xi
-            )
-            base.update({f"team1_{key}": value for key, value in team1_manual_overrides.items()})
-            manual_probable_xi_summary["team1"] = {
-                "selected_count": len(team1_probable_xi),
-                "selected_players": team1_probable_xi,
-            }
-        if team2_probable_xi:
-            team2_manual_overrides = build_manual_probable_xi_overrides(
-                str(team2), season, str(fixture["match_date"]), team2_probable_xi
-            )
-            base.update({f"team2_{key}": value for key, value in team2_manual_overrides.items()})
-            manual_probable_xi_summary["team2"] = {
-                "selected_count": len(team2_probable_xi),
-                "selected_players": team2_probable_xi,
-            }
-        if manual_probable_xi_summary:
-            base["__manual_probable_xi_applied"] = True
-            base["__manual_probable_xi_summary"] = manual_probable_xi_summary
         if isinstance(mode_overrides, dict):
             feature_overrides = mode_overrides.get("feature_overrides", {})
             if isinstance(feature_overrides, dict):
                 base.update(feature_overrides)
 
+    probable_xi_summary: dict[str, Any] = {}
+    if team1_probable_xi:
+        team1_manual_overrides = build_manual_probable_xi_overrides(
+            str(team1), season, str(fixture["match_date"]), team1_probable_xi
+        )
+        base.update({f"team1_{key}": value for key, value in team1_manual_overrides.items()})
+        probable_xi_summary["team1"] = {
+            "selected_count": len(team1_probable_xi),
+            "selected_players": team1_probable_xi,
+        }
+    if team2_probable_xi:
+        team2_manual_overrides = build_manual_probable_xi_overrides(
+            str(team2), season, str(fixture["match_date"]), team2_probable_xi
+        )
+        base.update({f"team2_{key}": value for key, value in team2_manual_overrides.items()})
+        probable_xi_summary["team2"] = {
+            "selected_count": len(team2_probable_xi),
+            "selected_players": team2_probable_xi,
+        }
+    if probable_xi_summary:
+        base["__probable_xi_applied"] = True
+        base["__probable_xi_source"] = args.probable_xi_source
+        base["__probable_xi_summary"] = probable_xi_summary
+        if args.probable_xi_source == "manual":
+            base["__manual_probable_xi_applied"] = True
+            base["__manual_probable_xi_summary"] = probable_xi_summary
+
     if args.feature_overrides_json:
         base.update(json.loads(args.feature_overrides_json))
+
+    if args.mode == "post_toss":
+        apply_post_toss_implication_features(base)
 
     return base
 
@@ -2190,7 +2412,7 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
 def describe_context(args: argparse.Namespace) -> dict[str, Any]:
     elo = load_csv(LIVE_DIR / "upcoming_fixture_elo_context.csv")
     fixture = load_fixture_row_from_args(args)
-    elo_row = elo[elo["fixture_id"] == args.fixture_id]
+    elo_row = find_fixture_rows(elo, args.fixture_id)
     season = pd.Timestamp(fixture["match_date"]).year
     live_feature_summary = (
         build_live_feature_refresh(
@@ -2563,6 +2785,9 @@ def main() -> None:
         "official_post_toss_applied": bool(
             base_row.get("__official_post_toss_applied")
         ),
+        "probable_xi_applied": bool(base_row.get("__probable_xi_applied")),
+        "probable_xi_source": base_row.get("__probable_xi_source", "none"),
+        "probable_xi_summary": base_row.get("__probable_xi_summary", {}),
         "manual_probable_xi_applied": bool(
             base_row.get("__manual_probable_xi_applied")
         ),

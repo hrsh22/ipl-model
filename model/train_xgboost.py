@@ -41,6 +41,23 @@ except ImportError:  # pragma: no cover - runtime dependency check
     XGBClassifier = None
 
 
+TOSS_SENSITIVITY_FEATURES = {
+    "toss_winner",
+    "toss_decision",
+    "team1_bats_first",
+    "team2_bats_first",
+    "toss_winner_is_team1",
+    "toss_winner_is_team2",
+    "toss_decision_bat",
+    "toss_decision_field",
+    "team1_batting_order_win_rate",
+    "team2_batting_order_win_rate",
+    "batting_order_win_rate_gap",
+    "venue_batting_order_expected_team1_win_rate",
+    "toss_winner_decision_preference_match",
+}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train walk-forward XGBoost baselines on IPL model matrices"
@@ -50,7 +67,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--artifacts-dir", default="model/artifacts")
     parser.add_argument(
         "--feature-mode",
-        choices=["full", "full_no_identity", "delta", "delta_plus_mean"],
+        choices=[
+            "full",
+            "full_no_identity",
+            "post_toss_state",
+            "delta",
+            "delta_plus_mean",
+        ],
         default="full",
     )
     parser.add_argument("--feature-allowlist", default=None)
@@ -59,9 +82,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--depth-options", default="4,6")
     parser.add_argument("--learning-rate-options", default="0.03,0.05")
     parser.add_argument("--reg-lambda-options", default="3,8")
+    parser.add_argument("--booster", choices=["gbtree", "gblinear"], default="gbtree")
     parser.add_argument("--n-estimators", type=int, default=600)
     parser.add_argument("--subsample", type=float, default=0.9)
     parser.add_argument("--colsample-bytree", type=float, default=0.9)
+    parser.add_argument(
+        "--toss-feature-weight",
+        type=float,
+        default=1.0,
+        help="Relative XGBoost feature sampling weight for direct toss and toss-implication features",
+    )
     parser.add_argument(
         "--season-weight-mode",
         choices=["uniform", "exponential_half_life"],
@@ -114,11 +144,27 @@ def build_xgboost_model(
     n_estimators: int,
     subsample: float,
     colsample_bytree: float,
+    booster: str,
 ) -> XGBClassifier:
     assert XGBClassifier is not None
+    common_params = {
+        "objective": "binary:logistic",
+        "eval_metric": "logloss",
+        "booster": booster,
+        "learning_rate": learning_rate,
+        "reg_lambda": reg_lambda,
+        "n_estimators": n_estimators,
+        "random_state": RANDOM_STATE,
+        "n_jobs": 0,
+        "early_stopping_rounds": 50,
+    }
+    if booster == "gblinear":
+        return XGBClassifier(**common_params)
+
     return XGBClassifier(
         objective="binary:logistic",
         eval_metric="logloss",
+        booster=booster,
         max_depth=max_depth,
         learning_rate=learning_rate,
         reg_lambda=reg_lambda,
@@ -130,6 +176,30 @@ def build_xgboost_model(
         n_jobs=0,
         early_stopping_rounds=50,
     )
+
+
+def build_xgboost_feature_weights(
+    preprocessor: ColumnTransformer,
+    numeric_columns: list[str],
+    categorical_columns: list[str],
+    toss_feature_weight: float,
+) -> np.ndarray | None:
+    if toss_feature_weight <= 1.0:
+        return None
+
+    weights: list[float] = [
+        toss_feature_weight if column in TOSS_SENSITIVITY_FEATURES else 1.0
+        for column in numeric_columns
+    ]
+    categorical_pipeline = preprocessor.named_transformers_["categorical"]
+    encoder = categorical_pipeline.named_steps["encoder"]
+    for column, categories in zip(categorical_columns, encoder.categories_, strict=False):
+        weights.extend(
+            [toss_feature_weight if column in TOSS_SENSITIVITY_FEATURES else 1.0]
+            * len(categories)
+        )
+
+    return np.asarray(weights, dtype=float)
 
 
 def tune_xgboost(
@@ -144,6 +214,8 @@ def tune_xgboost(
     n_estimators: int,
     subsample: float,
     colsample_bytree: float,
+    feature_weights: np.ndarray | None,
+    booster: str,
 ) -> tuple[XGBClassifier, dict[str, Any], list[dict[str, Any]]]:
     tuning_rows: list[dict[str, Any]] = []
     best_model: XGBClassifier | None = None
@@ -160,12 +232,14 @@ def tune_xgboost(
                     n_estimators=n_estimators,
                     subsample=subsample,
                     colsample_bytree=colsample_bytree,
+                    booster=booster,
                 )
                 model.fit(
                     x_train_encoded,
                     y_train,
                     sample_weight=train_sample_weight,
                     eval_set=[(x_calibration_encoded, y_calibration)],
+                    feature_weights=feature_weights,
                     verbose=False,
                 )
                 calibration_prob = model.predict_proba(x_calibration_encoded)[:, 1]
@@ -174,6 +248,7 @@ def tune_xgboost(
                     "max_depth": max_depth,
                     "learning_rate": learning_rate,
                     "reg_lambda": reg_lambda,
+                    "booster": booster,
                     **calibration_metrics,
                     "best_iteration": int(getattr(model, "best_iteration", model.n_estimators)),
                 }
@@ -276,6 +351,12 @@ def train() -> None:
         x_calibration_encoded = preprocessor.transform(x_calibration)
         x_validation_encoded = preprocessor.transform(x_validation)
         x_test_encoded = preprocessor.transform(x_test)
+        feature_weights = build_xgboost_feature_weights(
+            preprocessor,
+            numeric_columns,
+            categorical_columns,
+            args.toss_feature_weight if args.matrix == "post_toss" else 1.0,
+        )
 
         xgboost_model, best_params, fold_tuning_rows = tune_xgboost(
             x_train_encoded,
@@ -289,6 +370,8 @@ def train() -> None:
             args.n_estimators,
             args.subsample,
             args.colsample_bytree,
+            feature_weights,
+            args.booster,
         )
         calibration_prob = xgboost_model.predict_proba(x_calibration_encoded)[:, 1]
         validation_prob = xgboost_model.predict_proba(x_validation_encoded)[:, 1]
@@ -449,6 +532,8 @@ def train() -> None:
             "nEstimators": args.n_estimators,
             "subsample": args.subsample,
             "colsampleBytree": args.colsample_bytree,
+            "tossFeatureWeight": args.toss_feature_weight,
+            "booster": args.booster,
         },
         "availableSeasons": available_seasons,
         "categoricalColumns": categorical_columns,
