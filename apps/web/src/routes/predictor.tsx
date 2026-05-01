@@ -222,8 +222,8 @@ export function PredictorPage() {
       setInputMode(autoReady ? 'auto' : 'manual')
       setManual((current) => ({
         ...current,
-        team1Players: current.team1Players.length ? current.team1Players : data.probable_xi_suggestions?.team1?.suggested_xi ?? [],
-        team2Players: current.team2Players.length ? current.team2Players : data.probable_xi_suggestions?.team2?.suggested_xi ?? [],
+        team1Players: sanitizeXiSelection(data.probable_xi_suggestions?.team1?.suggested_xi ?? [], data.probable_xi_suggestions?.team1),
+        team2Players: sanitizeXiSelection(data.probable_xi_suggestions?.team2?.suggested_xi ?? [], data.probable_xi_suggestions?.team2),
       }))
     } catch (error) {
       setContextState({ status: 'error', message: messageForError(error) })
@@ -258,11 +258,11 @@ export function PredictorPage() {
       }
 
       const team1Players = inputMode === 'auto'
-        ? context?.probable_xi_suggestions?.team1?.suggested_xi ?? []
-        : manual.team1Players
+        ? sanitizeXiSelection(context?.probable_xi_suggestions?.team1?.suggested_xi ?? [], context?.probable_xi_suggestions?.team1)
+        : sanitizeXiSelection(manual.team1Players, context?.probable_xi_suggestions?.team1)
       const team2Players = inputMode === 'auto'
-        ? context?.probable_xi_suggestions?.team2?.suggested_xi ?? []
-        : manual.team2Players
+        ? sanitizeXiSelection(context?.probable_xi_suggestions?.team2?.suggested_xi ?? [], context?.probable_xi_suggestions?.team2)
+        : sanitizeXiSelection(manual.team2Players, context?.probable_xi_suggestions?.team2)
 
       if (inputMode === 'manual' && team1Players.length > 0 && team1Players.length !== 11) {
         throw new Error('Team 1 manual XI must contain exactly 11 players before running the model.')
@@ -540,7 +540,8 @@ function FlagOverride({ label, checked, onChange }: { label: string; checked: bo
 
 function ProbableXiPicker({ title, suggestion, selected, onChange }: { title: string; suggestion?: TeamSuggestion | undefined; selected: string[]; onChange: (players: string[]) => void }) {
   const candidates = suggestion?.candidate_pool ?? []
-  const selectedSet = new Set(selected)
+  const normalizedSelected = sanitizeXiSelection(selected, suggestion)
+  const selectedSet = new Set(normalizedSelected.map(playerSelectionKey))
   return (
     <article className="probable-team-panel">
       <div className="panel-header compact-header">
@@ -548,12 +549,13 @@ function ProbableXiPicker({ title, suggestion, selected, onChange }: { title: st
           <p className="eyebrow">Probable XI</p>
           <h3>{title}</h3>
         </div>
-        <span className={`pill ${selected.length === 11 ? 'success' : ''}`}>{selected.length} / 11</span>
+        <span className={`pill ${normalizedSelected.length === 11 ? 'success' : ''}`}>{normalizedSelected.length} / 11</span>
       </div>
-      <button type="button" onClick={() => onChange((suggestion?.suggested_xi ?? []).slice(0, 11))} disabled={!suggestion?.suggested_xi?.length}>Load suggested XI</button>
+      <button type="button" onClick={() => onChange(sanitizeXiSelection(suggestion?.suggested_xi ?? [], suggestion).slice(0, 11))} disabled={!suggestion?.suggested_xi?.length}>Load suggested XI</button>
       <div className="candidate-chip-grid">
         {candidates.length ? candidates.map((candidate) => {
-          const active = selectedSet.has(candidate.name)
+          const candidateKey = playerSelectionKey(candidate.name)
+          const active = selectedSet.has(candidateKey)
           return (
             <button
               type="button"
@@ -561,11 +563,11 @@ function ProbableXiPicker({ title, suggestion, selected, onChange }: { title: st
               key={candidate.name}
               onClick={() => {
                 if (active) {
-                  onChange(selected.filter((player) => player !== candidate.name))
+                  onChange(normalizedSelected.filter((player) => playerSelectionKey(player) !== candidateKey))
                   return
                 }
-                if (selected.length < 11) {
-                  onChange([...selected, candidate.name])
+                if (normalizedSelected.length < 11) {
+                  onChange(sanitizeXiSelection([...normalizedSelected, candidate.name], suggestion))
                 }
               }}
             >
@@ -672,6 +674,42 @@ async function parseJsonResponse(response: Response): Promise<unknown> {
 function isAutoInputAvailable(payload: ContextPayload, mode: PredictorMode): boolean {
   const automatic = payload.automatic ?? {}
   return mode === 'post_toss' ? Boolean(automatic.official_toss) : Boolean(automatic.fixture_shell && automatic.current_elo)
+}
+
+function playerSelectionKey(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function suggestionPlayerKeys(suggestion?: TeamSuggestion | undefined): Set<string> | null {
+  const names = [
+    ...(suggestion?.candidate_pool ?? []).map((candidate) => candidate.name),
+    ...(suggestion?.suggested_xi ?? []),
+  ]
+  if (!names.length) {
+    return null
+  }
+  return new Set(names.map(playerSelectionKey))
+}
+
+function sanitizeXiSelection(players: string[], suggestion?: TeamSuggestion | undefined): string[] {
+  const allowedKeys = suggestionPlayerKeys(suggestion)
+  const seen = new Set<string>()
+  const sanitized: string[] = []
+
+  for (const player of players) {
+    const trimmed = player.trim()
+    const key = playerSelectionKey(trimmed)
+    if (!trimmed || !key || seen.has(key)) {
+      continue
+    }
+    if (allowedKeys && !allowedKeys.has(key)) {
+      continue
+    }
+    sanitized.push(trimmed)
+    seen.add(key)
+  }
+
+  return sanitized
 }
 
 function buildFeatureOverrides(value: FeatureOverrideState): Record<string, number> {
