@@ -33,7 +33,9 @@ type IplScheduleRow = {
   MatchID?: number | string
   MatchStatus?: string
   MatchDate?: string
+  MatchTime?: string
   GMTMatchDate?: string
+  GMTMatchTime?: string
   HomeTeamName?: string
   AwayTeamName?: string
   GroundName?: string
@@ -46,6 +48,31 @@ const IPL_LEAGUE_NAME = "India - IPL"
 const IPLT20_COMPETITION_URL = "https://scores.iplt20.com/ipl/mc/competition.js"
 const IPLT20_SCHEDULE_URL_TEMPLATE = "https://scores.iplt20.com/ipl/feeds/{competition_id}-matchschedule.js"
 const STATUS_REFRESH_GRACE_MS = 6 * 60 * 60 * 1000
+const isOpticOddsEnabled = (value: string | undefined) =>
+  value ? ["1", "true", "yes", "on"].includes(value.trim().toLowerCase()) : false
+const FIXTURE_OUTPUT_HEADERS = [
+  "fixture_id",
+  "opticodds_game_id",
+  "match_date",
+  "status",
+  "is_live",
+  "is_completed",
+  "status_source",
+  "official_match_id",
+  "venue",
+  "venue_location",
+  "city",
+  "team1",
+  "team2",
+  "home_team_from_feed",
+  "away_team_from_feed",
+  "inferred_home_team",
+  "team1_home_context",
+  "team2_home_context",
+  "match_neutral_flag",
+] as const
+
+type FixtureOutputRow = Record<(typeof FIXTURE_OUTPUT_HEADERS)[number], CsvScalar>
 
 const rootDir = process.cwd()
 const liveDir = join(rootDir, "model", "data", "live")
@@ -71,6 +98,34 @@ const officialMatchKey = (matchDate: string, venue: string, team1: string, team2
 
 const officialMatchFallbackKey = (matchDate: string, team1: string, team2: string) =>
   [matchDate, [normalizeLookup(team1), normalizeLookup(team2)].sort().join("::")].join("::")
+
+const officialScheduleDate = (row: IplScheduleRow) => clean(row.MatchDate || row.GMTMatchDate)
+
+const parseOfficialClockTime = (value: string) => {
+  const match = clean(value).match(/^(\d{1,2}):(\d{2})/)
+  if (!match) {
+    return null
+  }
+
+  const [, hours = "", minutes = ""] = match
+  return `${hours.padStart(2, "0")}:${minutes}:00`
+}
+
+const parseOfficialMatchDate = (row: IplScheduleRow) => {
+  const gmtDate = clean(row.GMTMatchDate)
+  const gmtTime = parseOfficialClockTime(clean(row.GMTMatchTime))
+  if (gmtDate && gmtTime) {
+    return new Date(`${gmtDate}T${gmtTime}Z`)
+  }
+
+  const localDate = clean(row.MatchDate)
+  const localTime = parseOfficialClockTime(clean(row.MatchTime))
+  if (localDate && localTime) {
+    return new Date(`${localDate}T${localTime}+05:30`)
+  }
+
+  return new Date(clean(row.MatchDate || row.GMTMatchDate))
+}
 
 const fetchOfficialCompetitionId = async (seasonYear: number) => {
   const response = await fetch(IPLT20_COMPETITION_URL, {
@@ -112,7 +167,7 @@ const buildOfficialScheduleIndex = async (seasonYear: number) => {
   const rows = await fetchOfficialSchedule(seasonYear)
   const byExactKey = new Map(
     rows.map((row) => {
-      const matchDate = clean(row.MatchDate || row.GMTMatchDate)
+      const matchDate = officialScheduleDate(row)
       const venue = normalizeVenueName(clean(row.GroundName))
       const team1 = normalizeTeamName(clean(row.HomeTeamName))
       const team2 = normalizeTeamName(clean(row.AwayTeamName))
@@ -122,7 +177,7 @@ const buildOfficialScheduleIndex = async (seasonYear: number) => {
 
   const byFallbackKey = new Map(
     rows.map((row) => {
-      const matchDate = clean(row.MatchDate || row.GMTMatchDate)
+      const matchDate = officialScheduleDate(row)
       const team1 = normalizeTeamName(clean(row.HomeTeamName))
       const team2 = normalizeTeamName(clean(row.AwayTeamName))
       return [officialMatchFallbackKey(matchDate, team1, team2), row] as const
@@ -234,13 +289,136 @@ const deriveCity = (venueLocation: string) => {
   return normalizeCityName(firstSegment)
 }
 
+const buildFixtureRow = ({
+  fixtureId,
+  opticOddsGameId,
+  officialMatchId,
+  matchDate,
+  status,
+  isLive,
+  isCompleted,
+  statusSource,
+  venue,
+  venueLocation,
+  city,
+  team1,
+  team2,
+}: {
+  fixtureId: string
+  opticOddsGameId: string
+  officialMatchId: string
+  matchDate: Date
+  status: string
+  isLive: boolean
+  isCompleted: boolean
+  statusSource: string
+  venue: string
+  venueLocation: string
+  city: string
+  team1: string
+  team2: string
+}) => {
+  const inferredHomeTeam = inferHomeTeam([team1, team2], venue, matchDate.getUTCFullYear())
+  const team1Context = resolveTeamVenueContext(team1, venue, matchDate.getUTCFullYear())
+  const team2Context = resolveTeamVenueContext(team2, venue, matchDate.getUTCFullYear())
+
+  return {
+    fixture_id: fixtureId,
+    opticodds_game_id: opticOddsGameId,
+    match_date: matchDate.toISOString(),
+    status,
+    is_live: isLive,
+    is_completed: isCompleted,
+    status_source: statusSource,
+    official_match_id: officialMatchId,
+    venue,
+    venue_location: venueLocation,
+    city,
+    team1,
+    team2,
+    home_team_from_feed: team1,
+    away_team_from_feed: team2,
+    inferred_home_team: inferredHomeTeam ?? "",
+    team1_home_context: team1Context,
+    team2_home_context: team2Context,
+    match_neutral_flag: team1Context === "neutral" || team2Context === "neutral",
+  } satisfies FixtureOutputRow
+}
+
+const buildOfficialFixtureRows = async () => {
+  const seasonYear = new Date().getUTCFullYear()
+  const rows = await fetchOfficialSchedule(seasonYear)
+  const now = Date.now()
+
+  return rows
+    .flatMap((row): FixtureOutputRow[] => {
+      const matchDate = parseOfficialMatchDate(row)
+      const team1 = normalizeTeamName(clean(row.HomeTeamName))
+      const team2 = normalizeTeamName(clean(row.AwayTeamName))
+
+      if (!Number.isFinite(matchDate.getTime()) || !team1 || !team2) {
+        return []
+      }
+
+      const officialMatchId = clean(String(row.MatchID ?? ""))
+      const venue = normalizeVenueName(clean(row.GroundName))
+      const city = normalizeCityName(clean(row.city))
+      const statusState = deriveStatusFromOfficial(
+        row,
+        clean(row.MatchStatus),
+        false,
+        matchDate,
+        now,
+      )
+      const fallbackFixtureId = `ipl-official-${matchDate.toISOString().slice(0, 10)}-${normalizeLookup(team1)}-${normalizeLookup(team2)}`
+      const fixtureId = officialMatchId || fallbackFixtureId
+
+      return [buildFixtureRow({
+        fixtureId,
+        opticOddsGameId: "",
+        officialMatchId,
+        matchDate,
+        status: statusState.status,
+        isLive: statusState.isLive,
+        isCompleted: statusState.isCompleted,
+        statusSource: statusState.statusSource,
+        venue,
+        venueLocation: city ? `${city}, India` : "",
+        city,
+        team1,
+        team2,
+      })]
+    })
+    .sort((left, right) => String(left.match_date).localeCompare(String(right.match_date)))
+}
+
+const writeFixtureDatasets = (fixtures: FixtureOutputRow[], sourceLabel: string) => {
+  mkdirSync(liveDir, { recursive: true })
+
+  const upcomingFixtures = fixtures.filter((fixture) => fixture.is_completed !== true)
+
+  writeCsv(join(liveDir, "active_fixtures.csv"), [...FIXTURE_OUTPUT_HEADERS], fixtures)
+  writeCsv(join(liveDir, "upcoming_fixtures.csv"), [...FIXTURE_OUTPUT_HEADERS], upcomingFixtures)
+
+  writeFileSync(join(liveDir, "active_fixtures.json"), `${JSON.stringify(fixtures, null, 2)}\n`, "utf-8")
+  writeFileSync(join(liveDir, "upcoming_fixtures.json"), `${JSON.stringify(upcomingFixtures, null, 2)}\n`, "utf-8")
+
+  console.log(`Fetched IPL fixture datasets from ${sourceLabel}:`)
+  console.log(`- active fixtures: ${fixtures.length}`)
+  console.log(`- upcoming fixtures: ${upcomingFixtures.length}`)
+}
+
 const main = async () => {
-  const apiKey = process.env.OPTICODDS_API_KEY
-  if (!apiKey) {
-    throw new Error("OPTICODDS_API_KEY is required to fetch upcoming IPL fixtures")
+  if (!isOpticOddsEnabled(process.env.OPTICODDS_ENABLED)) {
+    const fixtures = await buildOfficialFixtureRows()
+    writeFixtureDatasets(fixtures, "official IPL schedule")
+    return
   }
 
-  mkdirSync(liveDir, { recursive: true })
+  const apiKey = process.env.OPTICODDS_API_KEY
+  if (!apiKey) {
+    throw new Error("OPTICODDS_API_KEY is required when OPTICODDS_ENABLED is true")
+  }
 
   const url = new URL(`${OPTICODDS_BASE_URL}/fixtures/active`)
   url.searchParams.append("sport", "cricket")
@@ -276,94 +454,25 @@ const main = async () => {
           officialMatchFallbackKey(officialMatchDate, team1, team2),
         )
       const statusState = deriveStatusFromOfficial(officialRow, fixture.status, fixture.is_live, matchDate, now)
-      const inferredHomeTeam = inferHomeTeam([team1, team2], venue, matchDate.getUTCFullYear())
-      const team1Context = resolveTeamVenueContext(team1, venue, matchDate.getUTCFullYear())
-      const team2Context = resolveTeamVenueContext(team2, venue, matchDate.getUTCFullYear())
-
-      return {
-        fixture_id: fixture.id,
-        opticodds_game_id: fixture.game_id,
-        match_date: matchDate.toISOString(),
+      return buildFixtureRow({
+        fixtureId: fixture.id,
+        opticOddsGameId: fixture.game_id,
+        officialMatchId: statusState.officialMatchId,
+        matchDate,
         status: statusState.status,
-        is_live: statusState.isLive,
-        is_completed: statusState.isCompleted,
-        status_source: statusState.statusSource,
-        official_match_id: statusState.officialMatchId,
+        isLive: statusState.isLive,
+        isCompleted: statusState.isCompleted,
+        statusSource: statusState.statusSource,
         venue,
-        venue_location: clean(fixture.venue_location),
+        venueLocation: clean(fixture.venue_location),
         city,
         team1,
         team2,
-        home_team_from_feed: team1,
-        away_team_from_feed: team2,
-        inferred_home_team: inferredHomeTeam ?? "",
-        team1_home_context: team1Context,
-        team2_home_context: team2Context,
-        match_neutral_flag: team1Context === "neutral" || team2Context === "neutral",
-      }
+      })
     })
     .sort((left, right) => new Date(left.match_date).getTime() - new Date(right.match_date).getTime())
 
-  const upcomingFixtures = fixtures.filter((fixture) => !fixture.is_completed)
-
-  writeCsv(
-    join(liveDir, "active_fixtures.csv"),
-    [
-      "fixture_id",
-      "opticodds_game_id",
-      "match_date",
-      "status",
-      "is_live",
-      "is_completed",
-      "status_source",
-      "official_match_id",
-      "venue",
-      "venue_location",
-      "city",
-      "team1",
-      "team2",
-      "home_team_from_feed",
-      "away_team_from_feed",
-      "inferred_home_team",
-      "team1_home_context",
-      "team2_home_context",
-      "match_neutral_flag",
-    ],
-    fixtures,
-  )
-
-  writeCsv(
-    join(liveDir, "upcoming_fixtures.csv"),
-    [
-      "fixture_id",
-      "opticodds_game_id",
-      "match_date",
-      "status",
-      "is_live",
-      "is_completed",
-      "status_source",
-      "official_match_id",
-      "venue",
-      "venue_location",
-      "city",
-      "team1",
-      "team2",
-      "home_team_from_feed",
-      "away_team_from_feed",
-      "inferred_home_team",
-      "team1_home_context",
-      "team2_home_context",
-      "match_neutral_flag",
-    ],
-    upcomingFixtures,
-  )
-
-  writeFileSync(join(liveDir, "active_fixtures.json"), `${JSON.stringify(fixtures, null, 2)}\n`, "utf-8")
-  writeFileSync(join(liveDir, "upcoming_fixtures.json"), `${JSON.stringify(upcomingFixtures, null, 2)}\n`, "utf-8")
-
-  console.log("Fetched IPL fixture datasets:")
-  console.log(`- active fixtures: ${fixtures.length}`)
-  console.log(`- upcoming fixtures: ${upcomingFixtures.length}`)
+  writeFixtureDatasets(fixtures, "OpticOdds")
 }
 
 main().catch((error) => {

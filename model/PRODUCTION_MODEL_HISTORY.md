@@ -55,6 +55,26 @@ Why it is active: it is not the strongest metric model we have seen, but it is t
 
 ## Timeline of production-relevant changes
 
+### 2026-05-01 — official fixture kickoff times preserved
+
+Change: kept production model weights unchanged, but corrected the official IPL fixture input contract. Fixture ingestion now serializes official kickoff instants from `GMTMatchDate` + `GMTMatchTime` instead of turning date-only `MatchDate` values into midnight UTC.
+
+Impact: dashboard/operator timing and live prediction windows now align with the actual match start. Rajasthan Royals vs Delhi Capitals (`2483`) moved from `2026-05-01T00:00:00.000Z` to `2026-05-01T14:00:00.000Z`, which displays as 7:30 PM IST instead of 5:30 AM IST. The observed pre-toss probability movement from Delhi `0.55077` to `0.52990` was caused by the related player-name canonicalization, not the kickoff timestamp; model artifacts and benchmark metrics are unchanged.
+
+Decision: **accepted**.
+
+Reason: this is an inference-data correctness fix that prevents scheduled fixtures from being treated as midnight starts.
+
+### 2026-05-01 — predictor input contract hardened after OpticOdds removal
+
+Change: kept production model weights unchanged, but changed the live predictor inputs around them. Fixture discovery can now use the official IPL schedule when OpticOdds is disabled; automatic pre-toss predictions send the suggested XI explicitly; manual mode starts from the same XI and only becomes an override when edited. The predictor now records whether a probable XI came from `suggested` or `manual`, rejects partial XI payloads, canonicalizes common player-name variants for XI feature lookup, excludes no-result rows from current-season result supplements, and stops counting full squad bench players as zero-stat player appearances.
+
+Impact: production probabilities can change because inference-time fixture, current-season form, and probable-XI inputs changed. For the current Rajasthan Royals vs Delhi Capitals fixture (`2483`), the suggested-XI pre-toss read now gives Delhi `0.55077` after the live-data cleanup, and the output correctly marks the XI source as suggested rather than manual. Post-toss behavior remains gated on toss information; manual toss input still produces a valid post-toss prediction when official toss data is unavailable.
+
+Decision: **accepted**.
+
+Reason: this is an operational correctness fix. The production model artifacts remain active, but their live inputs are now available without OpticOdds and are labelled/validated more accurately.
+
 ### 2026-04-23 — model-change tracking created
 
 Change: started maintaining a written model-change record so every material model change explains what changed, why, how it performed, and whether it was accepted or rejected.

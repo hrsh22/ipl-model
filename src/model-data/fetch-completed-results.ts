@@ -197,6 +197,7 @@ const main = async () => {
         source: "ipl_official",
       }
     })
+    .filter((row) => row.result_type === "won" && clean(row.winner).length > 0)
     .sort((left, right) => left.match_date.localeCompare(right.match_date) || left.match_id.localeCompare(right.match_id))
 
   writeCsv(

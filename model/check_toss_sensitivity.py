@@ -10,7 +10,7 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parent.parent
-FIXTURES_PATH = ROOT / "model" / "data" / "live" / "upcoming_fixtures.csv"
+LIVE_DIR = ROOT / "model" / "data" / "live"
 PREDICT_SCRIPT = ROOT / "model" / "predict_fixture.py"
 
 
@@ -34,8 +34,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_fixture(fixture_id: str) -> pd.Series:
-    fixtures = pd.read_csv(FIXTURES_PATH)
-    rows = fixtures[fixtures["fixture_id"] == fixture_id]
+    json_path = LIVE_DIR / "upcoming_fixtures.json"
+    if json_path.exists():
+        fixtures = pd.DataFrame(json.loads(json_path.read_text()))
+    else:
+        fixtures = pd.read_csv(LIVE_DIR / "upcoming_fixtures.csv")
+    fixtures["fixture_id"] = fixtures["fixture_id"].map(lambda value: "" if pd.isna(value) else str(value).strip())
+    rows = fixtures[fixtures["fixture_id"] == str(fixture_id).strip()]
     if rows.empty:
         raise ValueError(f"Unknown fixture id: {fixture_id}")
     return rows.iloc[0]

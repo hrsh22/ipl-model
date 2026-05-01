@@ -65,6 +65,88 @@ Copy this block for every material model change:
 
 ## Log
 
+### 2026-05-01 — official fixture kickoff times preserved
+
+- Status: tested
+- Change type: data | inference
+- Hypothesis: preserving the official IPL kickoff time should prevent predictor dashboards and time-window logic from treating scheduled matches as midnight-UTC events.
+
+### What changed
+
+- Exact files changed: `src/model-data/fetch-upcoming-fixtures.ts`, `model/data/live/active_fixtures.csv`, `model/data/live/active_fixtures.json`, `model/data/live/upcoming_fixtures.csv`, `model/data/live/upcoming_fixtures.json`.
+- Exact data points / features / rules added, removed, or modified: official IPL fixture ingestion now combines `GMTMatchDate` + `GMTMatchTime` into the serialized `match_date`, falling back to `MatchDate` + `MatchTime` as Asia/Kolkata local time only when GMT time is absent. Previously date-only rows serialized as midnight UTC. The related player-name canonicalization maps official/full-name variants to staged Cricsheet initials for inference-time XI feature lookup.
+- Whether this affects pre_toss, post_toss, or both: both, through live fixture ordering, status/time-window checks, and any inference-time features keyed to fixture date/time.
+
+### How we tested it
+
+- Experiment/report paths: regenerated live fixture datasets with `pnpm model:data:fixtures`.
+- Baseline artifact or production reference: prior fixture `2483` serialized as `2026-05-01T00:00:00.000Z`, displaying as 5:30 AM IST.
+- Comparison method: manual fixture review and build/typecheck validation.
+
+### Measured impact
+
+| metric   | baseline | candidate | delta |
+| -------- | -------- | --------- | ----- |
+| log_loss | n/a      | n/a       | n/a   |
+| brier    | n/a      | n/a       | n/a   |
+| roc_auc  | n/a      | n/a       | n/a   |
+| accuracy | n/a      | n/a       | n/a   |
+
+- Live/current-season effect after promotion: fixture `2483` now serializes as `2026-05-01T14:00:00.000Z`, which renders as 7:30 PM IST. The player-name canonicalization moved the same fixture's suggested-XI pre-toss Delhi probability from `0.55077` to `0.52990` by matching official full names to historical player records.
+- Confidence / caveats: model weights are unchanged; this is an inference-data correctness fix.
+
+### Decision
+
+- Outcome: promoted
+- Why: the official feed exposes `GMTMatchTime`, so using it preserves the actual kickoff instant and avoids incorrect dashboard/operator timing.
+- Deployed model source hash after change: unchanged model artifacts; source/data contract changed.
+- Supporting evidence:
+    - `model/data/live/upcoming_fixtures.json`
+    - `pnpm typecheck`
+    - `pnpm build`
+    - `pnpm web:typecheck`
+    - `pnpm web:build`
+
+### 2026-05-01 — official fixture fallback and XI source audit hardening
+
+- Status: tested
+- Change type: data | inference
+- Hypothesis: removing the OpticOdds hard dependency should keep fixture discovery and prediction usable while making automatic suggested-XI inputs explicit and auditable.
+
+### What changed
+
+- Exact files changed: `src/model-data/fetch-upcoming-fixtures.ts`, `src/model-data/fetch-completed-results.ts`, `src/model-data/refresh-current-player-stats.ts`, `src/index.ts`, `model/predict_fixture.py`, `model/check_toss_sensitivity.py`, `public/predictor.js`, `apps/web/src/routes/predictor.tsx`, `src/predictor-performance.ts`.
+- Exact data points / features / rules added, removed, or modified: live fixture IDs now come from official IPL `MatchID` when OpticOdds is disabled; no-result/unknown completed rows are excluded from current-season result supplements; player-match stats no longer count full squad bench members as zero-stat appearances; probable-XI payloads are validated as exactly 11 players and labelled as `suggested` vs `manual`; common full-name/initial variants are canonicalized for XI feature lookup.
+- Whether this affects pre_toss, post_toss, or both: both. Pre-toss is affected most through suggested XI and live form/player inputs; post-toss is affected through validated toss/XI payloads and cleaner current-season supplements.
+
+### How we tested it
+
+- Experiment/report paths: direct predictor smoke tests for fixture `2483`; regenerated `model/data/live/completed_results_2026.csv`, `model/data/live/current_season_player_match_stats.csv`, and `model/data/live/upcoming_fixture_elo_context.csv`.
+- Baseline artifact or production reference: existing `model/final_models/manifest.json` production models; no model weights changed.
+- Comparison method: manual fixture review and live-data contract checks.
+
+### Measured impact
+
+| metric   | baseline | candidate | delta |
+| -------- | -------- | --------- | ----- |
+| log_loss | n/a      | n/a       | n/a   |
+| brier    | n/a      | n/a       | n/a   |
+| roc_auc  | n/a      | n/a       | n/a   |
+| accuracy | n/a      | n/a       | n/a   |
+
+- Live/current-season effect after promotion: fixture `2483` pre-toss with suggested XI now reports `probable_xi_source: suggested`, `manual_probable_xi_applied: false`; after alias canonicalization the Delhi win probability is `0.52990` instead of the earlier `0.55077` generated before player identities were merged. Partial one-player XI payloads now fail validation instead of mutating features.
+- Confidence / caveats: no historical backtest was run because model weights were unchanged; this is an inference/data-contract correction. Remaining caveats include player-name alias fragmentation in current-season squad/stat feeds and calibration review for production CatBoost/XGBoost probabilities.
+
+### Decision
+
+- Outcome: promoted
+- Why: fixes runtime dependency and input-contract bugs without changing trained model artifacts; validation passed for predictor commands, TypeScript, and frontend builds.
+- Deployed model source hash after change: unchanged model artifacts; runtime data and input contracts changed.
+- Supporting evidence:
+    - `model/data/live/completed_results_2026.csv`
+    - `model/data/live/current_season_player_match_stats.csv`
+    - `model/data/live/upcoming_fixture_elo_context.csv`
+
 ### 2026-04-23 — establish readable model change tracking
 
 - Status: promoted

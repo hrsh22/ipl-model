@@ -10,6 +10,7 @@ type CsvScalar = string | number | boolean | null | undefined
 
 type PredictorRequestProfile = "automatic" | "manual"
 type PredictorMode = "pre_toss" | "post_toss"
+type PredictorLineupSource = "none" | "suggested" | "manual"
 
 type PredictorRequestSnapshot = {
   fixtureId: string
@@ -18,6 +19,7 @@ type PredictorRequestSnapshot = {
   tossDecision: string | null
   team1ProbableXi: string[]
   team2ProbableXi: string[]
+  probableXiSource: PredictorLineupSource
   featureOverrides: Record<string, unknown> | null
 }
 
@@ -291,7 +293,7 @@ const getModelSourceHash = async () => {
 
 const resolveRequestProfile = (request: PredictorRequestSnapshot): PredictorRequestProfile => {
   const hasManualToss = Boolean(clean(request.tossWinner) || clean(request.tossDecision))
-  const hasManualLineup = request.team1ProbableXi.length > 0 || request.team2ProbableXi.length > 0
+  const hasManualLineup = request.probableXiSource === "manual" && (request.team1ProbableXi.length > 0 || request.team2ProbableXi.length > 0)
   const hasManualFeatures = Boolean(request.featureOverrides && Object.keys(request.featureOverrides).length > 0)
   return hasManualToss || hasManualLineup || hasManualFeatures ? "manual" : "automatic"
 }
@@ -338,7 +340,7 @@ const buildLedgerEntry = async (
     team1_edge_vs_consensus: safeNumber(response.sportsbook_overlay?.team1_edge_vs_consensus),
     team2_edge_vs_consensus: safeNumber(response.sportsbook_overlay?.team2_edge_vs_consensus),
     has_manual_toss_override: Boolean(clean(request.tossWinner) || clean(request.tossDecision)),
-    has_manual_lineup_override: request.team1ProbableXi.length > 0 || request.team2ProbableXi.length > 0,
+    has_manual_lineup_override: request.probableXiSource === "manual" && (request.team1ProbableXi.length > 0 || request.team2ProbableXi.length > 0),
     has_manual_feature_override: Boolean(request.featureOverrides && Object.keys(request.featureOverrides).length > 0),
   }
 }
@@ -742,6 +744,7 @@ export const backfillHistoricalPostTossSnapshots = async () => {
         tossDecision: null,
         team1ProbableXi: [],
         team2ProbableXi: [],
+        probableXiSource: "none",
         featureOverrides: null,
       },
       result as never,

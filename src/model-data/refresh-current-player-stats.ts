@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { normalizeTeamName, normalizeVenueName } from "./aliases.js"
+import { normalizeTeamName } from "./aliases.js"
 
 type CsvScalar = string | number | boolean | null | undefined
 type CsvRow = Record<string, CsvScalar>
@@ -268,18 +268,6 @@ const main = async () => {
 
       const { teamById, playerByTeamKey } = buildSquadMaps(squads)
       const playerRows = new Map<string, CsvRow>()
-
-      for (const player of [...squads.squadA, ...squads.squadB]) {
-        const teamId = clean(String(player.TeamID ?? ""))
-        const teamMeta = teamById.get(teamId)
-        const playerName = normalizePlayerName(String(player.PlayerName ?? ""))
-        if (!teamMeta || !playerName) continue
-        const key = `${teamMeta.team}::${normalizeLookup(playerName)}`
-        playerRows.set(
-          key,
-          createEmptyPlayerRow(matchId, seasonYear, matchDate, teamMeta.teamRaw, teamMeta.team, playerName, canonicalRoleFromSquad(player)),
-        )
-      }
 
       for (const innings of inningsPayloads) {
         for (const batting of innings.BattingCard ?? []) {

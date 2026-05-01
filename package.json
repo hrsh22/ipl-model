@@ -5,6 +5,10 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:stack": "concurrently -n backend,web -c blue,green \"pnpm dev\" \"pnpm web:dev\"",
+    "web:dev": "pnpm --filter @ipl-trader/web dev",
+    "web:build": "pnpm --filter @ipl-trader/web build",
+    "web:typecheck": "pnpm --filter @ipl-trader/web typecheck",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
@@ -48,6 +52,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
     "@types/pg": "^8.20.0",
+    "concurrently": "^9.2.1",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2"

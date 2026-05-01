@@ -94,6 +94,13 @@ const parsePredictorMode = (value: unknown) => {
   return null
 }
 
+const parseProbableXiSource = (value: unknown) => {
+  if (value === "suggested" || value === "manual") {
+    return value
+  }
+  return "none" as const
+}
+
 const parseOptionalString = (value: unknown) => {
   if (typeof value !== "string") {
     return null
@@ -103,9 +110,28 @@ const parseOptionalString = (value: unknown) => {
   return trimmed ? trimmed : null
 }
 
+const allowedPredictorFeatureOverrideKeys = new Set([
+  "team1_probableXiStrength",
+  "team2_probableXiStrength",
+  "team1_xiContinuityScore",
+  "team2_xiContinuityScore",
+  "team1_missingKeyBatterCount",
+  "team2_missingKeyBatterCount",
+  "team1_missingKeyBowlerCount",
+  "team2_missingKeyBowlerCount",
+  "team1_missingOpenerFlag",
+  "team2_missingOpenerFlag",
+  "team1_missingDeathBowlerFlag",
+  "team2_missingDeathBowlerFlag",
+])
+
 const parseStringArray = (value: unknown) => {
-  if (!Array.isArray(value)) {
+  if (value === undefined) {
     return []
+  }
+
+  if (!Array.isArray(value)) {
+    return null
   }
 
   const parsed = value
@@ -113,16 +139,32 @@ const parseStringArray = (value: unknown) => {
     .map((item) => item.trim())
     .filter(Boolean)
 
-  return parsed.length === value.length ? parsed : []
+  return parsed.length === value.length ? parsed : null
 }
 
 const parseFeatureOverrides = (value: unknown) => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (value === undefined) {
     return null
   }
 
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { error: "featureOverrides must be an object" } as const
+  }
+
   const entries = Object.entries(value as Record<string, unknown>).filter(([, entryValue]) => entryValue !== null && entryValue !== undefined)
-  return entries.length ? Object.fromEntries(entries) : null
+  const parsed: Record<string, number> = {}
+  for (const [key, entryValue] of entries) {
+    if (!allowedPredictorFeatureOverrideKeys.has(key)) {
+      return { error: `Unsupported feature override: ${key}` } as const
+    }
+    const numericValue = Number(entryValue)
+    if (!Number.isFinite(numericValue)) {
+      return { error: `Feature override ${key} must be numeric` } as const
+    }
+    parsed[key] = numericValue
+  }
+
+  return Object.keys(parsed).length ? parsed : null
 }
 
 const requireObserverAuth = (req: Request, res: Response, next: NextFunction) => {
@@ -279,11 +321,12 @@ const runAutomaticPredictorSnapshots = async () => {
         fixtureId,
         mode,
         tossWinner: null,
-        tossDecision: null,
-        team1ProbableXi: [],
-        team2ProbableXi: [],
-        featureOverrides: null,
-      },
+          tossDecision: null,
+          team1ProbableXi: [],
+          team2ProbableXi: [],
+          probableXiSource: "none",
+          featureOverrides: null,
+        },
       result as never,
     )
     snapshotKeys.add(snapshotKey)
@@ -320,8 +363,12 @@ const startPredictorMaintenanceLoop = () => {
   const runMaintenance = async () => {
     try {
       await refreshPredictorLiveData()
-      await runAutomaticPredictorSnapshots()
-      await backfillHistoricalPostTossSnapshots()
+      if (config.opticOddsEnabled) {
+        await runAutomaticPredictorSnapshots()
+        await backfillHistoricalPostTossSnapshots()
+      } else {
+        logger.debug("Skipped automatic predictor snapshot maintenance because OPTICODDS_ENABLED is false")
+      }
       await refreshPredictorPerformanceSummary()
       logger.debug("Refreshed predictor maintenance data in background")
     } catch (error) {
@@ -364,7 +411,20 @@ const ensurePredictorLiveDataFresh = () =>
         })
       }
 
-      await predictorLiveDataRefreshPromise
+      try {
+        await predictorLiveDataRefreshPromise
+      } catch (error) {
+        const fallbackMtime = await getOldestPredictorLiveDataMtimeMs().catch(() => 0)
+        if (fallbackMtime > 0) {
+          logger.warn("Using stale predictor live data after refresh failed", {
+            ageMs: now - fallbackMtime,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return
+        }
+
+        throw error
+      }
     },
     catch: (error) => (error instanceof Error ? error : new Error(String(error))),
   })
@@ -389,7 +449,6 @@ const createApp = Effect.sync((): Express => {
         const endpoints = [
           "/",
           "/health",
-          "/predictor",
           "/predictor/api/fixtures",
           "/predictor/api/context",
           "/predictor/api/predict",
@@ -488,10 +547,6 @@ const createApp = Effect.sync((): Express => {
     res.sendFile(join(publicDirectory, "observer-dashboard.html"))
   })
 
-  app.get("/predictor", (_req, res) => {
-    res.sendFile(join(publicDirectory, "predictor.html"))
-  })
-
   app.get("/predictor/api/fixtures", (_req, res) => {
     sendJson(
       res,
@@ -529,6 +584,28 @@ const createApp = Effect.sync((): Express => {
         const team2ProbableXi = parseStringArray(body.team2ProbableXi)
         const featureOverrides = parseFeatureOverrides(body.featureOverrides)
 
+        if (!team1ProbableXi || !team2ProbableXi) {
+          res.status(400)
+          return { error: "team probable XI fields must be arrays of non-empty strings" }
+        }
+        if (
+          (team1ProbableXi.length > 0 && team1ProbableXi.length !== 11) ||
+          (team2ProbableXi.length > 0 && team2ProbableXi.length !== 11)
+        ) {
+          res.status(400)
+          return { error: "team probable XI fields must contain exactly 11 players when supplied" }
+        }
+        if (featureOverrides && "error" in featureOverrides) {
+          res.status(400)
+          return { error: featureOverrides.error }
+        }
+
+        const probableXiSource = team1ProbableXi.length || team2ProbableXi.length
+          ? parseProbableXiSource(body.probableXiSource) === "none"
+            ? "manual"
+            : parseProbableXiSource(body.probableXiSource)
+          : "none"
+
         if (tossWinner) {
           args.push("--toss-winner", tossWinner)
         }
@@ -540,6 +617,9 @@ const createApp = Effect.sync((): Express => {
         }
         if (team2ProbableXi.length) {
           args.push("--team2-probable-xi-json", JSON.stringify(team2ProbableXi))
+        }
+        if (probableXiSource !== "none" && (team1ProbableXi.length || team2ProbableXi.length)) {
+          args.push("--probable-xi-source", probableXiSource)
         }
         if (featureOverrides) {
           args.push("--feature-overrides-json", JSON.stringify(featureOverrides))
@@ -564,6 +644,7 @@ const createApp = Effect.sync((): Express => {
                 tossDecision,
                 team1ProbableXi,
                 team2ProbableXi,
+                probableXiSource,
                 featureOverrides,
               },
               result as never,
