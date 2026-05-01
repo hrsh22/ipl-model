@@ -5,9 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "dev:all": "concurrently -n api,ui -c green,cyan \"pnpm dev\" \"pnpm dev:frontend\"",
-    "dev:frontend": "pnpm --dir frontend dev",
-    "build:frontend": "pnpm --dir frontend build",
+    "dev:all": "pnpm dev:stack",
     "dev:stack": "concurrently -n backend,web -c blue,green \"pnpm dev\" \"pnpm web:dev\"",
     "web:dev": "pnpm --filter @ipl-trader/web dev",
     "web:build": "pnpm --filter @ipl-trader/web build",

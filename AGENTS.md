@@ -29,7 +29,7 @@
 - Keep code clean and readable: centralize shared config, remove unnecessary fallback branches, and prefer small helpers over repeated inline env parsing.
 
 ## Runtime config
-- Required runtime vars are `PORT`, `LOG_LEVEL`, `DATABASE_URL`, and `OPTICODDS_API_KEY`.
+- Required runtime vars are `PORT`, `LOG_LEVEL`, and `DATABASE_URL`.
 - `OBSERVER_API_TOKEN` is optional; when set, all `/observer/*` JSON routes require `Authorization: Bearer <token>`.
 - `src/config.ts` imports `dotenv/config`, so local `.env` values are loaded automatically during normal startup.
 
@@ -39,7 +39,7 @@
   - `observer_odds`
   - `observer_signals`
   - `observer_checkpoints`
-- Observer history currently persists fixtures, latest odds rows, signal journal entries, and OpticOdds stream checkpoints.
+- Observer history currently persists fixtures, latest odds rows, signal journal entries, and stream checkpoints.
 
 ## App behavior
 - Core health endpoints from `src/index.ts`:
@@ -54,10 +54,10 @@
 
 ## Observer engine
 - `src/observer/service.ts` owns the live IPL observer lifecycle.
-- `IplObserverService.start()` loads stream checkpoints, refreshes fixtures, starts periodic fixture refresh + active-fixture reconciliation, and connects OpticOdds odds/results streams plus the Polymarket market websocket.
+- `IplObserverService.start()` refreshes fixtures from official/local IPL data by default, and only connects optional paid odds/result streams when explicitly configured.
 - The current pricing engine is **Betfair-first**:
   - `buildReferenceProbabilities()` anchors fair value on `PRIMARY_REFERENCE_BOOK` (`betfair_exchange`)
-  - support books (`1xbet`, `parimatch_india_`, `opticodds_ai`) affect confidence/diagnostics, not the anchor probability itself.
+  - support books (`1xbet`, `parimatch_india_`) affect confidence/diagnostics, not the anchor probability itself.
 - Current opportunity filtering includes:
   - fee-adjusted edge (`SPORTS_TAKER_FEE_RATE`)
   - persistence gate (`OPPORTUNITY_PERSISTENCE_MS`)
@@ -68,8 +68,7 @@
   - active odds hydration only for near-start or live fixtures
 
 ## Observer/API surface
-- Public dashboard route: `GET /observer/dashboard`
-- Static dashboard assets are served from `/observer/assets/*` out of `public/`.
+- Observer UI lives in `apps/web/src/routes/observer.tsx`; the API server exposes JSON routes only.
 - Observer JSON routes in `src/index.ts`:
   - `GET /observer/status`
   - `GET /observer/diagnostics`
@@ -84,8 +83,8 @@
   - `GET /observer/history/signals`
 
 ## Dashboard behavior
-- The internal operator dashboard is a lightweight static HTML/CSS/JS page under `public/observer-dashboard.*`.
-- The dashboard currently polls every 5 seconds and fetches:
+- The internal operator dashboard is part of the `apps/web` app.
+- The dashboard currently polls every 5 seconds and fetches proxied observer JSON routes for:
   - `/ready`
   - `/observer/metrics`
   - `/observer/fixtures/live`
@@ -93,7 +92,7 @@
   - `/observer/diagnostics`
   - `/observer/tape/live`
 - The dashboard is meant for **live/current operator state**. Historical signal rows are intentionally separated from the live tape.
-- Important caveat: the dashboard JS does not attach auth headers. If `OBSERVER_API_TOKEN` is enabled, the JSON observer routes return 401 and the dashboard becomes read-only/erroring until auth support is added to the UI.
+- Important caveat: dashboard proxy routes must forward auth if `OBSERVER_API_TOKEN` is enabled.
 
 ## IPL prediction endpoints
 - `src/index.ts` also wires experimental IPL prediction helpers from `src/ipl/`.

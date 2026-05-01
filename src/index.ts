@@ -46,11 +46,6 @@ const sendJson = <A>(res: Response, program: Effect.Effect<A, unknown>) => {
 const formatError = (error: unknown) =>
   error instanceof Error ? error.message : "Unknown error"
 
-const observerDisabledError = (res: Response) => {
-  res.status(503)
-  return { error: "Observer routes are disabled in predictor-only mode" }
-}
-
 const loadDatabaseModule = () =>
   Effect.tryPromise<typeof import("./database.js"), Error>({
     try: () => import("./database.js"),
@@ -64,13 +59,11 @@ const loadObserverService = () =>
   }).pipe(Effect.map((module) => module.observerService))
 
 const checkDatabaseConnectionIfEnabled = () =>
-  config.predictorOnlyMode || !config.databaseUrl
-    ? Effect.succeed("disabled" as const)
-    : Effect.gen(function* () {
-        const { checkDatabaseConnection } = yield* loadDatabaseModule()
-        yield* checkDatabaseConnection
-        return "reachable" as const
-      })
+  Effect.gen(function* () {
+    const { checkDatabaseConnection } = yield* loadDatabaseModule()
+    yield* checkDatabaseConnection
+    return "reachable" as const
+  })
 
 const parseNumberQuery = (value: unknown, fallback: number) => {
   const firstValue = Array.isArray(value) ? value[0] : value
@@ -185,7 +178,6 @@ const requireObserverAuth = (req: Request, res: Response, next: NextFunction) =>
 }
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
-const publicDirectory = join(currentDirectory, "..", "public")
 const modelDirectory = join(currentDirectory, "..", "model")
 const predictorScriptPath = join(modelDirectory, "predict_fixture.py")
 const ballStateExperimentsDirectory = join(modelDirectory, "experiments", "ball-state")
@@ -1176,12 +1168,8 @@ const startPredictorMaintenanceLoop = () => {
   const runMaintenance = async () => {
     try {
       await refreshPredictorLiveData()
-      if (config.opticOddsEnabled) {
-        await runAutomaticPredictorSnapshots()
-        await backfillHistoricalPostTossSnapshots()
-      } else {
-        logger.debug("Skipped automatic predictor snapshot maintenance because OPTICODDS_ENABLED is false")
-      }
+      await runAutomaticPredictorSnapshots()
+      await backfillHistoricalPostTossSnapshots()
       await refreshPredictorPerformanceSummary()
       logger.debug("Refreshed predictor maintenance data in background")
     } catch (error) {
@@ -1249,7 +1237,6 @@ const createApp = Effect.sync((): Express => {
   const app = express()
 
   app.use(express.json())
-  app.use("/observer/assets", express.static(publicDirectory))
 
   app.get("/", (_req, res) => {
     sendJson(
@@ -1267,34 +1254,28 @@ const createApp = Effect.sync((): Express => {
           "/predictor/api/predict",
           "/predictor/api/performance",
           "/predict/ipl",
+          "/observer/status",
+          "/observer/diagnostics",
+          "/observer/metrics",
+          "/observer/fixtures",
+          "/observer/fixtures/live",
+          "/observer/fixtures/:fixtureId",
+          "/observer/opportunities",
+          "/observer/opportunities/diagnostics",
+          "/observer/live-model",
+          "/observer/live-model/history",
+          "/observer/live-model/history/:fixtureId",
+          "/observer/live-model/snapshots",
+          "/observer/live-model/signals",
+          "/observer/ball-state-shadow",
+          "/observer/tape/live",
+          "/observer/history/signals",
+          "/observer/signals",
         ]
-
-        if (!config.predictorOnlyMode) {
-          endpoints.push(
-            "/observer/status",
-            "/observer/diagnostics",
-            "/observer/metrics",
-            "/observer/dashboard",
-            "/observer/fixtures",
-            "/observer/fixtures/live",
-            "/observer/fixtures/:fixtureId",
-            "/observer/opportunities",
-            "/observer/opportunities/diagnostics",
-            "/observer/live-model",
-            "/observer/live-model/history",
-            "/observer/live-model/history/:fixtureId",
-            "/observer/live-model/snapshots",
-            "/observer/live-model/signals",
-            "/observer/ball-state-shadow",
-            "/observer/tape/live",
-            "/observer/history/signals",
-            "/observer/signals",
-          )
-        }
 
         return {
           message: "IPL Trader API is running",
-          mode: config.predictorOnlyMode ? "predictor_only" : "full_app",
+          mode: "full_app" as const,
           endpoints,
         }
       }),
@@ -1310,17 +1291,12 @@ const createApp = Effect.sync((): Express => {
         })
 
         const database = yield* checkDatabaseConnectionIfEnabled()
-        const observer = config.predictorOnlyMode
-          ? {
-              enabled: false,
-              mode: "predictor_only" as const,
-            }
-          : (yield* loadObserverService()).getStatus()
+        const observer = (yield* loadObserverService()).getStatus()
 
         return {
           status: "ok" as const,
           uptimeSeconds: Math.round(process.uptime()),
-          mode: config.predictorOnlyMode ? "predictor_only" : "full_app",
+          mode: "full_app" as const,
           database,
           observer,
         }
@@ -1336,15 +1312,6 @@ const createApp = Effect.sync((): Express => {
           logger.debug("Handled GET /ready")
         })
 
-        if (config.predictorOnlyMode) {
-          return {
-            ready: true,
-            mode: "predictor_only" as const,
-            database: "disabled" as const,
-            observer: "disabled" as const,
-          }
-        }
-
         yield* checkDatabaseConnectionIfEnabled()
         const readiness = (yield* loadObserverService()).getReadiness()
 
@@ -1355,15 +1322,6 @@ const createApp = Effect.sync((): Express => {
         return readiness
       }),
     )
-  })
-
-  app.get("/observer/dashboard", (_req, res) => {
-    if (config.predictorOnlyMode) {
-      res.status(503).send("Observer dashboard is disabled in predictor-only mode")
-      return
-    }
-
-    res.sendFile(join(publicDirectory, "observer-dashboard.html"))
   })
 
   app.get("/predictor/api/fixtures", (_req, res) => {
@@ -1542,10 +1500,6 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
-        if (config.predictorOnlyMode) {
-          return observerDisabledError(res)
-        }
-
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/status")
         })
@@ -1559,10 +1513,6 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
-        if (config.predictorOnlyMode) {
-          return observerDisabledError(res)
-        }
-
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/diagnostics")
         })
@@ -1576,10 +1526,6 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
-        if (config.predictorOnlyMode) {
-          return observerDisabledError(res)
-        }
-
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/metrics")
         })
@@ -1594,10 +1540,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           logger.debug("Handled GET /observer/fixtures")
           return (await Effect.runPromise(loadObserverService())).getRecentFixtures(20)
         },
@@ -1611,10 +1553,6 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
-        if (config.predictorOnlyMode) {
-          return observerDisabledError(res)
-        }
-
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/fixtures/live")
         })
@@ -1629,10 +1567,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           const fixtureId = Array.isArray(req.params.fixtureId)
             ? req.params.fixtureId[0]
             : req.params.fixtureId
@@ -1666,10 +1600,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           const minEdgeBps = parseNumberQuery(req.query.minEdgeBps, 100)
           const minConfidence = parseConfidenceQuery(req.query.minConfidence) ?? "medium"
 
@@ -1694,10 +1624,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           const minEdgeBps = parseNumberQuery(req.query.minEdgeBps, 100)
 
           logger.debug("Handled GET /observer/opportunities/diagnostics", {
@@ -1716,10 +1642,6 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
-        if (config.predictorOnlyMode) {
-          return observerDisabledError(res)
-        }
-
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/tape/live")
         })
@@ -1733,10 +1655,6 @@ const createApp = Effect.sync((): Express => {
     sendJson(
       res,
       Effect.gen(function* () {
-        if (config.predictorOnlyMode) {
-          return observerDisabledError(res)
-        }
-
         yield* Effect.sync(() => {
           logger.debug("Handled GET /observer/live-model")
         })
@@ -1751,10 +1669,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           const limit = parseNumberQuery(req.query.limit, 20)
 
           logger.debug("Handled GET /observer/live-model/history", { limit })
@@ -1771,10 +1685,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           const fixtureId = Array.isArray(req.params.fixtureId)
             ? req.params.fixtureId[0]
             : req.params.fixtureId
@@ -1805,10 +1715,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           const limit = parseNumberQuery(req.query.limit, 50)
 
           logger.debug("Handled GET /observer/live-model/snapshots", { limit })
@@ -1825,10 +1731,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           const limit = parseNumberQuery(req.query.limit, 50)
 
           logger.debug("Handled GET /observer/live-model/signals", { limit })
@@ -1845,10 +1747,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           logger.debug("Handled GET /observer/ball-state-shadow")
           const activeFixtures = (await Effect.runPromise(loadObserverService())).getLiveFixtures()
             .map(({ fixture }) => ({
@@ -1869,10 +1767,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           logger.debug("Handled GET /observer/signals")
           return (await Effect.runPromise(loadObserverService())).getRecentSignals(50)
         },
@@ -1887,10 +1781,6 @@ const createApp = Effect.sync((): Express => {
       res,
       Effect.tryPromise({
         try: async () => {
-          if (config.predictorOnlyMode) {
-            return observerDisabledError(res)
-          }
-
           logger.debug("Handled GET /observer/history/signals")
           return (await Effect.runPromise(loadObserverService())).getRecentSignals(50)
         },
@@ -1987,37 +1877,27 @@ const listen = (app: Express, port: number) =>
 const program = Effect.gen(function* () {
   const app = yield* createApp
 
-  if (config.predictorOnlyMode) {
-    yield* Effect.sync(() => {
-      logger.warn(
-        "Starting in predictor-only mode; database checks and observer startup are disabled",
-      )
-    })
-  } else {
-    yield* checkDatabaseConnectionIfEnabled()
+  yield* checkDatabaseConnectionIfEnabled()
 
-    yield* Effect.sync(() => {
-      logger.debug("Database connection check succeeded")
-    })
-  }
+  yield* Effect.sync(() => {
+    logger.debug("Database connection check succeeded")
+  })
 
   yield* listen(app, config.port)
   yield* Effect.sync(() => {
     logger.info(`Server listening on http://localhost:${config.port}`)
     startPredictorMaintenanceLoop()
-    if (!config.predictorOnlyMode && config.experimentalBallStateShadowRefreshEnabled) {
+    if (config.experimentalBallStateShadowRefreshEnabled) {
       startBallStateShadowRefreshLoop()
     }
   })
 
-  if (!config.predictorOnlyMode) {
-    const observerService = yield* loadObserverService()
-    yield* Effect.sync(() => {
-      void observerService.start().catch((error) => {
-        logger.error("Failed to start IPL observer", { error })
-      })
+  const observerService = yield* loadObserverService()
+  yield* Effect.sync(() => {
+    void observerService.start().catch((error) => {
+      logger.error("Failed to start IPL observer", { error })
     })
-  }
+  })
 
   yield* Effect.never
 })

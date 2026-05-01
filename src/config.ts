@@ -45,7 +45,6 @@ const parseOptionalPositiveIntegerEnv = (
   return parsed
 }
 
-const predictorOnlyMode = parseBooleanEnv(process.env.PREDICTOR_ONLY)
 const opticOddsEnabled = parseBooleanEnv(process.env.OPTICODDS_ENABLED)
 const defaultPredictorBackgroundIntervalMs = 60 * 60 * 1000
 const opticOddsApiKey = opticOddsEnabled
@@ -55,8 +54,7 @@ const opticOddsApiKey = opticOddsEnabled
 export const config = {
   port: parsePort(requireEnv("PORT")),
   logLevel: requireEnv("LOG_LEVEL"),
-  predictorOnlyMode,
-  databaseUrl: predictorOnlyMode ? optionalEnv("DATABASE_URL") : requireEnv("DATABASE_URL"),
+  databaseUrl: requireEnv("DATABASE_URL"),
   opticOddsEnabled,
   opticOddsApiKey,
   observerApiToken: optionalEnv("OBSERVER_API_TOKEN"),

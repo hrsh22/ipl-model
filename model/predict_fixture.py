@@ -42,14 +42,6 @@ COMPLETED_RESULTS_2026_PATH = LIVE_DIR / "completed_results_2026.csv"
 CURRENT_SEASON_MATCH_SQUADS_PATH = LIVE_DIR / "current_season_match_squads.csv"
 CURRENT_SEASON_PLAYER_MATCH_STATS_PATH = LIVE_DIR / "current_season_player_match_stats.csv"
 
-OPTICODDS_BASE_URL = "https://api.opticodds.com/api/v3"
-OPTICODDS_SPORTSBOOKS = [
-    "betfair_exchange",
-    "1xbet",
-    "parimatch_india_",
-    "opticodds_ai",
-]
-
 IPLT20_COMPETITION_URL = "https://scores.iplt20.com/ipl/mc/competition.js"
 IPLT20_SCHEDULE_URL_TEMPLATE = (
     "https://scores.iplt20.com/ipl/feeds/{competition_id}-matchschedule.js"
@@ -1919,120 +1911,10 @@ def fetch_polymarket_market(
     return None
 
 
-def fetch_opticodds_sportsbook_overlay(
-    fixture_id: str, team1: str, team2: str
+def fetch_sportsbook_overlay(
+    _fixture_id: str, _team1: str, _team2: str
 ) -> dict[str, Any] | None:
-    api_key = os.environ.get("OPTICODDS_API_KEY")
-    if not api_key:
-        return None
-
-    query_parts = [
-        ("sport", "cricket"),
-        ("fixture_id", fixture_id),
-        ("market", "Moneyline"),
-        ("odds_format", "PROBABILITY"),
-        ("exclude_fees", "true"),
-    ] + [("sportsbook", sportsbook) for sportsbook in OPTICODDS_SPORTSBOOKS]
-    url = f"{OPTICODDS_BASE_URL}/fixtures/odds?{urllib.parse.urlencode(query_parts, doseq=True)}"
-    request = urllib.request.Request(
-        url,
-        headers={
-            "X-Api-Key": api_key,
-            "User-Agent": "Mozilla/5.0",
-        },
-    )
-
-    try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            payload = json.load(response)
-    except Exception:
-        return None
-
-    fixture_rows = payload.get("data", []) if isinstance(payload, dict) else []
-    fixture = next(
-        (entry for entry in fixture_rows if str(entry.get("id")) == fixture_id), None
-    )
-    if not fixture:
-        return None
-
-    team1_keys = {
-        normalize_selection_key(alias) for alias in TEAM_ALIASES.get(team1, [team1])
-    }
-    team2_keys = {
-        normalize_selection_key(alias) for alias in TEAM_ALIASES.get(team2, [team2])
-    }
-    books: dict[str, dict[str, Any]] = {}
-
-    for odd in fixture.get("odds", []) or []:
-        book_id = str(odd.get("sportsbook_id") or odd.get("sportsbook") or "unknown")
-        selection_key = normalize_selection_key(
-            str(odd.get("normalized_selection") or odd.get("selection") or "")
-        )
-        if selection_key not in team1_keys and selection_key not in team2_keys:
-            continue
-
-        book = books.setdefault(
-            book_id,
-            {
-                "sportsbook_id": book_id,
-                "sportsbook": odd.get("sportsbook") or book_id,
-                "updated_at_unix": int(odd.get("timestamp") or 0),
-            },
-        )
-        probability = normalize_probability(odd.get("price"))
-        if probability is None:
-            continue
-        order_book = odd.get("order_book") or []
-        top_level = None
-        if isinstance(order_book, list) and order_book:
-            try:
-                top_level = normalize_probability(order_book[0][0])
-            except Exception:
-                top_level = None
-
-        limits = odd.get("limits") or {}
-        max_stake = None
-        if isinstance(limits, dict):
-            raw_stake = limits.get("max") or limits.get("max_stake")
-            if raw_stake is not None:
-                try:
-                    max_stake = float(raw_stake)
-                except Exception:
-                    max_stake = None
-
-        if selection_key in team1_keys:
-            book["team1_probability"] = probability
-            book["team1_top_level"] = top_level
-            book["team1_max_stake"] = max_stake
-        elif selection_key in team2_keys:
-            book["team2_probability"] = probability
-            book["team2_top_level"] = top_level
-            book["team2_max_stake"] = max_stake
-
-    book_views = [
-        book
-        for book in books.values()
-        if book.get("team1_probability") is not None
-        and book.get("team2_probability") is not None
-    ]
-    if not book_views:
-        return None
-
-    consensus_team1 = sum(book["team1_probability"] for book in book_views) / len(
-        book_views
-    )
-    consensus_team2 = sum(book["team2_probability"] for book in book_views) / len(
-        book_views
-    )
-
-    return {
-        "source": "opticodds",
-        "fixture_id": fixture_id,
-        "book_count": len(book_views),
-        "consensus_team1_probability": consensus_team1,
-        "consensus_team2_probability": consensus_team2,
-        "books": sorted(book_views, key=lambda book: str(book["sportsbook_id"])),
-    }
+    return None
 
 
 def load_fixture_override_entry(fixture_id: str) -> dict[str, Any]:
@@ -2421,7 +2303,7 @@ def describe_context(args: argparse.Namespace) -> dict[str, Any]:
     )
     override_entry = load_fixture_override_entry(str(fixture["fixture_id"]))
     official_post_toss = fetch_official_post_toss_context(fixture)
-    sportsbook_overlay = fetch_opticodds_sportsbook_overlay(
+    sportsbook_overlay = fetch_sportsbook_overlay(
         str(fixture["fixture_id"]), str(fixture["team1"]), str(fixture["team2"])
     )
     market_overlay = fetch_polymarket_market(
@@ -2475,9 +2357,9 @@ def describe_context(args: argparse.Namespace) -> dict[str, Any]:
             },
             "sportsbook_overlay": {
                 "available": sportsbook_overlay is not None,
-                "message": "Sportsbook consensus is available from OpticOdds."
+                "message": "External odds consensus is available."
                 if sportsbook_overlay is not None
-                else "No sportsbook overlay is available right now.",
+                else "No external odds overlay is configured right now.",
             },
             "polymarket_overlay": {
                 "available": market_overlay is not None,
@@ -2691,7 +2573,7 @@ def main() -> None:
     market_overlay = fetch_polymarket_market(
         base_row["team1"], base_row["team2"], str(base_row["match_date"])
     )
-    sportsbook_overlay = fetch_opticodds_sportsbook_overlay(
+    sportsbook_overlay = fetch_sportsbook_overlay(
         str(base_row["fixture_id"]), base_row["team1"], base_row["team2"]
     )
     result = {

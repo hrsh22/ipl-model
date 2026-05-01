@@ -7,7 +7,6 @@ dist/
 .venv
 venv
 logs
-frontend/.tanstack/tmp/
 
 # macOS / local junk
 .DS_Store

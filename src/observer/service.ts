@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import logger from "../logger.js"
 import { config } from "../config.js"
 import { getVenueContextStats } from "./venue-stats.js"
@@ -26,6 +29,16 @@ const OPTICODDS_BASE_URL = "https://api.opticodds.com/api/v3"
 const POLYMARKET_GAMMA_BASE_URL = "https://gamma-api.polymarket.com"
 const POLYMARKET_MARKET_WS_URL =
   "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+const currentDirectory = dirname(fileURLToPath(import.meta.url))
+const LOCAL_UPCOMING_FIXTURES_PATH = join(
+  currentDirectory,
+  "..",
+  "..",
+  "model",
+  "data",
+  "live",
+  "upcoming_fixtures.json",
+)
 
 const IPL_LEAGUE_NAME = "India - IPL"
 const MONEYLINE_MARKET = "Moneyline"
@@ -66,7 +79,6 @@ const OBSERVED_BOOKS = [
   "betfair_exchange",
   "1xbet",
   "parimatch_india_",
-  "opticodds_ai",
   "polymarket",
 ] as const
 
@@ -75,7 +87,6 @@ const PRIMARY_REFERENCE_BOOK = "betfair_exchange"
 const SUPPORT_REFERENCE_BOOK_WEIGHTS: Record<string, number> = {
   "1xbet": 3,
   parimatch_india_: 2,
-  opticodds_ai: 1,
 }
 
 type JsonRecord = Record<string, unknown>
@@ -119,6 +130,23 @@ type OpticOddsFixture = {
     }
   }
 }
+
+type LocalFixtureRow = {
+  fixture_id?: string | number | null
+  opticodds_game_id?: string | number | null
+  match_date?: string | null
+  status?: string | null
+  is_live?: boolean | string | number | null
+  official_match_id?: string | number | null
+  venue?: string | null
+  venue_location?: string | null
+  city?: string | null
+  team1?: string | null
+  team2?: string | null
+  inferred_home_team?: string | null
+}
+
+type ObserverFixtureCore = Omit<ObserverFixtureRecord, "createdAt" | "updatedAt">
 
 type OpticOddsOdd = {
   id: string
@@ -530,6 +558,23 @@ const parseSseEvent = (block: string) => {
 
 const normaliseProbability = (value: number) => (value > 1 ? value / 100 : value)
 
+const cleanLocalValue = (value: string | number | null | undefined) => String(value ?? "").trim()
+
+const parseLocalBoolean = (value: boolean | string | number | null | undefined) => {
+  if (typeof value === "boolean") {
+    return value
+  }
+
+  if (typeof value === "number") {
+    return value !== 0
+  }
+
+  return ["1", "true", "yes", "on"].includes(String(value ?? "").trim().toLowerCase())
+}
+
+const buildSyntheticFixtureSourceId = (fixtureId: string, officialMatchId: string) =>
+  `ipl-official:${officialMatchId || fixtureId}`
+
 class IplObserverService {
   private started = false
 
@@ -595,11 +640,6 @@ class IplObserverService {
     this.status.oddsCheckpoint = this.oddsCheckpoint
     this.status.resultsCheckpoint = this.resultsCheckpoint
 
-    if (!config.opticOddsEnabled) {
-      logger.warn("Started IPL observer with OpticOdds disabled; live fixture and odds streams are inactive")
-      return
-    }
-
     await this.refreshFixtures()
 
     this.refreshTimer = setInterval(() => {
@@ -610,16 +650,20 @@ class IplObserverService {
       })
     }, FIXTURE_REFRESH_INTERVAL_MS)
 
-    this.activeCoverageTimer = setInterval(() => {
-      void this.reconcileActiveCoverageFixtures().catch((error) => {
-        logger.warn("IPL observer active fixture reconciliation failed", {
-          error: error instanceof Error ? error.message : String(error),
+    if (config.opticOddsEnabled) {
+      this.activeCoverageTimer = setInterval(() => {
+        void this.reconcileActiveCoverageFixtures().catch((error) => {
+          logger.warn("IPL observer active fixture reconciliation failed", {
+            error: error instanceof Error ? error.message : String(error),
+          })
         })
-      })
-    }, ACTIVE_FIXTURE_RECONCILIATION_INTERVAL_MS)
+      }, ACTIVE_FIXTURE_RECONCILIATION_INTERVAL_MS)
 
-    void this.runOddsStream()
-    void this.runResultsStream()
+      void this.runOddsStream()
+      void this.runResultsStream()
+    } else {
+      logger.warn("Started IPL observer with OpticOdds disabled; bootstrapping fixtures from local official IPL data")
+    }
 
     logger.info("Started IPL observer service", {
       fixtures: this.fixtures.size,
@@ -884,10 +928,28 @@ class IplObserverService {
 
   public getReadiness() {
     if (!config.opticOddsEnabled) {
+      const reasons: string[] = []
+      const fixtureRefreshAge = toAgeSeconds(this.status.fixtureRefreshAt)
+
+      if (!this.started) {
+        reasons.push("observer-not-started")
+      }
+
+      if (fixtureRefreshAge === null || fixtureRefreshAge > READY_MAX_FIXTURE_REFRESH_AGE_SECONDS) {
+        reasons.push("fixture-refresh-stale")
+      }
+
+      if (this.fixtures.size === 0) {
+        reasons.push("no-fixtures-loaded")
+      }
+
       return {
-        ready: this.started,
-        reasons: this.started ? [] : ["observer-not-started"],
-        fixtureRefreshAgeSeconds: null,
+        ready: reasons.length === 0,
+        mode: "official-fixtures-no-opticodds",
+        degraded: true,
+        degradationReasons: ["opticodds-disabled"],
+        reasons,
+        fixtureRefreshAgeSeconds: fixtureRefreshAge,
         oddsStreamAgeSeconds: null,
         polymarketStreamAgeSeconds: null,
         trackedFixtures: this.fixtures.size,
@@ -924,6 +986,9 @@ class IplObserverService {
 
     return {
       ready: reasons.length === 0,
+      mode: "opticodds-live-streams",
+      degraded: false,
+      degradationReasons: [],
       reasons,
       fixtureRefreshAgeSeconds: fixtureRefreshAge,
       oddsStreamAgeSeconds: oddsStreamAge,
@@ -1004,7 +1069,7 @@ class IplObserverService {
           }
         }
 
-        if (fixtureState && requiresActiveOddsCoverage(fixtureState.fixture)) {
+        if (config.opticOddsEnabled && fixtureState && requiresActiveOddsCoverage(fixtureState.fixture)) {
           try {
             await this.hydrateFixtureOdds(fixture.id)
           } catch (error) {
@@ -1046,6 +1111,10 @@ class IplObserverService {
   }
 
   private async fetchActiveFixtures() {
+    if (!config.opticOddsEnabled) {
+      return this.fetchLocalFixtures()
+    }
+
     const url = new URL(`${OPTICODDS_BASE_URL}/fixtures/active`)
     url.searchParams.append("sport", "cricket")
     url.searchParams.append("league", IPL_LEAGUE_NAME)
@@ -1063,7 +1132,69 @@ class IplObserverService {
     return (payload.data ?? []).filter((fixture) => fixture.league.name === IPL_LEAGUE_NAME)
   }
 
-  private async registerFixture(fixture: OpticOddsFixture) {
+  private async fetchLocalFixtures() {
+    try {
+      const payload = JSON.parse(await readFile(LOCAL_UPCOMING_FIXTURES_PATH, "utf-8")) as LocalFixtureRow[]
+      return payload.flatMap((fixture) => {
+        const record = this.buildLocalFixtureRecord(fixture)
+        return record ? [record] : []
+      })
+    } catch (error) {
+      logger.warn("Failed to load local official IPL fixtures for observer", {
+        path: LOCAL_UPCOMING_FIXTURES_PATH,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return []
+    }
+  }
+
+  private buildLocalFixtureRecord(fixture: LocalFixtureRow): ObserverFixtureCore | null {
+    const fixtureId = cleanLocalValue(fixture.fixture_id)
+    const team1 = cleanLocalValue(fixture.team1)
+    const team2 = cleanLocalValue(fixture.team2)
+    const startTime = new Date(cleanLocalValue(fixture.match_date))
+
+    if (!fixtureId || !team1 || !team2 || !Number.isFinite(startTime.getTime())) {
+      return null
+    }
+
+    const inferredHomeTeam = cleanLocalValue(fixture.inferred_home_team)
+    const homeTeam = inferredHomeTeam === team2 ? team2 : team1
+    const awayTeam = homeTeam === team1 ? team2 : team1
+    const officialMatchId = cleanLocalValue(fixture.official_match_id)
+    const opticOddsGameId = cleanLocalValue(fixture.opticodds_game_id) || buildSyntheticFixtureSourceId(fixtureId, officialMatchId)
+
+    return {
+      id: fixtureId,
+      opticOddsGameId,
+      sport: "cricket",
+      league: IPL_LEAGUE_NAME,
+      homeTeam,
+      awayTeam,
+      homeTeamId: null,
+      awayTeamId: null,
+      startTime,
+      status: cleanLocalValue(fixture.status) || "scheduled",
+      isLive: parseLocalBoolean(fixture.is_live),
+      venueName: cleanLocalValue(fixture.venue) || null,
+      venueLocation: cleanLocalValue(fixture.venue_location) || (cleanLocalValue(fixture.city) ? `${cleanLocalValue(fixture.city)}, India` : null),
+      polymarketEventSlug: this.fixtures.get(fixtureId)?.fixture.polymarketEventSlug ?? null,
+      polymarketMarketSlug: this.fixtures.get(fixtureId)?.fixture.polymarketMarketSlug ?? null,
+      polymarketConditionId: this.fixtures.get(fixtureId)?.fixture.polymarketConditionId ?? null,
+      homeTokenId: this.fixtures.get(fixtureId)?.fixture.homeTokenId ?? null,
+      awayTokenId: this.fixtures.get(fixtureId)?.fixture.awayTokenId ?? null,
+      lastScore: null,
+      lastPeriod: null,
+      lastResultPayload: officialMatchId ? { source: "ipl_official", officialMatchId } : null,
+    }
+  }
+
+  private async registerFixture(fixture: OpticOddsFixture | ObserverFixtureCore) {
+    if ("startTime" in fixture) {
+      await this.registerFixtureRecord(fixture)
+      return
+    }
+
     const existingState = this.fixtures.get(fixture.id)
     const existingFixture = existingState?.fixture
     const record = {
@@ -1089,14 +1220,18 @@ class IplObserverService {
       lastScore: parseScoreSummary(fixture),
       lastPeriod: parsePeriodSummary(fixture),
       lastResultPayload: mergeResultPayload(fixture.result ?? null, undefined, existingFixture?.lastResultPayload),
-    } satisfies Omit<ObserverFixtureRecord, "createdAt" | "updatedAt"> & {
-      createdAt?: Date
-      updatedAt?: Date
-    }
+    } satisfies ObserverFixtureCore
+
+    await this.registerFixtureRecord(record)
+  }
+
+  private async registerFixtureRecord(record: ObserverFixtureCore) {
+    const existingState = this.fixtures.get(record.id)
+    const existingFixture = existingState?.fixture
 
     await upsertFixture(record)
 
-    this.fixtures.set(fixture.id, {
+    this.fixtures.set(record.id, {
       fixture: {
         ...existingFixture,
         ...record,

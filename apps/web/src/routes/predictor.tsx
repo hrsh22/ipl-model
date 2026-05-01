@@ -447,7 +447,7 @@ function ContextPanel({ state, mode }: { state: AsyncState<ContextPayload>; mode
         <MetricCard label="Fixture shell" value={automatic.fixture_shell ? 'Loaded' : 'Missing'} positive={automatic.fixture_shell} />
         <MetricCard label="Current Elo" value={automatic.current_elo ? 'Loaded' : 'Missing'} positive={automatic.current_elo} />
         <MetricCard label="Form refresh" value={state.data.live_feature_refresh?.applied ? 'Applied' : 'Historical'} positive={state.data.live_feature_refresh?.applied} />
-        <MetricCard label="Sportsbooks" value={automatic.sportsbook_overlay ? 'Loaded' : 'Missing'} positive={automatic.sportsbook_overlay} />
+        <MetricCard label="External odds" value={automatic.sportsbook_overlay ? 'Loaded' : 'Optional'} positive={automatic.sportsbook_overlay} />
         <MetricCard label="Polymarket" value={automatic.polymarket_overlay ? 'Loaded' : 'Missing'} positive={automatic.polymarket_overlay} />
         <MetricCard label="Official toss" value={automatic.official_toss ? 'Loaded' : 'Missing'} positive={automatic.official_toss} />
         <MetricCard label="Official XI" value={automatic.official_confirmed_xi ? 'Loaded' : 'Missing'} positive={automatic.official_confirmed_xi} />
@@ -640,7 +640,7 @@ function PredictionPanel({ state, prediction }: { state: AsyncState<PredictionPa
             <div className="detail-columns">
               <ResultList title="Component weights" items={(prediction.components ?? []).map((component) => `${component.component ?? 'Component'} · ${formatPercent(component.probability)} · weight ${formatPercent(component.weight)}`)} />
               <ResultList title="Confirmed / modeled XI" items={[...(prediction.official_post_toss_context?.team1_confirmed_xi ?? []), ...(prediction.official_post_toss_context?.team2_confirmed_xi ?? [])].slice(0, 24)} />
-              <ResultList title="Sportsbook detail" items={(prediction.sportsbook_overlay?.books ?? []).map((book) => `${book.sportsbook ?? 'Book'} · ${formatPercent(book.team1_probability)} / ${formatPercent(book.team2_probability)} · max ${formatNumber(book.team1_max_stake)}`)} />
+              <ResultList title="External odds detail" items={(prediction.sportsbook_overlay?.books ?? []).map((book) => `${book.sportsbook ?? 'Book'} · ${formatPercent(book.team1_probability)} / ${formatPercent(book.team2_probability)} · max ${formatNumber(book.team1_max_stake)}`)} />
             </div>
           </>
         ) : null}
