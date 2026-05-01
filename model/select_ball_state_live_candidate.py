@@ -25,12 +25,15 @@ DEFAULT_CANDIDATES = {
     "trajectory": DEFAULT_EXPERIMENT_DIR / "live-compatible-trajectory-artifacts" / "manifest.json",
     "selected_trajectory": DEFAULT_EXPERIMENT_DIR / "live-compatible-selected-trajectory-artifacts" / "manifest.json",
     "selected_trajectory_platt": DEFAULT_EXPERIMENT_DIR / "live-compatible-selected-trajectory-platt-artifacts" / "manifest.json",
+    "expected_now": DEFAULT_EXPERIMENT_DIR / "live-expected-now-artifacts" / "manifest.json",
     "tuned_stable_depth4_lr003_l28_chase": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr003_l28" / "manifest.json",
     "tuned_stable_depth5_lr003_l28_chase": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth5_lr003_l28" / "manifest.json",
     "tuned_stable_depth4_lr0045_l210_chase": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr0045_l210" / "manifest.json",
     "tuned_selected_depth4_lr003_l28_runs": DEFAULT_EXPERIMENT_DIR / "tuned" / "selected_depth4_lr003_l28_runs" / "manifest.json",
     "tuned_stable_depth4_lr003_l28_remaining_runs": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr003_l28_remaining_runs" / "manifest.json",
     "tuned_selected_depth4_lr003_l28_remaining_wickets": DEFAULT_EXPERIMENT_DIR / "tuned" / "selected_depth4_lr003_l28_remaining_wickets" / "manifest.json",
+    "tuned_expected_now_depth4_lr003_l28_wickets": DEFAULT_EXPERIMENT_DIR / "tuned" / "expected_now_depth4_lr003_l28_wickets" / "manifest.json",
+    "tuned_expected_now_depth3_lr002_l210_wickets": DEFAULT_EXPERIMENT_DIR / "tuned" / "expected_now_depth3_lr002_l210_wickets" / "manifest.json",
 }
 
 REGRESSION_PRIMARY_METRIC = "mae"

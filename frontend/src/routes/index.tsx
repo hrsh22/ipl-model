@@ -141,6 +141,10 @@ type BallStateShadow = {
     balls: number | null
   }
   predictions: {
+    expectedRunsNow: number | null
+    expectedWicketsNow: number | null
+    runsDelta: number | null
+    wicketsDelta: number | null
     finalInningsRuns: number | null
     finalInningsWickets: number | null
     remainingInningsRuns: number | null
@@ -280,7 +284,7 @@ function LiveModelDashboard() {
           </div>
           <div className="terms-card">
             <strong>Terms</strong>
-            <p><b>Expected now</b> is the par score/wickets for this over.</p>
+            <p><b>Expected now</b> uses the experimental ball-by-ball model when shadow scores are available, otherwise it falls back to heuristic par.</p>
             <p><b>Actual delta</b> shows runs above/below par and wickets above/below par.</p>
             <p><b>Fair probability</b> is the Betfair-led reference price, not the deployed predictor.</p>
             <p><b>PM</b> is Polymarket moneyline probability.</p>
@@ -328,7 +332,7 @@ async function loadLiveModelDashboard() {
 
   const dashboard = mergeWithStableDashboardData({
     ready,
-    fixtures,
+    fixtures: applyShadowExpectedStateToFixtures(fixtures, ballStateShadow),
     signals,
     history,
     ballStateShadow,
@@ -336,6 +340,52 @@ async function loadLiveModelDashboard() {
 
   lastStableDashboardData = dashboard
   return dashboard
+}
+
+function applyShadowExpectedStateToFixtures(fixtures: LiveModelFixture[], shadow: BallStateShadow): LiveModelFixture[] {
+  if (!shadow.available || !shadow.currentState.fixtureId) {
+    return fixtures
+  }
+
+  return fixtures.map((fixture) => {
+    if (fixture.fixture.id !== shadow.currentState.fixtureId) {
+      return fixture
+    }
+
+    const expectedState = applyShadowExpectedState(fixture.expectedState, shadow)
+    const inningsStates = fixture.inningsStates
+      ? {
+          ...fixture.inningsStates,
+          first: fixture.inningsStates.first.innings === shadow.currentState.innings
+            ? applyShadowExpectedState(fixture.inningsStates.first, shadow)
+            : fixture.inningsStates.first,
+          second: fixture.inningsStates.second.innings === shadow.currentState.innings
+            ? applyShadowExpectedState(fixture.inningsStates.second, shadow)
+            : fixture.inningsStates.second,
+        }
+      : fixture.inningsStates
+
+    return {
+      ...fixture,
+      expectedState,
+      inningsStates,
+    }
+  })
+}
+
+function applyShadowExpectedState<T extends ExpectedState>(state: T, shadow: BallStateShadow): T {
+  if (state.innings !== shadow.currentState.innings || shadow.predictions.expectedRunsNow === null) {
+    return state
+  }
+
+  return {
+    ...state,
+    expectedRunsNow: shadow.predictions.expectedRunsNow,
+    expectedWicketsNow: shadow.predictions.expectedWicketsNow,
+    runsDelta: shadow.predictions.runsDelta,
+    wicketsDelta: shadow.predictions.wicketsDelta,
+    projectedScore: shadow.predictions.finalInningsRuns ?? state.projectedScore,
+  }
 }
 
 function mergeWithStableDashboardData(next: DashboardData): DashboardData {
@@ -467,6 +517,8 @@ function BallStateShadowPanel({ shadow }: { shadow: BallStateShadow | null }) {
 
       <div className="shadow-grid">
         <State label="Current score" value={formatShadowScore(state.scoreRuns, state.scoreWickets, state.balls)} tone="live" />
+        <State label="Model expected now" value={formatScoreExpectation(predictions.expectedRunsNow, predictions.expectedWicketsNow)} tone="live" />
+        <State label="Model actual delta" value={formatDelta(predictions.runsDelta, predictions.wicketsDelta)} />
         <State label="Projected final runs" value={formatShadowRuns(predictions.finalInningsRuns)} tone="live" />
         <State label="Projected final wickets" value={formatShadowWickets(predictions.finalInningsWickets)} />
         <State label="Remaining runs" value={formatShadowRuns(predictions.remainingInningsRuns)} />

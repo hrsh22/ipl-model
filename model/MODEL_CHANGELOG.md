@@ -65,6 +65,43 @@ Copy this block for every material model change:
 
 ## Log
 
+### 2026-04-28 — add experimental model-backed expected-now targets
+
+- Status: tested
+- Change type: feature / training / inference
+- Hypothesis: explicit expected-now targets can replace the heuristic live par score in the experimental dashboard without leaking the observed score into the target.
+
+### What changed
+
+- Exact files changed: `model/build_ball_state_matrix.py`, `model/train_ball_state.py`, `model/validate_ball_state_live_parity.py`, `model/shadow_score_ball_state_live.py`, `src/index.ts`, `frontend/src/routes/index.tsx`, `public/observer-dashboard.js`, `model/MODEL_CHANGELOG.md`
+- Exact data points / features / rules added, removed, or modified: added experimental `expected_runs_now` and `expected_wickets_now` targets; added `live_expected_now` feature mode that excludes observed score/wicket outcome fields and event trajectory fields so expected-now training cannot simply copy `current_runs` or `current_wickets`; mapped scored expected-now targets through `/observer/ball-state-shadow`; React/static dashboards use model-backed expected-now values for the matching live fixture when available and otherwise fall back to heuristic par.
+- Whether this affects pre_toss, post_toss, or both: neither deployed predictor path; this only affects the isolated experimental ball-state matrix/training/scoring flow and dashboard display.
+
+### How we tested it
+
+- Experiment/report paths: `model/experiments/ball-state/live-expected-now-artifacts/manifest.json`, `model/experiments/ball-state/tuned/expected_now_depth4_lr003_l28_wickets/manifest.json`, `model/experiments/ball-state/live_candidate_selection_report.json`.
+- Baseline artifact or production reference: existing heuristic `expected-state-heuristic-v0` and current experimental selected shadow candidates.
+- Comparison method: walk-forward training for `expected_runs_now` / `expected_wickets_now` with `--feature-mode live_expected_now`.
+
+### Measured impact
+
+| metric | baseline | candidate | delta |
+| ------ | -------- | --------- | ----- |
+| MAE expected_runs_now | 17.0886 | 14.1230 | -2.9656 |
+| MAE expected_wickets_now | 1.0705 | 1.0833 | +0.0128 |
+
+- Live/current-season effect after promotion: not promoted to production; the dashboard only uses these fields when experimental shadow scoring emits them.
+- Confidence / caveats: expected runs improves walk-forward MAE materially; expected wickets is slightly worse than the simple historical ball baseline by MAE but has slightly better RMSE/R2 in the tuned artifact, so treat the wicket par as experimental.
+
+### Decision
+
+- Outcome: not promoted
+- Why: experimental shadow artifacts were generated and selected, but no deployed predictor path was changed.
+- Deployed model source hash after change: unchanged.
+- Supporting evidence:
+    - `model/experiments/ball-state/live_candidate_selection_report.json`
+    - `model/experiments/ball-state/live-expected-now-artifacts/manifest.json`
+
 ### 2026-04-27 — harden experimental ball-state shadow refresh
 
 - Status: tested

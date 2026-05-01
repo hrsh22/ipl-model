@@ -44,6 +44,8 @@ const OPPORTUNITY_PERSISTENCE_MS = 5_000
 const SPORTS_TAKER_FEE_RATE = 0.03
 const MAPPING_LOOKAHEAD_MS = 24 * 60 * 60 * 1000
 const ACTIVE_ODDS_LOOKAHEAD_MS = 90 * 60 * 1000
+const ACTIVE_COVERAGE_POST_START_GRACE_MS = 6 * 60 * 60 * 1000
+const LIVE_FIXTURE_STALENESS_MS = 45 * 60 * 1000
 const MIN_EXECUTABLE_SHARES = 100
 const MIN_EXECUTABLE_NOTIONAL_USDC = 25
 const READY_MAX_FIXTURE_REFRESH_AGE_SECONDS = 180
@@ -358,11 +360,22 @@ const toAgeSeconds = (value: string | null) => {
 
 const toDateFromUnixSeconds = (value: number) => new Date(value * 1000)
 
+const isWithinActiveCoverageWindow = (fixture: ObserverFixtureRecord, lookaheadMs: number) => {
+  const startsInMs = fixture.startTime.getTime() - Date.now()
+  return startsInMs <= lookaheadMs && startsInMs >= -ACTIVE_COVERAGE_POST_START_GRACE_MS
+}
+
+const isFreshLiveFixture = (fixture: ObserverFixtureRecord) =>
+  Date.now() - fixture.updatedAt.getTime() <= LIVE_FIXTURE_STALENESS_MS
+
 const requiresMappingCoverage = (fixture: ObserverFixtureRecord) =>
-  fixture.isLive || fixture.startTime.getTime() - Date.now() <= MAPPING_LOOKAHEAD_MS
+  fixture.isLive || isWithinActiveCoverageWindow(fixture, MAPPING_LOOKAHEAD_MS)
 
 const requiresActiveOddsCoverage = (fixture: ObserverFixtureRecord) =>
-  fixture.isLive || fixture.startTime.getTime() - Date.now() <= ACTIVE_ODDS_LOOKAHEAD_MS
+  fixture.isLive || isWithinActiveCoverageWindow(fixture, ACTIVE_ODDS_LOOKAHEAD_MS)
+
+const requiresLiveModelCoverage = (fixture: ObserverFixtureRecord) =>
+  fixture.isLive ? isFreshLiveFixture(fixture) : requiresActiveOddsCoverage(fixture)
 
 const normalizeBookId = (odd: OpticOddsOdd) =>
   odd.sportsbook_id ?? odd.sportsbook?.trim().toLowerCase().replace(/\s+/g, "_") ?? "unknown"
@@ -729,7 +742,7 @@ class IplObserverService {
 
   public getLiveFixtures() {
     return Array.from(this.fixtures.values())
-      .filter((fixtureState) => fixtureState.fixture.isLive)
+      .filter((fixtureState) => fixtureState.fixture.isLive && isFreshLiveFixture(fixtureState.fixture))
       .map((fixtureState) => ({
         fixture: this.buildPublicFixture(fixtureState.fixture),
         monitoring: this.buildFixtureMonitoringState(fixtureState.fixture, fixtureState),
@@ -800,7 +813,7 @@ class IplObserverService {
 
   public getLiveModelFixtures() {
     return Array.from(this.fixtures.values())
-      .filter((fixtureState) => fixtureState.fixture.isLive || requiresActiveOddsCoverage(fixtureState.fixture))
+      .filter((fixtureState) => requiresLiveModelCoverage(fixtureState.fixture))
       .map((fixtureState) => this.buildLiveModelView(fixtureState, "api-read"))
       .sort(
         (left, right) =>
@@ -2769,6 +2782,10 @@ class IplObserverService {
 
     if (fixture.isLive && liveState && liveState.polymarketBooks.size === 0) {
       reasons.push("no-polymarket-ws-book")
+    }
+
+    if (fixture.isLive && !isFreshLiveFixture(fixture)) {
+      reasons.push("stale-live-fixture")
     }
 
     if (activeOddsCoverage && liveState && !this.buildReferenceProbabilities(liveState)) {

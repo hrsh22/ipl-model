@@ -146,7 +146,31 @@ const renderLiveFixtures = (fixtures) => {
   }).join('');
 };
 
-const renderLiveModel = (models) => {
+const shadowAppliesToModel = (model, shadow) => Boolean(
+  shadow?.available &&
+  shadow.currentState?.fixtureId &&
+  model?.fixture?.id === shadow.currentState.fixtureId &&
+  model?.expectedState?.innings === shadow.currentState?.innings &&
+  shadow.predictions?.expectedRunsNow !== null &&
+  shadow.predictions?.expectedRunsNow !== undefined,
+);
+
+const applyShadowExpectedState = (state, shadow) => {
+  if (!shadowAppliesToModel({ fixture: { id: shadow?.currentState?.fixtureId }, expectedState: state }, shadow)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    expectedRunsNow: shadow.predictions.expectedRunsNow,
+    expectedWicketsNow: shadow.predictions.expectedWicketsNow,
+    runsDelta: shadow.predictions.runsDelta,
+    wicketsDelta: shadow.predictions.wicketsDelta,
+    projectedScore: shadow.predictions.finalInningsRuns ?? state.projectedScore,
+  };
+};
+
+const renderLiveModel = (models, shadow) => {
   liveModelCount.textContent = String(models.length);
 
   if (!models.length) {
@@ -155,7 +179,10 @@ const renderLiveModel = (models) => {
   }
 
   liveModel.innerHTML = models.map((model) => {
-    const state = model.expectedState ?? {};
+    const state = shadowAppliesToModel(model, shadow)
+      ? applyShadowExpectedState(model.expectedState ?? {}, shadow)
+      : model.expectedState ?? {};
+    const expectedSource = shadowAppliesToModel(model, shadow) ? 'model' : 'heuristic';
     const fixture = model.fixture ?? {};
     const homeEdge = model.home?.edgeVsMarketBps;
     const awayEdge = model.away?.edgeVsMarketBps;
@@ -188,9 +215,9 @@ const renderLiveModel = (models) => {
           </div>
         </div>
         <div class="detail-grid model-grid">
-          <div class="detail-block"><span class="detail-label">Expected Runs Now</span><span class="detail-value">${formatNullableNumber(state.expectedRunsNow, 1)}</span></div>
+          <div class="detail-block"><span class="detail-label">Expected Runs Now (${expectedSource})</span><span class="detail-value">${formatNullableNumber(state.expectedRunsNow, 1)}</span></div>
           <div class="detail-block"><span class="detail-label">Runs Delta</span><span class="detail-value ${Number(runDelta ?? 0) >= 0 ? 'edge-positive' : 'edge-negative'}">${formatNullableNumber(runDelta, 1)}</span></div>
-          <div class="detail-block"><span class="detail-label">Expected Wkts Now</span><span class="detail-value">${formatNullableNumber(state.expectedWicketsNow, 2)}</span></div>
+          <div class="detail-block"><span class="detail-label">Expected Wkts Now (${expectedSource})</span><span class="detail-value">${formatNullableNumber(state.expectedWicketsNow, 2)}</span></div>
           <div class="detail-block"><span class="detail-label">Wkts Delta</span><span class="detail-value ${Number(wicketDelta ?? 0) <= 0 ? 'edge-positive' : 'edge-negative'}">${formatNullableNumber(wicketDelta, 2)}</span></div>
           <div class="detail-block"><span class="detail-label">Home Fair</span><span class="detail-value">${formatNullablePercent(model.home?.fairProbability)}</span></div>
           <div class="detail-block"><span class="detail-label">Away Fair</span><span class="detail-value">${formatNullablePercent(model.away?.fairProbability)}</span></div>
@@ -240,6 +267,10 @@ const renderBallShadow = (shadow) => {
         </div>
       </div>
       <div class="detail-grid model-grid">
+        <div class="detail-block"><span class="detail-label">Model Expected Runs Now</span><span class="detail-value">${formatNullableNumber(predictions.expectedRunsNow, 1)}</span></div>
+        <div class="detail-block"><span class="detail-label">Model Runs Delta</span><span class="detail-value ${Number(predictions.runsDelta ?? 0) >= 0 ? 'edge-positive' : 'edge-negative'}">${formatNullableNumber(predictions.runsDelta, 1)}</span></div>
+        <div class="detail-block"><span class="detail-label">Model Expected Wkts Now</span><span class="detail-value">${formatNullableNumber(predictions.expectedWicketsNow, 2)}</span></div>
+        <div class="detail-block"><span class="detail-label">Model Wkts Delta</span><span class="detail-value ${Number(predictions.wicketsDelta ?? 0) <= 0 ? 'edge-positive' : 'edge-negative'}">${formatNullableNumber(predictions.wicketsDelta, 2)}</span></div>
         <div class="detail-block"><span class="detail-label">Final wickets</span><span class="detail-value">${formatNullableNumber(predictions.finalInningsWickets, 2)}</span></div>
         <div class="detail-block"><span class="detail-label">Remaining runs</span><span class="detail-value">${formatNullableNumber(predictions.remainingInningsRuns, 1)}</span></div>
         <div class="detail-block"><span class="detail-label">Remaining wickets</span><span class="detail-value">${formatNullableNumber(predictions.remainingInningsWickets, 2)}</span></div>
@@ -367,7 +398,7 @@ const loadDashboard = async () => {
 
     renderMetrics(ready, metrics);
     renderLiveFixtures(live);
-    renderLiveModel(liveModelPayload);
+    renderLiveModel(liveModelPayload, ballShadowPayload);
     renderBallShadow(ballShadowPayload);
     renderOpportunities(opportunityDiagnostics);
     renderDiagnostics(diagnosticsPayload);

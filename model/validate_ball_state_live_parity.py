@@ -33,6 +33,17 @@ LIVE_UNAVAILABLE_FEATURES = {
     "batting_team_won_toss",
 }
 
+EXPECTED_NOW_UNAVAILABLE_FEATURES = {
+    "current_runs",
+    "current_wickets",
+    "current_run_rate",
+    "wickets_in_hand",
+    "run_rate_required_delta",
+    "required_run_rate",
+    "runs_to_target",
+    *EVENT_TRAJECTORY_COLUMNS,
+}
+
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_EXPERIMENT_DIR = ROOT / "experiments" / "ball-state"
@@ -70,7 +81,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--team-features", type=Path, default=DEFAULT_TEAM_FEATURES)
     parser.add_argument(
         "--feature-mode",
-        choices=["full", "live_compatible", "live_compatible_trajectory", "live_compatible_selected_trajectory"],
+        choices=["full", "live_compatible", "live_compatible_trajectory", "live_compatible_selected_trajectory", "live_expected_now"],
         default="full",
     )
     parser.add_argument("--url", help="Optional live-model endpoint URL to validate")
@@ -138,6 +149,9 @@ def load_feature_columns(path: Path) -> list[str]:
 
 
 def filter_feature_columns(feature_columns: list[str], feature_mode: str) -> list[str]:
+    if feature_mode == "live_expected_now":
+        excluded = LIVE_UNAVAILABLE_FEATURES.union(EXPECTED_NOW_UNAVAILABLE_FEATURES)
+        return [column for column in feature_columns if column not in excluded]
     if feature_mode == "live_compatible":
         excluded = LIVE_UNAVAILABLE_FEATURES.union(EVENT_TRAJECTORY_COLUMNS)
         return [column for column in feature_columns if column not in excluded]
@@ -523,6 +537,7 @@ def main() -> None:
             "Snapshot gaps are treated as missing trajectory features rather than fabricated balls.",
             "live_compatible mode excludes toss and event trajectory fields for the stable score/prior contract.",
             "live_compatible_trajectory mode excludes toss fields but requires snapshot coverage for event trajectory fields.",
+            "live_expected_now mode excludes observed score/wicket outcome fields so expected-now targets can be scored without copying actual state.",
         ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

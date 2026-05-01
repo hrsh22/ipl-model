@@ -44,6 +44,8 @@ LIVE_UNAVAILABLE_FEATURES = {
 
 
 TARGETS = [
+    "expected_runs_now",
+    "expected_wickets_now",
     "final_innings_runs",
     "final_innings_wickets",
     "remaining_innings_runs",
@@ -53,10 +55,23 @@ CLASSIFICATION_TARGETS = ["chase_success"]
 DROP_COLUMNS = {
     "match_id",
     "date",
+    "expected_runs_now",
+    "expected_wickets_now",
     "remaining_innings_runs",
     "remaining_innings_wickets",
     "chase_success",
     *TARGETS,
+}
+
+EXPECTED_NOW_UNAVAILABLE_FEATURES = {
+    "current_runs",
+    "current_wickets",
+    "current_run_rate",
+    "wickets_in_hand",
+    "run_rate_required_delta",
+    "required_run_rate",
+    "runs_to_target",
+    *EVENT_TRAJECTORY_COLUMNS,
 }
 
 
@@ -86,9 +101,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fold-start-season", type=int, default=2023)
     parser.add_argument(
         "--feature-mode",
-        choices=["full", "live_compatible", "live_compatible_trajectory", "live_compatible_selected_trajectory"],
+        choices=["full", "live_compatible", "live_compatible_trajectory", "live_compatible_selected_trajectory", "live_expected_now"],
         default="full",
-        help="live_compatible excludes toss and event trajectory fields; live_compatible_trajectory keeps snapshot-derivable event fields",
+        help="live_compatible excludes toss and event trajectory fields; live_expected_now also excludes observed score/wicket outcome fields",
     )
     parser.add_argument(
         "--calibration",
@@ -114,6 +129,9 @@ def feature_columns(data: pd.DataFrame, feature_mode: str) -> list[str]:
     excluded = set(DROP_COLUMNS)
     if feature_mode in {"live_compatible", "live_compatible_trajectory", "live_compatible_selected_trajectory"}:
         excluded.update(LIVE_UNAVAILABLE_FEATURES)
+    if feature_mode == "live_expected_now":
+        excluded.update(LIVE_UNAVAILABLE_FEATURES)
+        excluded.update(EXPECTED_NOW_UNAVAILABLE_FEATURES)
     if feature_mode == "live_compatible":
         excluded.update(EVENT_TRAJECTORY_COLUMNS)
     if feature_mode == "live_compatible_selected_trajectory":
@@ -342,6 +360,14 @@ def walk_forward_folds(data: pd.DataFrame, min_train_season: int = 2022) -> list
 
 
 def build_regression_baseline(train: pd.DataFrame, test: pd.DataFrame, target: str) -> pd.Series:
+    if target in {"expected_runs_now", "expected_wickets_now"}:
+        grouped = train.groupby(["innings", "legal_balls_bowled"])[target].mean()
+        fallback = float(train[target].mean())
+        return test.apply(
+            lambda row: grouped.get((row["innings"], row["legal_balls_bowled"]), fallback),
+            axis=1,
+        )
+
     if target == "final_innings_runs":
         remaining = (train[target] - train["current_runs"]) / train["balls_remaining"].where(
             train["balls_remaining"] > 0,
@@ -575,6 +601,7 @@ def main() -> None:
             "Models are not wired into live observer inference yet.",
             "live_compatible mode removes toss and event trajectory fields for the stable score/prior contract.",
             "live_compatible_trajectory mode keeps snapshot-derivable event trajectory fields for explicit A/B evaluation.",
+            "live_expected_now mode excludes observed score/wicket outcome fields so expected-now targets learn par state instead of copying the live score.",
             "Classification calibration, when enabled, uses only a chronological holdout from the training side of each fold.",
         ],
     }

@@ -41,6 +41,8 @@ DEFAULT_SELECTION_REPORT = DEFAULT_EXPERIMENT_DIR / "live_candidate_selection_re
 DEFAULT_OUTPUT_ROOT = DEFAULT_EXPERIMENT_DIR / "runs"
 
 REGRESSION_TARGETS = {
+    "expected_runs_now",
+    "expected_wickets_now",
     "final_innings_runs",
     "final_innings_wickets",
     "remaining_innings_runs",
@@ -198,6 +200,10 @@ def heuristic_value(entry: dict[str, Any], target: str) -> float | None:
     fixture = entry.get("fixture") or {}
     state = entry.get("expectedState") or {}
 
+    if target == "expected_runs_now":
+        return state.get("expectedRunsNow") or entry.get("expectedRunsNow")
+    if target == "expected_wickets_now":
+        return state.get("expectedWicketsNow") or entry.get("expectedWicketsNow")
     if target == "final_innings_runs":
         return state.get("projectedScore") or entry.get("projectedScore")
     if target == "final_innings_wickets":

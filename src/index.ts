@@ -123,6 +123,7 @@ const ballStateShadowRefreshIntervalMs = 5_000
 const ballStateShadowRefreshTimeoutMs = 120_000
 const ballStateEventIngestionIntervalMs = 30_000
 const ballStateEventIngestionTimeoutMs = 60_000
+const ballStateShadowMaxAgeMs = 5 * 60 * 1000
 const allowedBallStateRemoteHosts = new Set(["www.espncricinfo.com", "espncricinfo.com"])
 
 let predictorLiveDataRefreshPromise: Promise<void> | null = null
@@ -190,6 +191,10 @@ type BallStateShadowResponse = {
     balls: number | null
   }
   predictions: {
+    expectedRunsNow: number | null
+    expectedWicketsNow: number | null
+    runsDelta: number | null
+    wicketsDelta: number | null
     finalInningsRuns: number | null
     finalInningsWickets: number | null
     remainingInningsRuns: number | null
@@ -250,6 +255,21 @@ type BallStateEventRun = {
   scoresUpdatedAtMs: number | null
 }
 
+type BallStateShadowRun = {
+  outputDir: string
+  relativeOutputDir: string
+  scoresPath: string
+  updatedAtMs: number
+  contextRecord: JsonRecord
+  fixtureId: string | null
+}
+
+type ActiveBallStateFixture = {
+  id: string
+  homeTeam: string
+  awayTeam: string
+}
+
 const isJsonRecord = (value: unknown): value is JsonRecord =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
@@ -306,6 +326,36 @@ const safeBallStateSourceUrl = (value: string) => {
   } catch {
     return null
   }
+}
+
+const normalizeBallStateTeam = (value: string | null) =>
+  (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "").trim()
+
+const isComparableTeamSet = (left: Array<string | null>, right: Array<string | null>) => {
+  const leftTeams = left.map(normalizeBallStateTeam).filter(Boolean).sort()
+  const rightTeams = right.map(normalizeBallStateTeam).filter(Boolean).sort()
+  return leftTeams.length === 2 && rightTeams.length === 2 && leftTeams.every((team, index) => team === rightTeams[index])
+}
+
+const isBallStateScratchRunName = (name: string) =>
+  /(?:sample|smoke|test)/i.test(name)
+
+const ballStateRunMatchesFixture = (run: Pick<BallStateShadowRun, "contextRecord" | "fixtureId">, fixture: ActiveBallStateFixture) => {
+  if (run.fixtureId && run.fixtureId === fixture.id) {
+    return true
+  }
+
+  const contextTeams = [
+    firstStringField(run.contextRecord, ["home_team", "homeTeam"]),
+    firstStringField(run.contextRecord, ["away_team", "awayTeam"]),
+  ]
+  const inningsTeams = [
+    firstStringField(run.contextRecord, ["batting_team", "battingTeam"]),
+    firstStringField(run.contextRecord, ["bowling_team", "bowlingTeam"]),
+  ]
+
+  return isComparableTeamSet(contextTeams, [fixture.homeTeam, fixture.awayTeam]) ||
+    isComparableTeamSet(inningsTeams, [fixture.homeTeam, fixture.awayTeam])
 }
 
 const firstStringField = (record: JsonRecord, keys: string[]) => {
@@ -395,6 +445,10 @@ const unavailableBallStateShadow = (reason: string): BallStateShadowResponse => 
     balls: null,
   },
   predictions: {
+    expectedRunsNow: null,
+    expectedWicketsNow: null,
+    runsDelta: null,
+    wicketsDelta: null,
     finalInningsRuns: null,
     finalInningsWickets: null,
     remainingInningsRuns: null,
@@ -430,6 +484,7 @@ const findLatestBallStateEventRun = async (): Promise<BallStateEventRun | null> 
   const candidates = await Promise.all(
     entries
       .filter((entry) => entry.isDirectory() && (entry.name === "live-events" || entry.name.startsWith("live-events-")))
+      .filter((entry) => !isBallStateScratchRunName(entry.name))
       .map(async (entry) => {
         const outputDir = join(ballStateExperimentsDirectory, entry.name)
         const contextPath = join(outputDir, "fixture-context.json")
@@ -438,7 +493,7 @@ const findLatestBallStateEventRun = async (): Promise<BallStateEventRun | null> 
         const contextRecord = isJsonRecord(context) ? context : {}
         const eventsPath = join(outputDir, "normalized_ball_events.jsonl")
         const eventsUpdatedAtMs = await getFileMtimeMs(eventsPath)
-        if (eventsUpdatedAtMs === null && contextUpdatedAtMs === null) {
+        if (contextUpdatedAtMs === null) {
           return null
         }
 
@@ -494,13 +549,24 @@ const findLatestBallStateEventRun = async (): Promise<BallStateEventRun | null> 
     .sort((left, right) => Math.max(right.eventsUpdatedAtMs ?? 0, right.contextUpdatedAtMs ?? 0) - Math.max(left.eventsUpdatedAtMs ?? 0, left.contextUpdatedAtMs ?? 0))[0] ?? null
 }
 
-const findLatestBallStateShadowRun = async () => {
+const findLatestBallStateShadowRun = async (activeFixtures: ActiveBallStateFixture[] = []): Promise<BallStateShadowRun | null> => {
+  if (activeFixtures.length === 0) {
+    return null
+  }
+
   const entries = await readdir(ballStateExperimentsDirectory, { withFileTypes: true }).catch(() => [])
   const candidates = await Promise.all(
     entries
       .filter((entry) => entry.isDirectory() && (entry.name === "live-events" || entry.name.startsWith("live-events-")))
+      .filter((entry) => !isBallStateScratchRunName(entry.name))
       .map(async (entry) => {
         const outputDir = join(ballStateExperimentsDirectory, entry.name)
+        const contextPath = join(outputDir, "fixture-context.json")
+        const context = await readJsonFileIfPresent(contextPath)
+        if (!isJsonRecord(context)) {
+          return null
+        }
+
         const scoresPath = join(outputDir, "shadow-run", "shadow_scores.jsonl")
         const stats = await stat(scoresPath).catch(() => null)
         return stats
@@ -509,13 +575,20 @@ const findLatestBallStateShadowRun = async () => {
               relativeOutputDir: join("model", "experiments", "ball-state", entry.name),
               scoresPath,
               updatedAtMs: stats.mtimeMs,
+              contextRecord: context,
+              fixtureId: firstStringField(context, ["fixture_id", "fixtureId", "match_id", "matchId"]),
             }
           : null
       }),
   )
 
-  return candidates
+  const latestAllowedUpdatedAtMs = Date.now() - ballStateShadowMaxAgeMs
+  const validCandidates = candidates
     .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
+    .filter((candidate) => candidate.updatedAtMs >= latestAllowedUpdatedAtMs)
+  const fixtureMatchedCandidates = validCandidates.filter((candidate) => activeFixtures.some((fixture) => ballStateRunMatchesFixture(candidate, fixture)))
+
+  return fixtureMatchedCandidates
     .sort((left, right) => right.updatedAtMs - left.updatedAtMs)[0] ?? null
 }
 
@@ -783,8 +856,8 @@ const startBallStateShadowRefreshLoop = () => {
   }, ballStateShadowRefreshIntervalMs)
 }
 
-const getLatestBallStateShadow = async (): Promise<BallStateShadowResponse> => {
-  const latest = await findLatestBallStateShadowRun()
+const getLatestBallStateShadow = async (activeFixtures: ActiveBallStateFixture[] = []): Promise<BallStateShadowResponse> => {
+  const latest = await findLatestBallStateShadowRun(activeFixtures)
   if (!latest) {
     return unavailableBallStateShadow("No live-events shadow run found under model/experiments/ball-state.")
   }
@@ -807,6 +880,14 @@ const getLatestBallStateShadow = async (): Promise<BallStateShadowResponse> => {
   const livePayloadRecord = readRecordField(parityRecord, "live_payload")
   const entries = livePayloadRecord ? readArrayField(livePayloadRecord, "entries") : []
   const parityEntry = entries.find(isJsonRecord) ?? null
+  const expectedRunsNow = scoreByTarget.get("expected_runs_now") ?? null
+  const expectedWicketsNow = scoreByTarget.get("expected_wickets_now") ?? null
+  const runsDelta = expectedRunsNow === null || firstScore.scoreRuns === null
+    ? null
+    : firstScore.scoreRuns - expectedRunsNow
+  const wicketsDelta = expectedWicketsNow === null || firstScore.scoreWickets === null
+    ? null
+    : firstScore.scoreWickets - expectedWicketsNow
 
   return {
     status: "experimental",
@@ -824,6 +905,10 @@ const getLatestBallStateShadow = async (): Promise<BallStateShadowResponse> => {
       balls: firstScore.balls,
     },
     predictions: {
+      expectedRunsNow,
+      expectedWicketsNow,
+      runsDelta,
+      wicketsDelta,
       finalInningsRuns: scoreByTarget.get("final_innings_runs") ?? null,
       finalInningsWickets: scoreByTarget.get("final_innings_wickets") ?? null,
       remainingInningsRuns: scoreByTarget.get("remaining_innings_runs") ?? null,
@@ -1646,7 +1731,13 @@ const createApp = Effect.sync((): Express => {
           }
 
           logger.debug("Handled GET /observer/ball-state-shadow")
-          return getLatestBallStateShadow()
+          const activeFixtures = (await Effect.runPromise(loadObserverService())).getLiveFixtures()
+            .map(({ fixture }) => ({
+              id: fixture.id,
+              homeTeam: fixture.homeTeam,
+              awayTeam: fixture.awayTeam,
+            }))
+          return getLatestBallStateShadow(activeFixtures)
         },
         catch: (error) =>
           error instanceof Error ? error : new Error(String(error)),

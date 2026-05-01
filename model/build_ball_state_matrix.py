@@ -166,6 +166,8 @@ FEATURE_COLUMNS = [
 ]
 
 TARGET_COLUMNS = [
+    "expected_runs_now",
+    "expected_wickets_now",
     "final_innings_runs",
     "final_innings_wickets",
     "remaining_innings_runs",
@@ -358,6 +360,8 @@ def build_matrix(deliveries: pd.DataFrame, matchup_path: Path, team_path: Path) 
     )
     matrix["run_rate_required_delta"] = matrix["required_run_rate"] - matrix["current_run_rate"]
     matrix["batting_team_won_toss"] = (matrix["batting_team"] == matrix["toss_winner"]).astype(int)
+    matrix["expected_runs_now"] = matrix["current_runs"]
+    matrix["expected_wickets_now"] = matrix["current_wickets"]
     matrix["remaining_innings_runs"] = matrix["final_innings_runs"] - matrix["current_runs"]
     matrix["remaining_innings_wickets"] = matrix["final_innings_wickets"] - matrix["current_wickets"]
     matrix["chase_success"] = (matrix["match_won_by"] == matrix["batting_team"]).where(
