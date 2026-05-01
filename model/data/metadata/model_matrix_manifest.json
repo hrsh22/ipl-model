@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-04-28T09:14:16.215Z",
+  "generatedAt": "2026-04-30T04:00:48.954Z",
   "note": "Frozen model-matrix layer built from training-ready feature datasets. Excluded seasons are already removed upstream by training eligibility rules.",
   "preToss": {
     "rows": 850,
     "columns": 159,
-    "sourcePath": "/Users/harsh/Developer/ipl-trader/model/data/features/training_ready_matchup_features.csv",
-    "matrixPath": "/Users/harsh/Developer/ipl-trader/model/data/matrices/pre_toss_model_matrix.csv",
+    "sourcePath": "/home/cric-predictor/apps/ipl-model/model/data/features/training_ready_matchup_features.csv",
+    "matrixPath": "/home/cric-predictor/apps/ipl-model/model/data/matrices/pre_toss_model_matrix.csv",
     "sourceSha256": "83f5e69873c67c7c56fcf8aafceb9a15dc7004c835690e521b32c7d88e923afd",
     "matrixSha256": "cf47e6bd17588b021147ec5f5dd2877b3f203eb9d7f5589e9cb02c17f62e15af",
     "metadataColumns": [
@@ -366,8 +366,8 @@
   "postToss": {
     "rows": 850,
     "columns": 172,
-    "sourcePath": "/Users/harsh/Developer/ipl-trader/model/data/features/training_ready_post_toss_matchup_features.csv",
-    "matrixPath": "/Users/harsh/Developer/ipl-trader/model/data/matrices/post_toss_model_matrix.csv",
+    "sourcePath": "/home/cric-predictor/apps/ipl-model/model/data/features/training_ready_post_toss_matchup_features.csv",
+    "matrixPath": "/home/cric-predictor/apps/ipl-model/model/data/matrices/post_toss_model_matrix.csv",
     "sourceSha256": "494b2fe2c915017e9b9b0eb4c0544fdab13ab34c2d064a6353018f8d322d2965",
     "matrixSha256": "71a7757c97ecab333c47f2f4540660d542611d08f73790bd8643de2847f1c869",
     "metadataColumns": [

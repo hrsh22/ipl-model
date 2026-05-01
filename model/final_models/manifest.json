@@ -279,7 +279,7 @@
           "iterations": 100
         },
         "modelPath": "model/final_models/pre_toss/top60_full/catboost_model.cbm",
-        "sourceExperiment": "model/experiments/daily-refresh-runs/20260428T040000Z/artifacts/pre_toss/top60_full_daily",
+        "sourceExperiment": "model/experiments/daily-refresh-runs/20260430T040001Z/artifacts/pre_toss/top60_full_daily",
         "sourceModel": "catboost_tuned"
       },
       {
@@ -491,7 +491,7 @@
           "iterations": 100
         },
         "modelPath": "model/final_models/pre_toss/delta/catboost_model.cbm",
-        "sourceExperiment": "model/experiments/daily-refresh-runs/20260428T040000Z/artifacts/pre_toss/delta_daily",
+        "sourceExperiment": "model/experiments/daily-refresh-runs/20260430T040001Z/artifacts/pre_toss/delta_daily",
         "sourceModel": "catboost_tuned"
       }
     ],
@@ -499,7 +499,7 @@
       "top60_full": 0.45,
       "delta": 0.55
     },
-    "sourceExperiment": "model/experiments/daily-refresh-runs/20260428T040000Z/artifacts/pre_toss/ensemble_top60_full__delta_daily",
+    "sourceExperiment": "model/experiments/daily-refresh-runs/20260430T040001Z/artifacts/pre_toss/ensemble_top60_full__delta_daily",
     "sourceModel": "catboost_ensemble"
   },
   "post_toss": {
@@ -848,14 +848,14 @@
           "max_depth": 1,
           "learning_rate": 0.03,
           "reg_lambda": 0.5,
-          "n_estimators": 13,
+          "n_estimators": 14,
           "subsample": 0.9,
           "colsampleBytree": 0.9,
           "booster": "gblinear"
         },
         "modelPath": "model/final_models/post_toss/xgboost_post_toss_state_linear/xgboost_model.json",
         "preprocessorPath": "model/final_models/post_toss/xgboost_post_toss_state_linear/preprocessor.joblib",
-        "sourceExperiment": "model/experiments/toss-state-xgboost/artifacts/post_toss/xgboost_post_toss_state_linear_20260428",
+        "sourceExperiment": "model/experiments/daily-refresh-runs/20260430T040001Z/artifacts/post_toss/xgboost_post_toss_state_linear_daily",
         "sourceModel": "xgboost_tuned"
       }
     ],
