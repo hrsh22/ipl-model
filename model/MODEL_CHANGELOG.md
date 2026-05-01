@@ -65,6 +65,45 @@ Copy this block for every material model change:
 
 ## Log
 
+### 2026-05-01 — post-toss XI contract and UI state audit fixes
+
+- Status: tested
+- Change type: inference
+- Hypothesis: post-toss automatic predictions should only run when official toss plus confirmed/effective XI are available, and the UI must not accidentally submit unchanged official XI through the manual probable-XI override path.
+
+### What changed
+
+- Exact files changed: `model/predict_fixture.py`, `apps/web/src/routes/predictor.tsx`, `model/MODEL_CHANGELOG.md`, `model/PRODUCTION_MODEL_HISTORY.md`.
+- Exact data points / features / rules added, removed, or modified: post-toss XI suggestions now preselect the official effective XI before falling back to confirmed XI, so impact-player substitutions align with the feature overrides used by inference. `official_post_toss_applied` now requires official lineups, not merely a non-empty official context. Auto post-toss CLI prediction now fails fast when no manual fallback inputs are supplied and official lineups are missing. The web predictor considers post-toss auto ready only when official toss and XI are both available, ignores stale context responses, parses live flags explicitly, and avoids sending unchanged post-toss official XI back as a manual probable-XI override.
+- Whether this affects pre_toss, post_toss, or both: primarily post_toss; pre_toss UI behavior is affected only through safer stale-state handling and live-flag parsing.
+
+### How we tested it
+
+- Experiment/report paths: direct predictor contract smoke checks for live fixture `2483` and future fixture `2484`.
+- Baseline artifact or production reference: existing `model/final_models/manifest.json` production models; model weights unchanged.
+- Comparison method: manual fixture review and targeted CLI assertions for context/prediction flags.
+
+### Measured impact
+
+| metric   | baseline | candidate | delta |
+| -------- | -------- | --------- | ----- |
+| log_loss | n/a      | n/a       | n/a   |
+| brier    | n/a      | n/a       | n/a   |
+| roc_auc  | n/a      | n/a       | n/a   |
+| accuracy | n/a      | n/a       | n/a   |
+
+- Live/current-season effect after promotion: fixture `2483` post-toss auto remains an official-feed prediction with `official_post_toss_applied: true`, `probable_xi_applied: false`, and `official_post_toss_context.lineups_available: true`. Fixture `2484` pre-toss suggested-XI smoke still reports `probable_xi_source: suggested` and `manual_probable_xi_applied: false`.
+- Confidence / caveats: model artifacts are unchanged; this is an inference-contract and UI-state correctness fix. Historical benchmark metrics were not rerun because no training artifacts changed.
+
+### Decision
+
+- Outcome: promoted
+- Why: the audited bugs were contract/state issues around inference inputs. The fix prevents half-official post-toss auto predictions and prevents the unchanged official XI from being reinterpreted through a different manual feature path.
+- Deployed model source hash after change: unchanged model artifacts; runtime input contract changed.
+- Supporting evidence:
+    - `python3 -m py_compile model/predict_fixture.py`
+    - direct `python3 model/predict_fixture.py` contract smoke assertions for fixtures `2483` and `2484`
+
 ### 2026-05-01 — official fixture kickoff times preserved
 
 - Status: tested

@@ -203,6 +203,13 @@ def normalize_identifier(value: Any) -> str:
     return str(value).strip()
 
 
+def parse_boolish(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    return text in {"1", "true", "yes", "y"}
+
+
 def normalize_identifier_columns(frame: pd.DataFrame) -> pd.DataFrame:
     normalized = frame.copy()
     for column in ("fixture_id", "official_match_id", "opticodds_game_id"):
@@ -2173,7 +2180,8 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
 
     base = {
         "__file_overrides_applied": bool(override_entry),
-        "__official_post_toss_applied": args.mode == "post_toss" and bool(official_post_toss),
+        "__official_post_toss_applied": args.mode == "post_toss"
+        and bool(official_post_toss.get("official_lineups_available")),
         "__official_lineups_available": bool(
             official_post_toss.get("official_lineups_available")
         ),
@@ -2226,7 +2234,7 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
         "fixture_id": fixture["fixture_id"],
         "opticodds_game_id": fixture["opticodds_game_id"],
         "fixture_status": fixture["status"],
-        "fixture_is_live": bool(fixture["is_live"]),
+        "fixture_is_live": parse_boolish(fixture["is_live"]),
         "match_date": fixture["match_date"],
         "venue": venue,
         "city": fixture["city"],
@@ -2315,6 +2323,21 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
             or official_post_toss.get("toss_decision")
             or ""
         ).strip()
+        has_manual_post_toss_inputs = bool(
+            args.toss_winner
+            or args.toss_decision
+            or team1_probable_xi
+            or team2_probable_xi
+            or args.feature_overrides_json
+        )
+
+        if (
+            not has_manual_post_toss_inputs
+            and not official_post_toss.get("official_lineups_available")
+        ):
+            raise ValueError(
+                "post_toss auto mode requires official toss and confirmed XI; switch to manual mode to supply fallback assumptions"
+            )
 
         if not toss_winner or not toss_decision:
             raise ValueError(

@@ -55,6 +55,16 @@ Why it is active: it is not the strongest metric model we have seen, but it is t
 
 ## Timeline of production-relevant changes
 
+### 2026-05-01 — post-toss official XI contract tightened
+
+Change: kept production model weights unchanged, but tightened the runtime contract for post-toss inference. Automatic post-toss predictions now require official toss plus confirmed/effective XI, post-toss manual preselection follows the official effective XI before falling back to confirmed XI, and the web UI no longer resubmits the unchanged official XI through the generic manual probable-XI path.
+
+Impact: this removes a probability drift where re-submitting the same official XI as a manual probable XI could produce a different post-toss probability from the automatic official-feed path. It also prevents the UI from claiming post-toss auto readiness when only toss data is present. Fixture `2483` remains an official post-toss auto prediction with `official_post_toss_applied: true` and no probable-XI override.
+
+Decision: **accepted**.
+
+Reason: this is an inference-input correctness fix. It does not change model artifacts, but it protects the deployed model from receiving semantically different feature inputs for the same official XI state.
+
 ### 2026-05-01 — official fixture kickoff times preserved
 
 Change: kept production model weights unchanged, but corrected the official IPL fixture input contract. Fixture ingestion now serializes official kickoff instants from `GMTMatchDate` + `GMTMatchTime` instead of turning date-only `MatchDate` values into midnight UTC.
@@ -69,7 +79,7 @@ Reason: this is an inference-data correctness fix that prevents scheduled fixtur
 
 Change: kept production model weights unchanged, but changed the live predictor inputs around them. Fixture discovery can now use the official IPL schedule when OpticOdds is disabled; automatic pre-toss predictions send the suggested XI explicitly; manual mode starts from the same XI and only becomes an override when edited. The predictor now records whether a probable XI came from `suggested` or `manual`, rejects partial XI payloads, canonicalizes common player-name variants for XI feature lookup, excludes no-result rows from current-season result supplements, and stops counting full squad bench players as zero-stat player appearances.
 
-Impact: production probabilities can change because inference-time fixture, current-season form, and probable-XI inputs changed. For the current Rajasthan Royals vs Delhi Capitals fixture (`2483`), the suggested-XI pre-toss read now gives Delhi `0.55077` after the live-data cleanup, and the output correctly marks the XI source as suggested rather than manual. Post-toss behavior remains gated on toss information; manual toss input still produces a valid post-toss prediction when official toss data is unavailable.
+Impact: production probabilities can change because inference-time fixture, current-season form, and probable-XI inputs changed. For the current Rajasthan Royals vs Delhi Capitals fixture (`2483`), the suggested-XI pre-toss read now gives Delhi `0.52990` after alias canonicalization, and the output correctly marks the XI source as suggested rather than manual. Post-toss behavior remains gated on toss information; manual toss input still produces a valid post-toss prediction when official toss data is unavailable.
 
 Decision: **accepted**.
 

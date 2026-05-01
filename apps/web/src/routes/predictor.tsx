@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 export const Route = createFileRoute('/predictor')({
   component: PredictorPage,
@@ -161,6 +161,7 @@ export function PredictorPage() {
   const [mode, setMode] = useState<PredictorMode>('pre_toss')
   const [inputMode, setInputMode] = useState<InputMode>('auto')
   const [manual, setManual] = useState<ManualState>(() => emptyManualState())
+  const contextRequestId = useRef(0)
 
   const fixtures = fixturesState.status === 'success' ? fixturesState.data : []
   const selectedFixture = fixtures.find((fixture) => fixture.fixture_id === selectedFixtureId) ?? null
@@ -185,18 +186,36 @@ export function PredictorPage() {
     if (!selectedFixture) {
       return
     }
-    setMode(Boolean(selectedFixture.is_live) ? 'post_toss' : 'pre_toss')
+    setMode(isLiveFixture(selectedFixture) ? 'post_toss' : 'pre_toss')
     setManual(emptyManualState())
     setPredictionState({ status: 'idle' })
-  }, [selectedFixture?.fixture_id])
+  }, [selectedFixture?.fixture_id, selectedFixture?.is_live, selectedFixture?.status])
 
   useEffect(() => {
     if (!selectedFixture) {
+      contextRequestId.current += 1
       setContextState({ status: 'idle' })
       return
     }
-    void loadContext(selectedFixture.fixture_id, mode)
+    const requestId = contextRequestId.current + 1
+    contextRequestId.current = requestId
+    void loadContext(selectedFixture.fixture_id, mode, requestId)
   }, [selectedFixture?.fixture_id, mode])
+
+  const updateMode = (nextMode: PredictorMode) => {
+    setMode(nextMode)
+    setPredictionState({ status: 'idle' })
+  }
+
+  const updateInputMode = (nextInputMode: InputMode) => {
+    setInputMode(nextInputMode)
+    setPredictionState({ status: 'idle' })
+  }
+
+  const updateManual = (next: ManualState | ((current: ManualState) => ManualState)) => {
+    setManual(next)
+    setPredictionState({ status: 'idle' })
+  }
 
   async function loadFixtures() {
     setFixturesState({ status: 'loading' })
@@ -209,7 +228,7 @@ export function PredictorPage() {
     }
   }
 
-  async function loadContext(fixtureId: string, nextMode: PredictorMode) {
+  async function loadContext(fixtureId: string, nextMode: PredictorMode, requestId: number) {
     setContextState({ status: 'loading' })
     try {
       const data = await fetchJson<ContextPayload>('/api/predictor/context', {
@@ -217,6 +236,9 @@ export function PredictorPage() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ fixtureId, mode: nextMode }),
       })
+      if (contextRequestId.current !== requestId) {
+        return
+      }
       setContextState({ status: 'success', data })
       const autoReady = isAutoInputAvailable(data, nextMode)
       setInputMode(autoReady ? 'auto' : 'manual')
@@ -226,6 +248,9 @@ export function PredictorPage() {
         team2Players: sanitizeXiSelection(data.probable_xi_suggestions?.team2?.suggested_xi ?? [], data.probable_xi_suggestions?.team2),
       }))
     } catch (error) {
+      if (contextRequestId.current !== requestId) {
+        return
+      }
       setContextState({ status: 'error', message: messageForError(error) })
       setInputMode('manual')
     }
@@ -258,11 +283,19 @@ export function PredictorPage() {
       }
 
       const team1Players = inputMode === 'auto'
-        ? sanitizeXiSelection(context?.probable_xi_suggestions?.team1?.suggested_xi ?? [], context?.probable_xi_suggestions?.team1)
+        ? mode === 'post_toss'
+          ? []
+          : sanitizeXiSelection(context?.probable_xi_suggestions?.team1?.suggested_xi ?? [], context?.probable_xi_suggestions?.team1)
         : sanitizeXiSelection(manual.team1Players, context?.probable_xi_suggestions?.team1)
       const team2Players = inputMode === 'auto'
-        ? sanitizeXiSelection(context?.probable_xi_suggestions?.team2?.suggested_xi ?? [], context?.probable_xi_suggestions?.team2)
+        ? mode === 'post_toss'
+          ? []
+          : sanitizeXiSelection(context?.probable_xi_suggestions?.team2?.suggested_xi ?? [], context?.probable_xi_suggestions?.team2)
         : sanitizeXiSelection(manual.team2Players, context?.probable_xi_suggestions?.team2)
+      const team1DefaultPostTossXi = sanitizeXiSelection(context?.probable_xi_suggestions?.team1?.suggested_xi ?? [], context?.probable_xi_suggestions?.team1)
+      const team2DefaultPostTossXi = sanitizeXiSelection(context?.probable_xi_suggestions?.team2?.suggested_xi ?? [], context?.probable_xi_suggestions?.team2)
+      const shouldSendTeam1Xi = team1Players.length === 11 && (mode !== 'post_toss' || !samePlayerSelection(team1Players, team1DefaultPostTossXi))
+      const shouldSendTeam2Xi = team2Players.length === 11 && (mode !== 'post_toss' || !samePlayerSelection(team2Players, team2DefaultPostTossXi))
 
       if (inputMode === 'manual' && team1Players.length > 0 && team1Players.length !== 11) {
         throw new Error('Team 1 manual XI must contain exactly 11 players before running the model.')
@@ -270,13 +303,13 @@ export function PredictorPage() {
       if (inputMode === 'manual' && team2Players.length > 0 && team2Players.length !== 11) {
         throw new Error('Team 2 manual XI must contain exactly 11 players before running the model.')
       }
-      if (team1Players.length === 11) {
+      if (shouldSendTeam1Xi) {
         body.team1ProbableXi = team1Players
       }
-      if (team2Players.length === 11) {
+      if (shouldSendTeam2Xi) {
         body.team2ProbableXi = team2Players
       }
-      if (team1Players.length === 11 || team2Players.length === 11) {
+      if (shouldSendTeam1Xi || shouldSendTeam2Xi) {
         body.probableXiSource = inputMode === 'manual' ? 'manual' : 'suggested'
       }
 
@@ -357,14 +390,14 @@ export function PredictorPage() {
             <div className="form-grid">
               <label className="field">
                 <span>Prediction mode</span>
-                <select value={mode} onChange={(event) => setMode(event.target.value as PredictorMode)} disabled={!selectedFixture}>
+                <select value={mode} onChange={(event) => updateMode(event.target.value as PredictorMode)} disabled={!selectedFixture}>
                   <option value="pre_toss">Pre toss</option>
                   <option value="post_toss">Post toss</option>
                 </select>
               </label>
               <label className="field">
                 <span>Input source</span>
-                <select value={inputMode} onChange={(event) => setInputMode(event.target.value as InputMode)} disabled={!selectedFixture}>
+                <select value={inputMode} onChange={(event) => updateInputMode(event.target.value as InputMode)} disabled={!selectedFixture}>
                   <option value="auto">Auto</option>
                   <option value="manual">Manual</option>
                 </select>
@@ -373,7 +406,7 @@ export function PredictorPage() {
 
             <ContextPanel state={contextState} mode={mode} />
             {inputMode === 'manual' && selectedFixture ? (
-              <ManualPanel fixture={selectedFixture} context={context} manual={manual} setManual={setManual} mode={mode} />
+              <ManualPanel fixture={selectedFixture} context={context} manual={manual} setManual={updateManual} mode={mode} />
             ) : null}
             <button className="primary run-button" type="button" onClick={() => void runPrediction()} disabled={!selectedFixture || predictionState.status === 'loading'}>
               {predictionState.status === 'loading' ? 'Running model…' : 'Run prediction'}
@@ -673,7 +706,15 @@ async function parseJsonResponse(response: Response): Promise<unknown> {
 
 function isAutoInputAvailable(payload: ContextPayload, mode: PredictorMode): boolean {
   const automatic = payload.automatic ?? {}
-  return mode === 'post_toss' ? Boolean(automatic.official_toss) : Boolean(automatic.fixture_shell && automatic.current_elo)
+  return mode === 'post_toss' ? Boolean(automatic.official_toss && automatic.official_confirmed_xi) : Boolean(automatic.fixture_shell && automatic.current_elo)
+}
+
+function samePlayerSelection(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((player, index) => playerSelectionKey(player) === playerSelectionKey(right[index] ?? ''))
+}
+
+function isLiveFixture(fixture: Fixture): boolean {
+  return fixture.is_live === true || fixture.is_live === 'true'
 }
 
 function playerSelectionKey(value: string): string {
@@ -751,8 +792,10 @@ function sortFixtures(fixtures: Fixture[]): Fixture[] {
     if (leftCompleted !== rightCompleted) {
       return leftCompleted ? 1 : -1
     }
-    if (Boolean(left.is_live) !== Boolean(right.is_live)) {
-      return left.is_live ? -1 : 1
+    const leftLive = isLiveFixture(left)
+    const rightLive = isLiveFixture(right)
+    if (leftLive !== rightLive) {
+      return leftLive ? -1 : 1
     }
     return String(left.match_date ?? '').localeCompare(String(right.match_date ?? ''))
   })
@@ -767,7 +810,7 @@ function isCompletedFixture(fixture: Fixture): boolean {
 }
 
 function formatFixtureStatus(fixture: Fixture): string {
-  if (fixture.is_live === true || fixture.is_live === 'true') {
+  if (isLiveFixture(fixture)) {
     return 'Live'
   }
   if (isCompletedFixture(fixture)) {
