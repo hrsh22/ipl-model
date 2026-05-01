@@ -1,8 +1,10 @@
-const DEFAULT_BACKEND_ORIGIN = 'http://localhost:8080'
 const BACKEND_UNAVAILABLE_STATUS = 503
 
 export async function proxyBackendJson(path: string, init: RequestInit = {}): Promise<Response> {
   const origin = backendOrigin()
+  if (!origin) {
+    return missingBackendOriginResponse()
+  }
   const url = new URL(path, origin)
   const response = await fetchBackend(url, init)
 
@@ -29,9 +31,9 @@ export async function proxyBackendJsonRequest(path: string, request: Request): P
   })
 }
 
-function backendOrigin(): string {
+function backendOrigin(): string | null {
   const configuredOrigin = process.env.IPL_TRADER_API_ORIGIN?.trim()
-  return configuredOrigin && configuredOrigin.length > 0 ? configuredOrigin : DEFAULT_BACKEND_ORIGIN
+  return configuredOrigin && configuredOrigin.length > 0 ? configuredOrigin : null
 }
 
 async function fetchBackend(url: URL, init: RequestInit): Promise<Response | null> {
@@ -53,6 +55,15 @@ function backendUnavailableResponse(url: URL): Response {
     {
       error: `IPL Trader backend is unavailable at ${url.origin}. Start the Express API with pnpm dev, or set IPL_TRADER_API_ORIGIN to the running backend origin.`,
       backendOrigin: url.origin,
+    },
+    { status: BACKEND_UNAVAILABLE_STATUS },
+  )
+}
+
+function missingBackendOriginResponse(): Response {
+  return Response.json(
+    {
+      error: 'IPL_TRADER_API_ORIGIN must be set to the running Express API origin for web API proxy routes.',
     },
     { status: BACKEND_UNAVAILABLE_STATUS },
   )
