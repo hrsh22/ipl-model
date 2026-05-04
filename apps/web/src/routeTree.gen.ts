@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ScannerRouteImport } from './routes/scanner'
 import { Route as PredictorRouteImport } from './routes/predictor'
+import { Route as ObserverRouteImport } from './routes/observer'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiScannerScanRouteImport } from './routes/api/scanner/scan'
 import { Route as ApiScannerDefaultMarketRouteImport } from './routes/api/scanner/default-market'
@@ -18,6 +19,11 @@ import { Route as ApiPredictorPredictRouteImport } from './routes/api/predictor/
 import { Route as ApiPredictorPerformanceRouteImport } from './routes/api/predictor/performance'
 import { Route as ApiPredictorFixturesRouteImport } from './routes/api/predictor/fixtures'
 import { Route as ApiPredictorContextRouteImport } from './routes/api/predictor/context'
+import { Route as ApiObserverReadyRouteImport } from './routes/api/observer/ready'
+import { Route as ApiObserverLiveModelRouteImport } from './routes/api/observer/live-model'
+import { Route as ApiObserverBallStateShadowRouteImport } from './routes/api/observer/ball-state-shadow'
+import { Route as ApiObserverLiveModelSignalsRouteImport } from './routes/api/observer/live-model/signals'
+import { Route as ApiObserverLiveModelHistoryRouteImport } from './routes/api/observer/live-model/history'
 
 const ScannerRoute = ScannerRouteImport.update({
   id: '/scanner',
@@ -27,6 +33,11 @@ const ScannerRoute = ScannerRouteImport.update({
 const PredictorRoute = PredictorRouteImport.update({
   id: '/predictor',
   path: '/predictor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ObserverRoute = ObserverRouteImport.update({
+  id: '/observer',
+  path: '/observer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -64,81 +75,149 @@ const ApiPredictorContextRoute = ApiPredictorContextRouteImport.update({
   path: '/api/predictor/context',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiObserverReadyRoute = ApiObserverReadyRouteImport.update({
+  id: '/api/observer/ready',
+  path: '/api/observer/ready',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiObserverLiveModelRoute = ApiObserverLiveModelRouteImport.update({
+  id: '/api/observer/live-model',
+  path: '/api/observer/live-model',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiObserverBallStateShadowRoute =
+  ApiObserverBallStateShadowRouteImport.update({
+    id: '/api/observer/ball-state-shadow',
+    path: '/api/observer/ball-state-shadow',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiObserverLiveModelSignalsRoute =
+  ApiObserverLiveModelSignalsRouteImport.update({
+    id: '/signals',
+    path: '/signals',
+    getParentRoute: () => ApiObserverLiveModelRoute,
+  } as any)
+const ApiObserverLiveModelHistoryRoute =
+  ApiObserverLiveModelHistoryRouteImport.update({
+    id: '/history',
+    path: '/history',
+    getParentRoute: () => ApiObserverLiveModelRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/observer': typeof ObserverRoute
   '/predictor': typeof PredictorRoute
   '/scanner': typeof ScannerRoute
+  '/api/observer/ball-state-shadow': typeof ApiObserverBallStateShadowRoute
+  '/api/observer/live-model': typeof ApiObserverLiveModelRouteWithChildren
+  '/api/observer/ready': typeof ApiObserverReadyRoute
   '/api/predictor/context': typeof ApiPredictorContextRoute
   '/api/predictor/fixtures': typeof ApiPredictorFixturesRoute
   '/api/predictor/performance': typeof ApiPredictorPerformanceRoute
   '/api/predictor/predict': typeof ApiPredictorPredictRoute
   '/api/scanner/default-market': typeof ApiScannerDefaultMarketRoute
   '/api/scanner/scan': typeof ApiScannerScanRoute
+  '/api/observer/live-model/history': typeof ApiObserverLiveModelHistoryRoute
+  '/api/observer/live-model/signals': typeof ApiObserverLiveModelSignalsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/observer': typeof ObserverRoute
   '/predictor': typeof PredictorRoute
   '/scanner': typeof ScannerRoute
+  '/api/observer/ball-state-shadow': typeof ApiObserverBallStateShadowRoute
+  '/api/observer/live-model': typeof ApiObserverLiveModelRouteWithChildren
+  '/api/observer/ready': typeof ApiObserverReadyRoute
   '/api/predictor/context': typeof ApiPredictorContextRoute
   '/api/predictor/fixtures': typeof ApiPredictorFixturesRoute
   '/api/predictor/performance': typeof ApiPredictorPerformanceRoute
   '/api/predictor/predict': typeof ApiPredictorPredictRoute
   '/api/scanner/default-market': typeof ApiScannerDefaultMarketRoute
   '/api/scanner/scan': typeof ApiScannerScanRoute
+  '/api/observer/live-model/history': typeof ApiObserverLiveModelHistoryRoute
+  '/api/observer/live-model/signals': typeof ApiObserverLiveModelSignalsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/observer': typeof ObserverRoute
   '/predictor': typeof PredictorRoute
   '/scanner': typeof ScannerRoute
+  '/api/observer/ball-state-shadow': typeof ApiObserverBallStateShadowRoute
+  '/api/observer/live-model': typeof ApiObserverLiveModelRouteWithChildren
+  '/api/observer/ready': typeof ApiObserverReadyRoute
   '/api/predictor/context': typeof ApiPredictorContextRoute
   '/api/predictor/fixtures': typeof ApiPredictorFixturesRoute
   '/api/predictor/performance': typeof ApiPredictorPerformanceRoute
   '/api/predictor/predict': typeof ApiPredictorPredictRoute
   '/api/scanner/default-market': typeof ApiScannerDefaultMarketRoute
   '/api/scanner/scan': typeof ApiScannerScanRoute
+  '/api/observer/live-model/history': typeof ApiObserverLiveModelHistoryRoute
+  '/api/observer/live-model/signals': typeof ApiObserverLiveModelSignalsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/observer'
     | '/predictor'
     | '/scanner'
+    | '/api/observer/ball-state-shadow'
+    | '/api/observer/live-model'
+    | '/api/observer/ready'
     | '/api/predictor/context'
     | '/api/predictor/fixtures'
     | '/api/predictor/performance'
     | '/api/predictor/predict'
     | '/api/scanner/default-market'
     | '/api/scanner/scan'
+    | '/api/observer/live-model/history'
+    | '/api/observer/live-model/signals'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/observer'
     | '/predictor'
     | '/scanner'
+    | '/api/observer/ball-state-shadow'
+    | '/api/observer/live-model'
+    | '/api/observer/ready'
     | '/api/predictor/context'
     | '/api/predictor/fixtures'
     | '/api/predictor/performance'
     | '/api/predictor/predict'
     | '/api/scanner/default-market'
     | '/api/scanner/scan'
+    | '/api/observer/live-model/history'
+    | '/api/observer/live-model/signals'
   id:
     | '__root__'
     | '/'
+    | '/observer'
     | '/predictor'
     | '/scanner'
+    | '/api/observer/ball-state-shadow'
+    | '/api/observer/live-model'
+    | '/api/observer/ready'
     | '/api/predictor/context'
     | '/api/predictor/fixtures'
     | '/api/predictor/performance'
     | '/api/predictor/predict'
     | '/api/scanner/default-market'
     | '/api/scanner/scan'
+    | '/api/observer/live-model/history'
+    | '/api/observer/live-model/signals'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ObserverRoute: typeof ObserverRoute
   PredictorRoute: typeof PredictorRoute
   ScannerRoute: typeof ScannerRoute
+  ApiObserverBallStateShadowRoute: typeof ApiObserverBallStateShadowRoute
+  ApiObserverLiveModelRoute: typeof ApiObserverLiveModelRouteWithChildren
+  ApiObserverReadyRoute: typeof ApiObserverReadyRoute
   ApiPredictorContextRoute: typeof ApiPredictorContextRoute
   ApiPredictorFixturesRoute: typeof ApiPredictorFixturesRoute
   ApiPredictorPerformanceRoute: typeof ApiPredictorPerformanceRoute
@@ -161,6 +240,13 @@ declare module '@tanstack/react-router' {
       path: '/predictor'
       fullPath: '/predictor'
       preLoaderRoute: typeof PredictorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/observer': {
+      id: '/observer'
+      path: '/observer'
+      fullPath: '/observer'
+      preLoaderRoute: typeof ObserverRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -212,13 +298,65 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPredictorContextRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/observer/ready': {
+      id: '/api/observer/ready'
+      path: '/api/observer/ready'
+      fullPath: '/api/observer/ready'
+      preLoaderRoute: typeof ApiObserverReadyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/observer/live-model': {
+      id: '/api/observer/live-model'
+      path: '/api/observer/live-model'
+      fullPath: '/api/observer/live-model'
+      preLoaderRoute: typeof ApiObserverLiveModelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/observer/ball-state-shadow': {
+      id: '/api/observer/ball-state-shadow'
+      path: '/api/observer/ball-state-shadow'
+      fullPath: '/api/observer/ball-state-shadow'
+      preLoaderRoute: typeof ApiObserverBallStateShadowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/observer/live-model/signals': {
+      id: '/api/observer/live-model/signals'
+      path: '/signals'
+      fullPath: '/api/observer/live-model/signals'
+      preLoaderRoute: typeof ApiObserverLiveModelSignalsRouteImport
+      parentRoute: typeof ApiObserverLiveModelRoute
+    }
+    '/api/observer/live-model/history': {
+      id: '/api/observer/live-model/history'
+      path: '/history'
+      fullPath: '/api/observer/live-model/history'
+      preLoaderRoute: typeof ApiObserverLiveModelHistoryRouteImport
+      parentRoute: typeof ApiObserverLiveModelRoute
+    }
   }
 }
 
+interface ApiObserverLiveModelRouteChildren {
+  ApiObserverLiveModelHistoryRoute: typeof ApiObserverLiveModelHistoryRoute
+  ApiObserverLiveModelSignalsRoute: typeof ApiObserverLiveModelSignalsRoute
+}
+
+const ApiObserverLiveModelRouteChildren: ApiObserverLiveModelRouteChildren = {
+  ApiObserverLiveModelHistoryRoute: ApiObserverLiveModelHistoryRoute,
+  ApiObserverLiveModelSignalsRoute: ApiObserverLiveModelSignalsRoute,
+}
+
+const ApiObserverLiveModelRouteWithChildren =
+  ApiObserverLiveModelRoute._addFileChildren(ApiObserverLiveModelRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ObserverRoute: ObserverRoute,
   PredictorRoute: PredictorRoute,
   ScannerRoute: ScannerRoute,
+  ApiObserverBallStateShadowRoute: ApiObserverBallStateShadowRoute,
+  ApiObserverLiveModelRoute: ApiObserverLiveModelRouteWithChildren,
+  ApiObserverReadyRoute: ApiObserverReadyRoute,
   ApiPredictorContextRoute: ApiPredictorContextRoute,
   ApiPredictorFixturesRoute: ApiPredictorFixturesRoute,
   ApiPredictorPerformanceRoute: ApiPredictorPerformanceRoute,

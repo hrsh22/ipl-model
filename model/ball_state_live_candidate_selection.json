@@ -1,0 +1,36 @@
+{
+  "status": "experimental",
+  "selection_policy": "runtime_live_model_bridge",
+  "selected": {
+    "expected_runs_now": {
+      "candidate": "live_expected_now_default",
+      "feature_mode": "live_expected_now",
+      "artifact": "model/runtime_artifacts/ball_state_live/expected_runs_now_model.joblib",
+      "source_artifact": "model/experiments/ball-state/live-expected-now-artifacts/expected_runs_now_model.joblib"
+    },
+    "expected_wickets_now": {
+      "candidate": "expected_now_depth4_lr003_l28_wickets",
+      "feature_mode": "live_expected_now",
+      "artifact": "model/runtime_artifacts/ball_state_live/expected_wickets_now_model.joblib",
+      "source_artifact": "model/experiments/ball-state/tuned/expected_now_depth4_lr003_l28_wickets/expected_wickets_now_model.joblib"
+    },
+    "final_innings_runs": {
+      "candidate": "live_compatible_selected_trajectory",
+      "feature_mode": "live_compatible_selected_trajectory",
+      "artifact": "model/runtime_artifacts/ball_state_live/final_innings_runs_model.joblib",
+      "source_artifact": "model/experiments/ball-state/live-compatible-selected-trajectory-artifacts/final_innings_runs_model.joblib"
+    },
+    "chase_success": {
+      "candidate": "stable_depth4_lr0035_l215",
+      "feature_mode": "live_compatible",
+      "artifact": "model/runtime_artifacts/ball_state_live/chase_success_model.joblib",
+      "source_artifact": "model/experiments/ball-state/tuned/stable_depth4_lr0035_l215/chase_success_model.joblib"
+    }
+  },
+  "notes": [
+    "Used by the observer runtime bridge to score the current /observer/live-model payload with selected experimental ball-state artifacts.",
+    "Expected-now targets use live_expected_now features so they do not copy the actual score state.",
+    "Projected innings uses selected trajectory features and therefore requires snapshot coverage; rejected targets stay null in the observer.",
+    "Chase success is only applicable in innings 2."
+  ]
+}

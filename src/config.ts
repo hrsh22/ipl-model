@@ -45,7 +45,6 @@ const parseOptionalPositiveIntegerEnv = (
   return parsed
 }
 
-const predictorOnlyMode = parseBooleanEnv(process.env.PREDICTOR_ONLY)
 const opticOddsEnabled = parseBooleanEnv(process.env.OPTICODDS_ENABLED)
 const defaultPredictorBackgroundIntervalMs = 60 * 60 * 1000
 const opticOddsApiKey = opticOddsEnabled
@@ -55,8 +54,7 @@ const opticOddsApiKey = opticOddsEnabled
 export const config = {
   port: parsePort(requireEnv("PORT")),
   logLevel: requireEnv("LOG_LEVEL"),
-  predictorOnlyMode,
-  databaseUrl: predictorOnlyMode ? optionalEnv("DATABASE_URL") : requireEnv("DATABASE_URL"),
+  databaseUrl: requireEnv("DATABASE_URL"),
   opticOddsEnabled,
   opticOddsApiKey,
   observerApiToken: optionalEnv("OBSERVER_API_TOKEN"),
@@ -67,5 +65,11 @@ export const config = {
   predictorMaintenanceIntervalMs: parseOptionalPositiveIntegerEnv(
     process.env.PREDICTOR_MAINTENANCE_INTERVAL_MS,
     defaultPredictorBackgroundIntervalMs,
+  ),
+  experimentalBallStateShadowRefreshEnabled: parseBooleanEnv(
+    process.env.EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED,
+  ),
+  experimentalBallStateRemoteFetchEnabled: parseBooleanEnv(
+    process.env.EXPERIMENTAL_BALL_STATE_REMOTE_FETCH_ENABLED,
   ),
 }

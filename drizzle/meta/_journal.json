@@ -8,6 +8,13 @@
       "when": 1776095866711,
       "tag": "0000_wet_swarm",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777045362714,
+      "tag": "0001_slimy_prodigy",
+      "breakpoints": true
     }
   ]
 }

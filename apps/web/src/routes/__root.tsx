@@ -35,6 +35,7 @@ function RootComponent() {
         <nav className="app-nav" aria-label="Primary navigation">
           <Link to="/predictor" activeProps={{ className: 'active' }}>Predictor</Link>
           <Link to="/scanner" activeProps={{ className: 'active' }}>Scanner</Link>
+          <Link to="/observer" activeProps={{ className: 'active' }}>Observer</Link>
         </nav>
         <Outlet />
         <Scripts />

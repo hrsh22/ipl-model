@@ -1,13 +1,23 @@
+import { readFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import logger from "../logger.js"
 import { config } from "../config.js"
+import { getVenueContextStats } from "./venue-stats.js"
 import {
   getCheckpoint,
   getFixture,
   getLiveFixtureByTeams,
+  insertLiveModelSignal,
+  insertLiveModelSnapshot,
   insertSignal,
+  listFixtureLiveModelSignals,
+  listFixtureLiveModelSnapshots,
   listFixtureOdds,
   listFixtureSignals,
   listFixtures,
+  listLiveModelSignals,
+  listLiveModelSnapshots,
   listSignals,
   type ObserverFixtureRecord,
   upsertCheckpoint,
@@ -17,8 +27,19 @@ import {
 
 const OPTICODDS_BASE_URL = "https://api.opticodds.com/api/v3"
 const POLYMARKET_GAMMA_BASE_URL = "https://gamma-api.polymarket.com"
+const POLYMARKET_CLOB_BASE_URL = "https://clob.polymarket.com"
 const POLYMARKET_MARKET_WS_URL =
   "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+const currentDirectory = dirname(fileURLToPath(import.meta.url))
+const LOCAL_UPCOMING_FIXTURES_PATH = join(
+  currentDirectory,
+  "..",
+  "..",
+  "model",
+  "data",
+  "live",
+  "upcoming_fixtures.json",
+)
 
 const IPL_LEAGUE_NAME = "India - IPL"
 const MONEYLINE_MARKET = "Moneyline"
@@ -37,10 +58,18 @@ const OPPORTUNITY_PERSISTENCE_MS = 5_000
 const SPORTS_TAKER_FEE_RATE = 0.03
 const MAPPING_LOOKAHEAD_MS = 24 * 60 * 60 * 1000
 const ACTIVE_ODDS_LOOKAHEAD_MS = 90 * 60 * 1000
+const ACTIVE_COVERAGE_POST_START_GRACE_MS = 6 * 60 * 60 * 1000
+const LIVE_FIXTURE_STALENESS_MS = 45 * 60 * 1000
 const MIN_EXECUTABLE_SHARES = 100
 const MIN_EXECUTABLE_NOTIONAL_USDC = 25
 const READY_MAX_FIXTURE_REFRESH_AGE_SECONDS = 180
 const READY_MAX_STREAM_AGE_SECONDS = 45
+const LIVE_MODEL_VERSION = "ball-state-runtime-v1"
+const LIVE_MODEL_SNAPSHOT_INTERVAL_MS = 15_000
+const LIVE_MODEL_SIGNAL_THRESHOLD_BPS = 500
+const OFFICIAL_LIVE_RESULT_HYDRATE_INTERVAL_MS = 5_000
+const POLYMARKET_BOOK_HYDRATE_INTERVAL_MS = 5_000
+const IPLT20_INNINGS_URL_TEMPLATE = "https://scores.iplt20.com/ipl/feeds/{match_id}-Innings{innings}.js"
 
 const getOpticOddsHeaders = () => {
   if (!config.opticOddsApiKey) {
@@ -54,7 +83,6 @@ const OBSERVED_BOOKS = [
   "betfair_exchange",
   "1xbet",
   "parimatch_india_",
-  "opticodds_ai",
   "polymarket",
 ] as const
 
@@ -63,7 +91,6 @@ const PRIMARY_REFERENCE_BOOK = "betfair_exchange"
 const SUPPORT_REFERENCE_BOOK_WEIGHTS: Record<string, number> = {
   "1xbet": 3,
   parimatch_india_: 2,
-  opticodds_ai: 1,
 }
 
 type JsonRecord = Record<string, unknown>
@@ -108,6 +135,23 @@ type OpticOddsFixture = {
   }
 }
 
+type LocalFixtureRow = {
+  fixture_id?: string | number | null
+  opticodds_game_id?: string | number | null
+  match_date?: string | null
+  status?: string | null
+  is_live?: boolean | string | number | null
+  official_match_id?: string | number | null
+  venue?: string | null
+  venue_location?: string | null
+  city?: string | null
+  team1?: string | null
+  team2?: string | null
+  inferred_home_team?: string | null
+}
+
+type ObserverFixtureCore = Omit<ObserverFixtureRecord, "createdAt" | "updatedAt">
+
 type OpticOddsOdd = {
   id: string
   fixture_id: string
@@ -140,6 +184,20 @@ type OpticOddsResultUpdate = {
   is_live: boolean
   score?: JsonRecord | null
   player_results?: unknown[]
+}
+
+type OfficialInningsPayload = {
+  OverHistory?: JsonRecord[]
+}
+
+type OfficialInningsSummary = {
+  innings: 1 | 2
+  battingTeam: string | null
+  bowlingTeam: string | null
+  runs: number
+  wickets: number | null
+  balls: number
+  oversLabel: string
 }
 
 type OpticOddsEventEnvelope<T> = {
@@ -294,6 +352,72 @@ type OpportunitySummary = {
   updatedAt: string
 }
 
+type ParsedCricketState = {
+  innings: number | null
+  battingTeam: string | null
+  bowlingTeam: string | null
+  scoreRuns: number | null
+  scoreWickets: number | null
+  overs: number | null
+  balls: number | null
+  targetRuns: number | null
+}
+
+type LiveExpectedState = ParsedCricketState & {
+  expectedRunsNow: number | null
+  expectedWicketsNow: number | null
+  runsDelta: number | null
+  wicketsDelta: number | null
+  projectedScore: number | null
+  expectedRunRate: number | null
+  chaseSuccessProbability: number | null
+}
+
+type InningsExpectedState = LiveExpectedState & {
+  status: "live" | "frozen" | "pending" | "unavailable"
+}
+
+type LiveInningsExpectedStates = {
+  activeInnings: number | null
+  first: InningsExpectedState
+  second: InningsExpectedState
+}
+
+type LiveSelectionView = {
+  selection: string
+  fairProbability: number
+  marketProbability: number
+  referenceProbability: number
+  executableAsk: number | null
+  executableBid: number | null
+  edgeVsMarketBps: number
+  edgeVsExecutableAskBps: number | null
+  feeAdjustedEdgeBps: number | null
+}
+
+export type BallStateLiveModelOverlay = {
+  available: boolean
+  currentState: {
+    fixtureId: string | null
+    innings: number | null
+    battingTeam: string | null
+    bowlingTeam: string | null
+    scoreRuns: number | null
+    scoreWickets: number | null
+    balls: number | null
+  }
+  predictions: {
+    expectedRunsNow: number | null
+    expectedWicketsNow: number | null
+    runsDelta: number | null
+    wicketsDelta: number | null
+    finalInningsRuns: number | null
+    chaseSuccessProbability: number | null
+  }
+}
+
+type BallStateLiveModelOverlayInput = BallStateLiveModelOverlay | BallStateLiveModelOverlay[]
+
 type OpportunitiesOptions = {
   minEdgeBps?: number
   minConfidence?: ReferenceConfidence
@@ -314,11 +438,22 @@ const toAgeSeconds = (value: string | null) => {
 
 const toDateFromUnixSeconds = (value: number) => new Date(value * 1000)
 
+const isWithinActiveCoverageWindow = (fixture: ObserverFixtureRecord, lookaheadMs: number) => {
+  const startsInMs = fixture.startTime.getTime() - Date.now()
+  return startsInMs <= lookaheadMs && startsInMs >= -ACTIVE_COVERAGE_POST_START_GRACE_MS
+}
+
+const isFreshLiveFixture = (fixture: ObserverFixtureRecord) =>
+  Date.now() - fixture.updatedAt.getTime() <= LIVE_FIXTURE_STALENESS_MS
+
 const requiresMappingCoverage = (fixture: ObserverFixtureRecord) =>
-  fixture.isLive || fixture.startTime.getTime() - Date.now() <= MAPPING_LOOKAHEAD_MS
+  fixture.isLive || isWithinActiveCoverageWindow(fixture, MAPPING_LOOKAHEAD_MS)
 
 const requiresActiveOddsCoverage = (fixture: ObserverFixtureRecord) =>
-  fixture.isLive || fixture.startTime.getTime() - Date.now() <= ACTIVE_ODDS_LOOKAHEAD_MS
+  fixture.isLive || isWithinActiveCoverageWindow(fixture, ACTIVE_ODDS_LOOKAHEAD_MS)
+
+const requiresLiveModelCoverage = (fixture: ObserverFixtureRecord) =>
+  fixture.isLive ? isFreshLiveFixture(fixture) : requiresActiveOddsCoverage(fixture)
 
 const normalizeBookId = (odd: OpticOddsOdd) =>
   odd.sportsbook_id ?? odd.sportsbook?.trim().toLowerCase().replace(/\s+/g, "_") ?? "unknown"
@@ -465,6 +600,23 @@ const parseSseEvent = (block: string) => {
 
 const normaliseProbability = (value: number) => (value > 1 ? value / 100 : value)
 
+const cleanLocalValue = (value: string | number | null | undefined) => String(value ?? "").trim()
+
+const parseLocalBoolean = (value: boolean | string | number | null | undefined) => {
+  if (typeof value === "boolean") {
+    return value
+  }
+
+  if (typeof value === "number") {
+    return value !== 0
+  }
+
+  return ["1", "true", "yes", "on"].includes(String(value ?? "").trim().toLowerCase())
+}
+
+const buildSyntheticFixtureSourceId = (fixtureId: string, officialMatchId: string) =>
+  `ipl-official:${officialMatchId || fixtureId}`
+
 class IplObserverService {
   private started = false
 
@@ -475,6 +627,16 @@ class IplObserverService {
   private readonly trackedTokenIds = new Set<string>()
 
   private readonly subscribedTokenIds = new Set<string>()
+
+  private readonly lastLiveModelSnapshotAt = new Map<string, number>()
+
+  private readonly lastLiveModelSignalAt = new Map<string, { edgeBps: number; observedAt: number }>()
+
+  private readonly officialLiveResultHydratedAt = new Map<string, number>()
+
+  private readonly polymarketBookHydratedAt = new Map<string, number>()
+
+  private liveModelPersistenceDisabledReason: string | null = null
 
   private readonly marketDetailsCache = new Map<string, PolymarketMarketDetails>()
 
@@ -524,11 +686,6 @@ class IplObserverService {
     this.status.oddsCheckpoint = this.oddsCheckpoint
     this.status.resultsCheckpoint = this.resultsCheckpoint
 
-    if (!config.opticOddsEnabled) {
-      logger.warn("Started IPL observer with OpticOdds disabled; live fixture and odds streams are inactive")
-      return
-    }
-
     await this.refreshFixtures()
 
     this.refreshTimer = setInterval(() => {
@@ -539,16 +696,20 @@ class IplObserverService {
       })
     }, FIXTURE_REFRESH_INTERVAL_MS)
 
-    this.activeCoverageTimer = setInterval(() => {
-      void this.reconcileActiveCoverageFixtures().catch((error) => {
-        logger.warn("IPL observer active fixture reconciliation failed", {
-          error: error instanceof Error ? error.message : String(error),
+    if (config.opticOddsEnabled) {
+      this.activeCoverageTimer = setInterval(() => {
+        void this.reconcileActiveCoverageFixtures().catch((error) => {
+          logger.warn("IPL observer active fixture reconciliation failed", {
+            error: error instanceof Error ? error.message : String(error),
+          })
         })
-      })
-    }, ACTIVE_FIXTURE_RECONCILIATION_INTERVAL_MS)
+      }, ACTIVE_FIXTURE_RECONCILIATION_INTERVAL_MS)
 
-    void this.runOddsStream()
-    void this.runResultsStream()
+      void this.runOddsStream()
+      void this.runResultsStream()
+    } else {
+      logger.warn("Started IPL observer with OpticOdds disabled; bootstrapping fixtures from local official IPL data")
+    }
 
     logger.info("Started IPL observer service", {
       fixtures: this.fixtures.size,
@@ -566,6 +727,27 @@ class IplObserverService {
 
   public async getRecentSignals(limit = 50) {
     return listSignals(limit)
+  }
+
+  public async getRecentLiveModelSnapshots(limit = 50) {
+    try {
+      return await listLiveModelSnapshots(limit)
+    } catch (error) {
+      this.disableLiveModelPersistence(error)
+      return []
+    }
+  }
+
+  public async getRecentLiveModelSignals(limit = 50) {
+    try {
+      return (await listLiveModelSignals(Math.max(limit * 5, 50)))
+        .filter(isMeaningfulLiveModelSignal)
+        .filter(dedupeLiveModelSignalRecord)
+        .slice(0, limit)
+    } catch (error) {
+      this.disableLiveModelPersistence(error)
+      return []
+    }
   }
 
   public getDiagnostics() {
@@ -663,7 +845,7 @@ class IplObserverService {
 
   public getLiveFixtures() {
     return Array.from(this.fixtures.values())
-      .filter((fixtureState) => fixtureState.fixture.isLive)
+      .filter((fixtureState) => fixtureState.fixture.isLive && isFreshLiveFixture(fixtureState.fixture))
       .map((fixtureState) => ({
         fixture: this.buildPublicFixture(fixtureState.fixture),
         monitoring: this.buildFixtureMonitoringState(fixtureState.fixture, fixtureState),
@@ -732,12 +914,203 @@ class IplObserverService {
       .slice(0, 10)
   }
 
+  public async getLiveModelFixtures(ballStateOverlay?: BallStateLiveModelOverlayInput) {
+    await this.hydrateOfficialLiveResultsForLiveModel()
+    await this.hydratePolymarketBooksForLiveModel()
+
+    return Array.from(this.fixtures.values())
+      .filter((fixtureState) => requiresLiveModelCoverage(fixtureState.fixture))
+      .map((fixtureState) => this.buildLiveModelView(fixtureState, "api-read", ballStateOverlay))
+      .sort(
+        (left, right) =>
+          new Date(right.fixture.updatedAt).getTime() - new Date(left.fixture.updatedAt).getTime(),
+      )
+  }
+
+  public async recordRuntimeLiveModelSnapshots(ballStateOverlay?: BallStateLiveModelOverlayInput) {
+    if (!ballStateOverlay) {
+      return
+    }
+
+    const overlays = Array.isArray(ballStateOverlay) ? ballStateOverlay : [ballStateOverlay]
+    await Promise.all(overlays.map(async (overlay) => {
+      const fixtureState = Array.from(this.fixtures.values())
+        .find((candidate) => getMatchingBallStateOverlay(candidate.fixture, overlay) !== null)
+      if (fixtureState) {
+        await this.recordLiveModelSnapshot(fixtureState, "ball-state-runtime", overlay)
+      }
+    }))
+  }
+
+  private async hydrateOfficialLiveResultsForLiveModel() {
+    const liveOfficialFixtures = Array.from(this.fixtures.values())
+      .filter((fixtureState) => fixtureState.fixture.isLive)
+      .flatMap((fixtureState) => {
+        const officialMatchId = getOfficialMatchId(fixtureState.fixture.lastResultPayload)
+        return officialMatchId ? [{ fixtureState, officialMatchId }] : []
+      })
+
+    await Promise.all(liveOfficialFixtures.map(async ({ fixtureState, officialMatchId }) => {
+      const previousHydratedAt = this.officialLiveResultHydratedAt.get(fixtureState.fixture.id) ?? 0
+      if (Date.now() - previousHydratedAt < OFFICIAL_LIVE_RESULT_HYDRATE_INTERVAL_MS) {
+        return
+      }
+
+      this.officialLiveResultHydratedAt.set(fixtureState.fixture.id, Date.now())
+
+      try {
+        const officialScore = await fetchOfficialLiveScorePayload(fixtureState.fixture, officialMatchId)
+        if (!officialScore) {
+          return
+        }
+
+        fixtureState.fixture = {
+          ...fixtureState.fixture,
+          lastScore: stringifyScore(officialScore),
+          lastPeriod: stringifyPeriod(officialScore) ?? fixtureState.fixture.lastPeriod,
+          lastResultPayload: officialScore,
+          updatedAt: new Date(),
+        }
+
+        await upsertFixture({
+          id: fixtureState.fixture.id,
+          opticOddsGameId: fixtureState.fixture.opticOddsGameId,
+          sport: fixtureState.fixture.sport,
+          league: fixtureState.fixture.league,
+          homeTeam: fixtureState.fixture.homeTeam,
+          awayTeam: fixtureState.fixture.awayTeam,
+          homeTeamId: fixtureState.fixture.homeTeamId,
+          awayTeamId: fixtureState.fixture.awayTeamId,
+          startTime: fixtureState.fixture.startTime,
+          status: fixtureState.fixture.status,
+          isLive: fixtureState.fixture.isLive,
+          venueName: fixtureState.fixture.venueName,
+          venueLocation: fixtureState.fixture.venueLocation,
+          polymarketEventSlug: fixtureState.fixture.polymarketEventSlug,
+          polymarketMarketSlug: fixtureState.fixture.polymarketMarketSlug,
+          polymarketConditionId: fixtureState.fixture.polymarketConditionId,
+          homeTokenId: fixtureState.fixture.homeTokenId,
+          awayTokenId: fixtureState.fixture.awayTokenId,
+          lastScore: fixtureState.fixture.lastScore,
+          lastPeriod: fixtureState.fixture.lastPeriod,
+          lastResultPayload: fixtureState.fixture.lastResultPayload,
+        })
+      } catch (error) {
+        logger.warn("Failed to hydrate official IPL live score for live model", {
+          fixtureId: fixtureState.fixture.id,
+          officialMatchId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+      }))
+  }
+
+  private async hydratePolymarketBooksForLiveModel() {
+    const fixtureStates = Array.from(this.fixtures.values())
+      .filter((fixtureState) => requiresLiveModelCoverage(fixtureState.fixture))
+
+    await Promise.all(fixtureStates.map(async (fixtureState) => {
+      const previousHydratedAt = this.polymarketBookHydratedAt.get(fixtureState.fixture.id) ?? 0
+      if (Date.now() - previousHydratedAt < POLYMARKET_BOOK_HYDRATE_INTERVAL_MS) {
+        return
+      }
+
+      this.polymarketBookHydratedAt.set(fixtureState.fixture.id, Date.now())
+
+      try {
+        await this.ensureFixturePolymarketMapping(fixtureState)
+        const tokenIds = [fixtureState.fixture.homeTokenId, fixtureState.fixture.awayTokenId]
+          .filter((tokenId): tokenId is string => Boolean(tokenId))
+
+        await Promise.all(tokenIds.map(async (tokenId) => {
+          const book = await fetchPolymarketBookSnapshot(tokenId)
+          if (!book) {
+            return
+          }
+
+          fixtureState.polymarketBooks.set(tokenId, book)
+        }))
+      } catch (error) {
+        logger.warn("Failed to hydrate Polymarket book for live model", {
+          fixtureId: fixtureState.fixture.id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }))
+  }
+
+  public async getLiveModelHistory(limit = 20) {
+    const fixtures = (await listFixtures(Math.max(limit * 6, 60))).filter(
+      (fixture) => !fixture.isLive,
+    )
+    const historyEntries = await Promise.all(
+      fixtures.map(async (fixture) => {
+        const [snapshots, signals] = await Promise.all([
+          this.getFixtureLiveModelSnapshotsSafe(fixture.id, 500),
+          this.getFixtureLiveModelSignalsSafe(fixture.id, 5),
+        ])
+        const meaningfulSnapshots = snapshots.filter(isMeaningfulLiveModelSnapshot)
+        const latestSnapshot = meaningfulSnapshots[0] ?? null
+        const inningsSnapshots = buildLatestSnapshotsByInnings(meaningfulSnapshots)
+        const inningsStates = buildLiveInningsExpectedStates(fixture)
+        const hasFixtureInningsState =
+          hasMeaningfulExpectedState(inningsStates.first) || hasMeaningfulExpectedState(inningsStates.second)
+
+        if (!latestSnapshot && !hasFixtureInningsState) {
+          return null
+        }
+
+        return {
+          fixture: this.buildPublicFixture(fixture),
+          venueContext: getVenueContextStats(fixture.venueName),
+          latestSnapshot,
+          inningsSnapshots,
+          inningsStates,
+          recentSignals: signals
+            .filter(isMeaningfulLiveModelSignal)
+            .filter(dedupeLiveModelSignalRecord),
+          snapshotCountKnown: Boolean(latestSnapshot),
+          signalCount: signals
+            .filter(isMeaningfulLiveModelSignal)
+            .filter(dedupeLiveModelSignalRecord).length,
+        }
+      }),
+    )
+
+    return historyEntries
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+      .sort((left, right) => {
+        const leftTime = left.latestSnapshot?.createdAt ?? left.fixture.updatedAt
+        const rightTime = right.latestSnapshot?.createdAt ?? right.fixture.updatedAt
+        return new Date(rightTime).getTime() - new Date(leftTime).getTime()
+      })
+      .slice(0, limit)
+  }
+
   public getReadiness() {
     if (!config.opticOddsEnabled) {
+      const reasons: string[] = []
+      const fixtureRefreshAge = toAgeSeconds(this.status.fixtureRefreshAt)
+
+      if (!this.started) {
+        reasons.push("observer-not-started")
+      }
+
+      if (fixtureRefreshAge === null || fixtureRefreshAge > READY_MAX_FIXTURE_REFRESH_AGE_SECONDS) {
+        reasons.push("fixture-refresh-stale")
+      }
+
+      if (this.fixtures.size === 0) {
+        reasons.push("no-fixtures-loaded")
+      }
+
       return {
-        ready: this.started,
-        reasons: this.started ? [] : ["observer-not-started"],
-        fixtureRefreshAgeSeconds: null,
+        ready: reasons.length === 0,
+        mode: "official-fixtures-no-opticodds",
+        degraded: true,
+        degradationReasons: ["opticodds-disabled"],
+        reasons,
+        fixtureRefreshAgeSeconds: fixtureRefreshAge,
         oddsStreamAgeSeconds: null,
         polymarketStreamAgeSeconds: null,
         trackedFixtures: this.fixtures.size,
@@ -774,6 +1147,9 @@ class IplObserverService {
 
     return {
       ready: reasons.length === 0,
+      mode: "opticodds-live-streams",
+      degraded: false,
+      degradationReasons: [],
       reasons,
       fixtureRefreshAgeSeconds: fixtureRefreshAge,
       oddsStreamAgeSeconds: oddsStreamAge,
@@ -790,9 +1166,11 @@ class IplObserverService {
       return null
     }
 
-    const [odds, signals] = await Promise.all([
+    const [odds, signals, liveModelSnapshots, liveModelSignals] = await Promise.all([
       listFixtureOdds(fixtureId),
       listFixtureSignals(fixtureId, 20),
+      this.getFixtureLiveModelSnapshotsSafe(fixtureId, 50),
+      this.getFixtureLiveModelSignalsSafe(fixtureId, 20),
     ])
 
     const liveState = this.fixtures.get(fixtureId)
@@ -801,8 +1179,29 @@ class IplObserverService {
       fixture: this.buildPublicFixture(fixture),
       books: this.buildBookViews(odds),
       signals,
+      liveModel: liveState ? this.buildLiveModelView(liveState, "api-read") : null,
+      liveModelSnapshots,
+      liveModelSignals,
       monitoring: this.buildFixtureMonitoringState(fixture, liveState),
       summary: liveState ? this.buildFixtureSummary(liveState) : null,
+    }
+  }
+
+  private async getFixtureLiveModelSnapshotsSafe(fixtureId: string, limit: number) {
+    try {
+      return await listFixtureLiveModelSnapshots(fixtureId, limit)
+    } catch (error) {
+      this.disableLiveModelPersistence(error)
+      return []
+    }
+  }
+
+  private async getFixtureLiveModelSignalsSafe(fixtureId: string, limit: number) {
+    try {
+      return await listFixtureLiveModelSignals(fixtureId, limit)
+    } catch (error) {
+      this.disableLiveModelPersistence(error)
+      return []
     }
   }
 
@@ -814,6 +1213,7 @@ class IplObserverService {
 
   private async refreshFixtures() {
     const fixtures = await this.fetchActiveFixtures()
+    const refreshedFixtureIds = new Set(fixtures.map((fixture) => fixture.id))
 
     await Promise.all(
       fixtures.map(async (fixture) => {
@@ -831,7 +1231,7 @@ class IplObserverService {
           }
         }
 
-        if (fixtureState && requiresActiveOddsCoverage(fixtureState.fixture)) {
+        if (config.opticOddsEnabled && fixtureState && requiresActiveOddsCoverage(fixtureState.fixture)) {
           try {
             await this.hydrateFixtureOdds(fixture.id)
           } catch (error) {
@@ -844,12 +1244,37 @@ class IplObserverService {
       }),
     )
 
+    if (!config.opticOddsEnabled) {
+      await this.pruneStaleLocalOfficialFixtures(refreshedFixtureIds)
+    }
+
     this.status.fixtureRefreshAt = new Date().toISOString()
     this.status.trackedFixtures = this.fixtures.size
     this.status.trackedPolymarketTokens = this.trackedTokenIds.size
 
     if (this.trackedTokenIds.size > 0) {
       this.ensurePolymarketSocket()
+    }
+  }
+
+  private async pruneStaleLocalOfficialFixtures(refreshedFixtureIds: Set<string>) {
+    for (const [fixtureId, fixtureState] of this.fixtures.entries()) {
+      if (refreshedFixtureIds.has(fixtureId)) {
+        continue
+      }
+
+      if (!fixtureState.fixture.opticOddsGameId.startsWith("ipl-official:")) {
+        continue
+      }
+
+      await upsertFixture({
+        ...fixtureState.fixture,
+        status: "completed",
+        isLive: false,
+      })
+      this.fixtures.delete(fixtureId)
+      this.officialLiveResultHydratedAt.delete(fixtureId)
+      this.polymarketBookHydratedAt.delete(fixtureId)
     }
   }
 
@@ -873,6 +1298,10 @@ class IplObserverService {
   }
 
   private async fetchActiveFixtures() {
+    if (!config.opticOddsEnabled) {
+      return this.fetchLocalFixtures()
+    }
+
     const url = new URL(`${OPTICODDS_BASE_URL}/fixtures/active`)
     url.searchParams.append("sport", "cricket")
     url.searchParams.append("league", IPL_LEAGUE_NAME)
@@ -890,7 +1319,71 @@ class IplObserverService {
     return (payload.data ?? []).filter((fixture) => fixture.league.name === IPL_LEAGUE_NAME)
   }
 
-  private async registerFixture(fixture: OpticOddsFixture) {
+  private async fetchLocalFixtures() {
+    try {
+      const payload = JSON.parse(await readFile(LOCAL_UPCOMING_FIXTURES_PATH, "utf-8")) as LocalFixtureRow[]
+      return payload.flatMap((fixture) => {
+        const record = this.buildLocalFixtureRecord(fixture)
+        return record ? [record] : []
+      })
+    } catch (error) {
+      logger.warn("Failed to load local official IPL fixtures for observer", {
+        path: LOCAL_UPCOMING_FIXTURES_PATH,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return []
+    }
+  }
+
+  private buildLocalFixtureRecord(fixture: LocalFixtureRow): ObserverFixtureCore | null {
+    const fixtureId = cleanLocalValue(fixture.fixture_id)
+    const team1 = cleanLocalValue(fixture.team1)
+    const team2 = cleanLocalValue(fixture.team2)
+    const startTime = new Date(cleanLocalValue(fixture.match_date))
+
+    if (!fixtureId || !team1 || !team2 || !Number.isFinite(startTime.getTime())) {
+      return null
+    }
+
+    const inferredHomeTeam = cleanLocalValue(fixture.inferred_home_team)
+    const homeTeam = inferredHomeTeam === team2 ? team2 : team1
+    const awayTeam = homeTeam === team1 ? team2 : team1
+    const officialMatchId = cleanLocalValue(fixture.official_match_id)
+    const opticOddsGameId = cleanLocalValue(fixture.opticodds_game_id) || buildSyntheticFixtureSourceId(fixtureId, officialMatchId)
+
+    return {
+      id: fixtureId,
+      opticOddsGameId,
+      sport: "cricket",
+      league: IPL_LEAGUE_NAME,
+      homeTeam,
+      awayTeam,
+      homeTeamId: null,
+      awayTeamId: null,
+      startTime,
+      status: cleanLocalValue(fixture.status) || "scheduled",
+      isLive: parseLocalBoolean(fixture.is_live),
+      venueName: cleanLocalValue(fixture.venue) || null,
+      venueLocation: cleanLocalValue(fixture.venue_location) || (cleanLocalValue(fixture.city) ? `${cleanLocalValue(fixture.city)}, India` : null),
+      polymarketEventSlug: this.fixtures.get(fixtureId)?.fixture.polymarketEventSlug ?? null,
+      polymarketMarketSlug: this.fixtures.get(fixtureId)?.fixture.polymarketMarketSlug ?? null,
+      polymarketConditionId: this.fixtures.get(fixtureId)?.fixture.polymarketConditionId ?? null,
+      homeTokenId: this.fixtures.get(fixtureId)?.fixture.homeTokenId ?? null,
+      awayTokenId: this.fixtures.get(fixtureId)?.fixture.awayTokenId ?? null,
+      lastScore: null,
+      lastPeriod: null,
+      lastResultPayload: officialMatchId ? { source: "ipl_official", officialMatchId } : null,
+    }
+  }
+
+  private async registerFixture(fixture: OpticOddsFixture | ObserverFixtureCore) {
+    if ("startTime" in fixture) {
+      await this.registerFixtureRecord(fixture)
+      return
+    }
+
+    const existingState = this.fixtures.get(fixture.id)
+    const existingFixture = existingState?.fixture
     const record = {
       id: fixture.id,
       opticOddsGameId: fixture.game_id,
@@ -913,18 +1406,19 @@ class IplObserverService {
       awayTokenId: this.fixtures.get(fixture.id)?.fixture.awayTokenId ?? null,
       lastScore: parseScoreSummary(fixture),
       lastPeriod: parsePeriodSummary(fixture),
-      lastResultPayload: fixture.result ?? null,
-    } satisfies Omit<ObserverFixtureRecord, "createdAt" | "updatedAt"> & {
-      createdAt?: Date
-      updatedAt?: Date
-    }
+      lastResultPayload: mergeResultPayload(fixture.result ?? null, undefined, existingFixture?.lastResultPayload),
+    } satisfies ObserverFixtureCore
+
+    await this.registerFixtureRecord(record)
+  }
+
+  private async registerFixtureRecord(record: ObserverFixtureCore) {
+    const existingState = this.fixtures.get(record.id)
+    const existingFixture = existingState?.fixture
 
     await upsertFixture(record)
 
-    const existingState = this.fixtures.get(fixture.id)
-    const existingFixture = existingState?.fixture
-
-    this.fixtures.set(fixture.id, {
+    this.fixtures.set(record.id, {
       fixture: {
         ...existingFixture,
         ...record,
@@ -1087,11 +1581,12 @@ class IplObserverService {
       return this.fetchPolymarketMarketDetails(tokenMatch.marketSlug)
     }
 
+    const normalizedExpectedTeams = expectedTeams.map((team) => normalizeSelection(team))
     const teamMatch = catalog.find((entry) => {
-      const teamSet = new Set(entry.teams)
+      const teamSet = new Set(entry.teams.map((team) => normalizeSelection(team)))
       return (
         entry.eventDate === fixtureDate &&
-        expectedTeams.every((team) => teamSet.has(team))
+        normalizedExpectedTeams.every((team) => teamSet.has(team))
       )
     })
 
@@ -1518,6 +2013,8 @@ class IplObserverService {
       lastPeriod: fixtureState.fixture.lastPeriod,
       lastResultPayload: fixtureState.fixture.lastResultPayload,
     })
+
+    await this.recordLiveModelSnapshot(fixtureState, "opticodds-results")
   }
 
   private async applyFixtureResultsUpdate(update: OpticOddsResultUpdate) {
@@ -1532,10 +2029,11 @@ class IplObserverService {
       isLive: update.is_live,
       lastScore: stringifyScore(update.score),
       lastPeriod: stringifyPeriod(update.score) ?? fixtureState.fixture.lastPeriod,
-      lastResultPayload: {
-        score: update.score,
-        player_results: update.player_results ?? [],
-      },
+      lastResultPayload: mergeResultPayload(
+        update.score,
+        update.player_results,
+        fixtureState.fixture.lastResultPayload,
+      ),
       updatedAt: new Date(),
     }
 
@@ -1594,7 +2092,11 @@ class IplObserverService {
         return
       }
 
-      void this.handlePolymarketMessage(data)
+      void this.handlePolymarketMessage(data).catch((error: unknown) => {
+        logger.warn("Failed to handle Polymarket market message", {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      })
     })
 
     socket.addEventListener("close", () => {
@@ -1735,6 +2237,7 @@ class IplObserverService {
           existingBook.updatedAt = new Date()
 
           fixtureState.polymarketBooks.set(tokenId, existingBook)
+          await this.recordLiveModelSnapshot(fixtureState, "polymarket-price-change")
           await this.evaluateSignals(fixtureState)
         }
 
@@ -1789,6 +2292,7 @@ class IplObserverService {
 
       existingBook.updatedAt = new Date()
       fixtureState.polymarketBooks.set(tokenId, existingBook)
+      await this.recordLiveModelSnapshot(fixtureState, `polymarket-${eventType}`)
       await this.evaluateSignals(fixtureState)
     }
   }
@@ -1896,6 +2400,234 @@ class IplObserverService {
         edgeToExecutableAskBps: selectionSummary.executableAskEdgeBps,
         feeAdjustedEdgeBps: selectionSummary.feeAdjustedEdgeBps,
       })
+    }
+  }
+
+  private async recordLiveModelSnapshot(
+    fixtureState: FixtureState,
+    sourceEvent: string,
+    ballStateOverlay?: BallStateLiveModelOverlayInput,
+  ) {
+    if (this.liveModelPersistenceDisabledReason) {
+      return
+    }
+
+    const now = Date.now()
+    const liveModel = this.buildLiveModelView(fixtureState, sourceEvent, ballStateOverlay)
+    const meaningfulInnings = [liveModel.inningsStates.first, liveModel.inningsStates.second]
+      .filter(hasMeaningfulExpectedState)
+
+    if (meaningfulInnings.length === 0) {
+      return
+    }
+
+    const edgeCandidates = liveModel.selections
+      .filter((selection) => selection.edgeVsMarketBps !== null)
+      .sort(
+        (left, right) =>
+          Math.abs(right.edgeVsMarketBps ?? 0) - Math.abs(left.edgeVsMarketBps ?? 0),
+      )
+    const strongestEdge = edgeCandidates[0]
+
+    let activeSnapshotId: number | null = null
+
+    for (const inningsState of meaningfulInnings) {
+      const snapshotKey = `${fixtureState.fixture.id}:${inningsState.innings ?? "unknown"}`
+      const previousSnapshotAt = this.lastLiveModelSnapshotAt.get(snapshotKey) ?? 0
+
+      if (now - previousSnapshotAt < LIVE_MODEL_SNAPSHOT_INTERVAL_MS) {
+        continue
+      }
+
+      const snapshotId = await insertLiveModelSnapshot({
+        fixtureId: fixtureState.fixture.id,
+        sourceEvent,
+        modelVersion: LIVE_MODEL_VERSION,
+        innings: inningsState.innings,
+        battingTeam: inningsState.battingTeam,
+        bowlingTeam: inningsState.bowlingTeam,
+        scoreRuns: inningsState.scoreRuns,
+        scoreWickets: inningsState.scoreWickets,
+        overs: inningsState.overs,
+        balls: inningsState.balls,
+        targetRuns: inningsState.targetRuns,
+        expectedRunsNow: inningsState.expectedRunsNow,
+        expectedWicketsNow: inningsState.expectedWicketsNow,
+        runsDelta: inningsState.runsDelta,
+        wicketsDelta: inningsState.wicketsDelta,
+        projectedScore: inningsState.projectedScore,
+        homeModelProbability: liveModel.home.winProbability ?? liveModel.home.fairProbability,
+        awayModelProbability: liveModel.away.winProbability ?? liveModel.away.fairProbability,
+        homePolymarketProbability: liveModel.home.marketProbability,
+        awayPolymarketProbability: liveModel.away.marketProbability,
+        homeReferenceProbability: liveModel.home.referenceProbability,
+        awayReferenceProbability: liveModel.away.referenceProbability,
+        edgeHomeVsPolymarketBps: liveModel.home.edgeVsMarketBps,
+        edgeAwayVsPolymarketBps: liveModel.away.edgeVsMarketBps,
+        confidence: liveModel.confidence,
+        details: {
+          ...liveModel.details,
+          inningsStatus: inningsState.status,
+          inningsStates: liveModel.inningsStates,
+        },
+      }).catch((error: unknown) => {
+        this.disableLiveModelPersistence(error)
+        return null
+      })
+
+      this.lastLiveModelSnapshotAt.set(snapshotKey, now)
+
+      if (inningsState.innings === liveModel.expectedState.innings) {
+        activeSnapshotId = snapshotId
+      }
+    }
+
+    if (
+      activeSnapshotId === null ||
+      !strongestEdge ||
+      strongestEdge.edgeVsMarketBps === null ||
+      Math.abs(strongestEdge.edgeVsMarketBps) < LIVE_MODEL_SIGNAL_THRESHOLD_BPS
+    ) {
+      return
+    }
+
+    if (!hasMeaningfulSignalState(liveModel.expectedState)) {
+      return
+    }
+
+    const signalKey = `${fixtureState.fixture.id}:${strongestEdge.selection}`
+    const previousSignal = this.lastLiveModelSignalAt.get(signalKey)
+
+    if (
+      previousSignal &&
+      now - previousSignal.observedAt < 60_000 &&
+      Math.abs(previousSignal.edgeBps - strongestEdge.edgeVsMarketBps) < 50
+    ) {
+      return
+    }
+
+    await insertLiveModelSignal({
+      fixtureId: fixtureState.fixture.id,
+      snapshotId: activeSnapshotId,
+      selection: strongestEdge.selection,
+      modelProbability: strongestEdge.fairProbability,
+      polymarketProbability: strongestEdge.marketProbability,
+      referenceProbability: strongestEdge.referenceProbability,
+      edgeVsPolymarketBps: strongestEdge.edgeVsMarketBps,
+      reason: buildLiveModelSignalReason(liveModel.expectedState, strongestEdge.edgeVsMarketBps),
+      confidence: liveModel.confidence,
+      scoreContext: {
+        score: fixtureState.fixture.lastScore,
+        period: fixtureState.fixture.lastPeriod,
+        expectedState: liveModel.expectedState,
+      },
+    }).catch((error: unknown) => {
+      this.disableLiveModelPersistence(error)
+    })
+
+    this.lastLiveModelSignalAt.set(signalKey, {
+      edgeBps: strongestEdge.edgeVsMarketBps,
+      observedAt: now,
+    })
+  }
+
+  private disableLiveModelPersistence(error: unknown) {
+    if (this.liveModelPersistenceDisabledReason) {
+      return
+    }
+
+    const message = error instanceof Error ? error.message : String(error)
+    if (!isLiveModelSchemaError(error, message)) {
+      logger.warn("Live model persistence write failed; will retry on the next snapshot", {
+        error: message,
+      })
+      return
+    }
+
+    this.liveModelPersistenceDisabledReason = message
+    logger.warn("Live model persistence disabled; run pnpm db:migrate to create observer_live_model tables", {
+      error: message,
+    })
+  }
+
+  private buildLiveModelView(
+    fixtureState: FixtureState,
+    sourceEvent: string,
+    ballStateOverlay?: BallStateLiveModelOverlayInput,
+  ) {
+    const matchingOverlay = getMatchingBallStateOverlay(fixtureState.fixture, ballStateOverlay)
+    const publicFixture = this.buildPublicFixture(fixtureState.fixture)
+    const fixture = matchingOverlay
+      ? {
+          ...publicFixture,
+          score: publicFixture.score ?? formatBallStateFixtureScore(matchingOverlay.currentState),
+          period: publicFixture.period ?? formatBallStateFixturePeriod(matchingOverlay.currentState.balls),
+        }
+      : publicFixture
+    const summary = this.buildFixtureSummary(fixtureState)
+    const inningsStates = buildLiveInningsExpectedStates(fixtureState.fixture, matchingOverlay)
+    const expectedState = getActiveExpectedState(inningsStates)
+    const selections = summary?.selections ?? []
+    const homeSelection = normalizeSelection(fixtureState.fixture.homeTeam)
+    const awaySelection = normalizeSelection(fixtureState.fixture.awayTeam)
+    const selectionViews: LiveSelectionView[] = selections.map((selection) => ({
+      selection: selection.selection,
+      fairProbability: selection.referenceProbability,
+      marketProbability: selection.polymarketSnapshotPrice,
+      referenceProbability: selection.referenceProbability,
+      executableAsk: selection.executableAsk,
+      executableBid: selection.executableBid,
+      edgeVsMarketBps: selection.snapshotEdgeBps,
+      edgeVsExecutableAskBps: selection.executableAskEdgeBps,
+      feeAdjustedEdgeBps: selection.feeAdjustedEdgeBps,
+    }))
+    const home = selectionViews.find((selection) => selection.selection === homeSelection)
+    const away = selectionViews.find((selection) => selection.selection === awaySelection)
+    const homeWinProbability = getTeamLiveWinProbability(fixtureState.fixture.homeTeam, expectedState)
+    const awayWinProbability = getTeamLiveWinProbability(fixtureState.fixture.awayTeam, expectedState)
+
+    return {
+      fixture,
+      sourceEvent,
+      modelVersion: LIVE_MODEL_VERSION,
+      confidence: summary?.referenceConfidence ?? "low",
+      expectedState,
+      inningsStates,
+      venueContext: getVenueContextStats(fixtureState.fixture.venueName),
+      home: buildSideLiveModelView(
+        home,
+        fixtureState.fixture.homeTeam,
+        homeWinProbability,
+        getDirectPolymarketProbability(fixtureState, homeSelection),
+      ),
+      away: buildSideLiveModelView(
+        away,
+        fixtureState.fixture.awayTeam,
+        awayWinProbability,
+        getDirectPolymarketProbability(fixtureState, awaySelection),
+      ),
+      selections: selectionViews,
+      details: {
+        methodology:
+          matchingOverlay
+            ? "trained ball-by-ball expected-state scoring plus existing Betfair-first reference probability; isolated from deployed predictor artifacts"
+            : "actual score context only; trained ball-by-ball expected-state scoring unavailable for this payload",
+        score: fixtureState.fixture.lastScore,
+        period: fixtureState.fixture.lastPeriod,
+        rawScoreAvailable: fixtureState.fixture.lastResultPayload !== null,
+        ballStateOverlayApplied: Boolean(matchingOverlay),
+        reference: summary
+          ? {
+              source: summary.referenceSource,
+              confidence: summary.referenceConfidence,
+              bookCount: summary.referenceBookCount,
+              maxDispersionBps: summary.maxDispersionBps,
+              contributions: summary.contributions,
+              excludedBooks: summary.excludedBooks,
+            }
+          : null,
+      },
+      updatedAt: new Date().toISOString(),
     }
   }
 
@@ -2423,6 +3155,10 @@ class IplObserverService {
       reasons.push("no-polymarket-ws-book")
     }
 
+    if (fixture.isLive && !isFreshLiveFixture(fixture)) {
+      reasons.push("stale-live-fixture")
+    }
+
     if (activeOddsCoverage && liveState && !this.buildReferenceProbabilities(liveState)) {
       reasons.push(fixture.isLive ? "no-usable-reference-books" : "reference-market-not-ready-yet")
     }
@@ -2503,6 +3239,297 @@ class IplObserverService {
 
 const normalizeSelection = (value: string) => value.trim().toLowerCase().replace(/\s+/g, "_")
 
+const normalizeBallStateTeamName = (value: string | null) =>
+  (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "")
+
+const getMatchingBallStateOverlay = (
+  fixture: ObserverFixtureRecord,
+  ballStateOverlay?: BallStateLiveModelOverlayInput,
+) => {
+  const overlays = Array.isArray(ballStateOverlay)
+    ? ballStateOverlay
+    : ballStateOverlay ? [ballStateOverlay] : []
+
+  return overlays.find((overlay) => isMatchingBallStateOverlay(fixture, overlay)) ?? null
+}
+
+const isMatchingBallStateOverlay = (
+  fixture: ObserverFixtureRecord,
+  ballStateOverlay: BallStateLiveModelOverlay,
+) => {
+  if (!ballStateOverlay.available) {
+    return null
+  }
+
+  if (ballStateOverlay.currentState.fixtureId === fixture.id) {
+    return ballStateOverlay
+  }
+
+  const fixtureTeams = [fixture.homeTeam, fixture.awayTeam].map(normalizeBallStateTeamName).sort()
+  const overlayTeams = [ballStateOverlay.currentState.battingTeam, ballStateOverlay.currentState.bowlingTeam]
+    .flatMap((team) => {
+      const normalized = normalizeBallStateTeamName(team)
+      return normalized ? [normalized] : []
+    })
+    .sort()
+
+  return overlayTeams.length === 2 && fixtureTeams.every((team, index) => team === overlayTeams[index])
+    ? ballStateOverlay
+    : null
+}
+
+const formatBallStateFixtureScore = (state: BallStateLiveModelOverlay["currentState"]) => {
+  if (state.scoreRuns === null && state.scoreWickets === null) {
+    return null
+  }
+
+  const prefix = state.battingTeam ? `${state.battingTeam} ` : ""
+  return `${prefix}${state.scoreRuns ?? "—"}/${state.scoreWickets ?? "—"}`
+}
+
+const formatBallStateFixturePeriod = (balls: number | null) =>
+  balls === null ? null : `${Math.floor(balls / 6)}.${balls % 6} ov`
+
+const ballsToOvers = (balls: number) => Math.floor(balls / 6) + (balls % 6) / 10
+
+const getOfficialMatchId = (payload: unknown) => {
+  const record = toJsonRecord(payload)
+  if (!record) {
+    return null
+  }
+
+  return readText(record.officialMatchId)
+    ?? readText(record.official_match_id)
+    ?? readText(record.matchId)
+    ?? readText(record.match_id)
+}
+
+const extractOfficialJsonpPayload = <T>(text: string, callbackName: string) => {
+  const trimmed = text.trim()
+  const prefix = `${callbackName}(`
+
+  if (trimmed.startsWith(prefix) && trimmed.endsWith(");")) {
+    return JSON.parse(trimmed.slice(prefix.length, -2)) as T
+  }
+
+  if (trimmed.startsWith(prefix) && trimmed.endsWith(")")) {
+    return JSON.parse(trimmed.slice(prefix.length, -1)) as T
+  }
+
+  const match = new RegExp(`${callbackName}\\((.*)\\)\\s*;?$`, "s").exec(trimmed)
+  if (!match?.[1]) {
+    throw new Error(`Unable to parse official IPL payload for ${callbackName}`)
+  }
+
+  return JSON.parse(match[1]) as T
+}
+
+const fetchOfficialInnings = async (matchId: string, innings: 1 | 2) => {
+  const url = IPLT20_INNINGS_URL_TEMPLATE
+    .replace("{match_id}", encodeURIComponent(matchId))
+    .replace("{innings}", String(innings))
+  const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } })
+
+  if (!response.ok) {
+    return null
+  }
+
+  const payload = extractOfficialJsonpPayload<Record<string, OfficialInningsPayload>>(
+    await response.text(),
+    "onScoring",
+  )
+
+  return payload[`Innings${innings}`] ?? null
+}
+
+const fetchOfficialLiveScorePayload = async (
+  fixture: ObserverFixtureRecord,
+  officialMatchId: string,
+) => {
+  const [firstInnings, secondInnings] = await Promise.all([
+    fetchOfficialInnings(officialMatchId, 1),
+    fetchOfficialInnings(officialMatchId, 2),
+  ])
+  const summaries = [
+    buildOfficialInningsSummary(firstInnings, 1),
+    buildOfficialInningsSummary(secondInnings, 2),
+  ].filter((summary): summary is OfficialInningsSummary => summary !== null)
+
+  if (summaries.length === 0) {
+    return null
+  }
+
+  const firstAvailableSummary = summaries[0]
+  if (!firstAvailableSummary) {
+    return null
+  }
+
+  const activeSummary = summaries.reduce((latest, summary) =>
+    summary.innings > latest.innings && summary.balls > 0 ? summary : latest,
+  firstAvailableSummary)
+
+  const homeSummary = summaries.find((summary) => teamsComparable(summary.battingTeam, fixture.homeTeam)) ?? null
+  const awaySummary = summaries.find((summary) => teamsComparable(summary.battingTeam, fixture.awayTeam)) ?? null
+  const firstSummary = summaries.find((summary) => summary.innings === 1) ?? null
+  const activeBowlingTeam = activeSummary.bowlingTeam
+    ?? (teamsComparable(activeSummary.battingTeam, fixture.homeTeam)
+      ? fixture.awayTeam
+      : teamsComparable(activeSummary.battingTeam, fixture.awayTeam)
+        ? fixture.homeTeam
+        : null)
+
+  return {
+    source: "ipl_official_live",
+    officialMatchId,
+    fixture: {
+      home_team_display: fixture.homeTeam,
+      away_team_display: fixture.awayTeam,
+    },
+    scores: {
+      home: buildOfficialScoreSide(homeSummary),
+      away: buildOfficialScoreSide(awaySummary),
+    },
+    stats: {
+      home: buildOfficialStatsRows(homeSummary),
+      away: buildOfficialStatsRows(awaySummary),
+    },
+    in_play: {
+      current_innings: activeSummary.innings,
+      period: `period_${activeSummary.innings}`,
+      clock: activeSummary.oversLabel,
+    },
+    current_innings: activeSummary.innings,
+    innings: activeSummary.innings,
+    batting_team: activeSummary.battingTeam,
+    bowling_team: activeBowlingTeam,
+    total_runs: activeSummary.runs,
+    score_runs: activeSummary.runs,
+    total_wickets: activeSummary.wickets,
+    score_wickets: activeSummary.wickets,
+    batting_overs: activeSummary.oversLabel,
+    overs: activeSummary.oversLabel,
+    target_runs: activeSummary.innings === 2 && firstSummary ? firstSummary.runs + 1 : null,
+  } satisfies JsonRecord
+}
+
+const fetchPolymarketBookSnapshot = async (tokenId: string): Promise<PolymarketBookState | null> => {
+  const url = new URL(`${POLYMARKET_CLOB_BASE_URL}/book`)
+  url.searchParams.set("token_id", tokenId)
+  const response = await fetch(url)
+
+  if (!response.ok) {
+    return null
+  }
+
+  const payload = toJsonRecord(await response.json())
+  if (!payload) {
+    return null
+  }
+
+  const bids = sortBidLevels(parseBookLevels(payload.bids))
+  const asks = sortAskLevels(parseBookLevels(payload.asks))
+
+  return {
+    tokenId,
+    bestBid: getBestBidFromLevels(bids),
+    bestAsk: getBestAskFromLevels(asks),
+    lastTradePrice: null,
+    bids,
+    asks,
+    updatedAt: new Date(),
+  }
+}
+
+const buildOfficialInningsSummary = (
+  innings: OfficialInningsPayload | null,
+  inningsNumber: 1 | 2,
+): OfficialInningsSummary | null => {
+  const overHistory = innings?.OverHistory ?? []
+  const lastBall = overHistory
+    .filter((row) => readOfficialNumber(row.TotalRuns) !== null || readOfficialNumber(row.score_after) !== null)
+    .sort((left, right) => officialBallSortValue(left) - officialBallSortValue(right))
+    .at(-1)
+
+  if (!lastBall) {
+    return null
+  }
+
+  const balls = officialBallCount(lastBall)
+  if (balls === null || balls <= 0) {
+    return null
+  }
+
+  return {
+    innings: inningsNumber,
+    battingTeam: readText(lastBall.TeamName) ?? readText(lastBall.batting_team),
+    bowlingTeam: null,
+    runs: Math.round(readOfficialNumber(lastBall.TotalRuns) ?? readOfficialNumber(lastBall.score_after) ?? 0),
+    wickets: readOfficialNumber(lastBall.TotalWickets) ?? readOfficialNumber(lastBall.wickets_after),
+    balls,
+    oversLabel: formatBallsAsOvers(balls),
+  }
+}
+
+const readOfficialNumber = (value: unknown) => {
+  if (typeof value === "string" && value.trim() === "") {
+    return null
+  }
+
+  return readNumber(value)
+}
+
+const officialBallSortValue = (row: JsonRecord) => {
+  const balls = officialBallCount(row)
+  if (balls !== null) {
+    return balls
+  }
+
+  return readNumber(row.SNO) ?? readNumber(row.BallUniqueID) ?? 0
+}
+
+const officialBallCount = (row: JsonRecord) => {
+  const ballName = readText(row.BallName) ?? readText(row.CommentOver) ?? readText(row.over_ball)
+  if (ballName) {
+    const match = /(\d+)\.(\d+)/.exec(ballName)
+    if (match) {
+      const completedOvers = Number(match[1])
+      const ball = Number(match[2])
+      if (Number.isInteger(completedOvers) && Number.isInteger(ball)) {
+        return completedOvers * 6 + normalizeCricketBallPart(ball)
+      }
+    }
+  }
+
+  const overNo = readNumber(row.OverNo)
+  const ballNo = readNumber(row.BallNo)
+  if (overNo !== null && ballNo !== null) {
+    return Math.max(0, overNo - 1) * 6 + normalizeCricketBallPart(ballNo)
+  }
+
+  return null
+}
+
+const formatBallsAsOvers = (balls: number) => `${Math.floor(balls / 6)}.${balls % 6}`
+
+const buildOfficialScoreSide = (summary: OfficialInningsSummary | null) => ({
+  total: summary?.runs ?? 0,
+  wickets: summary?.wickets ?? null,
+})
+
+const buildOfficialStatsRows = (summary: OfficialInningsSummary | null) => summary
+  ? [{
+      period: `period_${summary.innings}`,
+      stats: {
+        batting_overs: summary.oversLabel,
+        batting_runs: summary.runs,
+        batting_wickets: summary.wickets,
+      },
+    }]
+  : []
+
+const teamsComparable = (left: string | null, right: string | null) =>
+  normalizeBallStateTeamName(left) === normalizeBallStateTeamName(right)
+
 const readText = (value: unknown) =>
   typeof value === "string"
     ? value
@@ -2529,11 +3556,17 @@ const stringifyScore = (score: unknown) => {
   const nestedScores = toJsonRecord(scoreRecord.scores)
 
   if (nestedScores) {
-    const nestedHomeScore = toJsonRecord(nestedScores.home)?.total
-    const nestedAwayScore = toJsonRecord(nestedScores.away)?.total
+    const nestedHome = toJsonRecord(nestedScores.home)
+    const nestedAway = toJsonRecord(nestedScores.away)
+    const nestedHomeScore = nestedHome?.total
+    const nestedAwayScore = nestedAway?.total
 
     if (typeof nestedHomeScore === "number" && typeof nestedAwayScore === "number") {
-      return `${nestedHomeScore}-${nestedAwayScore}`
+      const homeWickets = readNumber(nestedHome?.wickets)
+      const awayWickets = readNumber(nestedAway?.wickets)
+      return homeWickets !== null || awayWickets !== null
+        ? `${nestedHomeScore}/${homeWickets ?? "—"} - ${nestedAwayScore}/${awayWickets ?? "—"}`
+        : `${nestedHomeScore}-${nestedAwayScore}`
     }
   }
 
@@ -2563,6 +3596,52 @@ const stringifyPeriod = (score: unknown) => {
   }
 
   return [period, clock].filter(Boolean).join(" ")
+}
+
+const mergeResultPayload = (
+  score: unknown,
+  playerResults: unknown[] | undefined,
+  previousPayload: unknown,
+) => {
+  const previousRecord = toJsonRecord(previousPayload)
+  const previousScore = toJsonRecord(previousRecord?.score) ?? previousRecord
+  const scoreRecord = toJsonRecord(score)
+  const nextScore = mergeScorePayload(scoreRecord, previousScore) ?? score
+  const previousPlayerResults = Array.isArray(previousRecord?.player_results)
+    ? previousRecord.player_results
+    : []
+  const nextPlayerResults = playerResults && playerResults.length > 0 ? playerResults : previousPlayerResults
+
+  if (nextPlayerResults.length === 0) {
+    return nextScore
+  }
+
+  return {
+    score: nextScore,
+    player_results: nextPlayerResults,
+  }
+}
+
+const mergeScorePayload = (score: JsonRecord | null, previousScore: JsonRecord | null) => {
+  if (!score) {
+    return previousScore
+  }
+
+  if (!previousScore || score.stats) {
+    return score
+  }
+
+  if (!previousScore.stats) {
+    return score
+  }
+
+  return {
+    ...previousScore,
+    ...score,
+    scores: score.scores ?? previousScore.scores,
+    in_play: score.in_play ?? previousScore.in_play,
+    in_play_data: score.in_play_data ?? previousScore.in_play_data,
+  }
 }
 
 const classifyReferenceConfidence = (
@@ -2595,6 +3674,893 @@ const mapToRoundedRecord = (map: Map<string, number>) =>
   Object.fromEntries(
     Array.from(map.entries()).map(([key, value]) => [key, Number(value.toFixed(6))]),
   )
+
+const buildSideLiveModelView = (
+  selection: LiveSelectionView | undefined,
+  team: string,
+  winProbability: number | null,
+  marketFallbackProbability: number | null,
+) => {
+  const marketProbability = selection?.marketProbability ?? marketFallbackProbability
+  const edgeVsMarketBps = winProbability !== null && marketProbability !== null
+    ? Math.round((winProbability - marketProbability) * 10_000)
+    : selection?.edgeVsMarketBps ?? null
+
+  return {
+    team,
+    winProbability,
+    fairProbability: selection?.fairProbability ?? null,
+    marketProbability,
+    referenceProbability: selection?.referenceProbability ?? null,
+    edgeVsMarketBps,
+  }
+}
+
+const getDirectPolymarketProbability = (fixtureState: FixtureState, selection: string) => {
+  const tokenId = fixtureState.selectionToToken.get(selection)
+  const directBook = tokenId ? fixtureState.polymarketBooks.get(tokenId) : null
+  if (!directBook) {
+    return null
+  }
+
+  return getPolymarketBookMidpoint(directBook)
+    ?? (isUsablePolymarketAsk(directBook.bestAsk) ? directBook.bestAsk : null)
+    ?? (isUsablePolymarketBid(directBook.bestBid) ? directBook.bestBid : null)
+    ?? (isUsablePolymarketAsk(directBook.lastTradePrice) ? directBook.lastTradePrice : null)
+}
+
+const getPolymarketBookMidpoint = (book: PolymarketBookState) =>
+  book.bestBid !== null && book.bestAsk !== null
+    ? clampProbability((book.bestBid + book.bestAsk) / 2)
+    : null
+
+const getTeamLiveWinProbability = (team: string, expectedState: LiveExpectedState) => {
+  if (expectedState.chaseSuccessProbability === null) {
+    return null
+  }
+
+  if (teamsComparable(team, expectedState.battingTeam)) {
+    return expectedState.chaseSuccessProbability
+  }
+
+  if (teamsComparable(team, expectedState.bowlingTeam)) {
+    return roundMetric(1 - expectedState.chaseSuccessProbability)
+  }
+
+  return null
+}
+
+const buildLiveModelSignalReason = (
+  expectedState: LiveExpectedState,
+  edgeVsPolymarketBps: number,
+) => {
+  const direction = edgeVsPolymarketBps > 0 ? "fair_above_market" : "fair_below_market"
+  const runGap =
+    expectedState.runsDelta === null
+      ? "runs_delta_unavailable"
+      : `runs_delta_${expectedState.runsDelta.toFixed(1)}`
+  const wicketGap =
+    expectedState.wicketsDelta === null
+      ? "wickets_delta_unavailable"
+      : `wickets_delta_${expectedState.wicketsDelta.toFixed(1)}`
+
+  return `${direction}; ${runGap}; ${wicketGap}`
+}
+
+const hasMeaningfulExpectedState = (expectedState: LiveExpectedState) =>
+  expectedState.scoreRuns !== null &&
+  expectedState.balls !== null &&
+  expectedState.balls > 0 &&
+  expectedState.expectedRunsNow !== null &&
+  expectedState.expectedWicketsNow !== null &&
+  expectedState.runsDelta !== null &&
+  expectedState.projectedScore !== null
+
+const hasMeaningfulSignalState = (expectedState: LiveExpectedState) =>
+  expectedState.scoreRuns !== null &&
+  expectedState.scoreWickets !== null &&
+  expectedState.balls !== null &&
+  expectedState.balls > 0 &&
+  expectedState.runsDelta !== null &&
+  expectedState.wicketsDelta !== null
+
+const isMeaningfulLiveModelSnapshot = (snapshot: {
+  scoreRuns: number | null
+  scoreWickets: number | null
+  balls: number | null
+  expectedRunsNow: number | null
+  expectedWicketsNow: number | null
+  runsDelta: number | null
+  wicketsDelta: number | null
+  projectedScore: number | null
+}) =>
+  snapshot.scoreRuns !== null &&
+  snapshot.balls !== null &&
+  snapshot.balls > 0 &&
+  snapshot.expectedRunsNow !== null &&
+  snapshot.expectedWicketsNow !== null &&
+  snapshot.runsDelta !== null &&
+  snapshot.projectedScore !== null
+
+const buildLatestSnapshotsByInnings = <T extends { innings: number | null }>(snapshots: T[]) => ({
+  first: snapshots.find((snapshot) => snapshot.innings === 1) ?? null,
+  second: snapshots.find((snapshot) => snapshot.innings === 2) ?? null,
+})
+
+const isMeaningfulLiveModelSignal = (signal: { scoreContext: unknown }) => {
+  const context = toJsonRecord(signal.scoreContext)
+  const expectedState = context ? toJsonRecord(context.expectedState) : null
+
+  return Boolean(
+    expectedState &&
+      readNumber(expectedState.scoreRuns) !== null &&
+      readNumber(expectedState.scoreWickets) !== null &&
+      (readNumber(expectedState.balls) ?? 0) > 0 &&
+      readNumber(expectedState.runsDelta) !== null &&
+      readNumber(expectedState.wicketsDelta) !== null,
+  )
+}
+
+const isLiveModelSchemaError = (error: unknown, message: string) => {
+  const record = toJsonRecord(error)
+  const code = typeof record?.code === "string" ? record.code : null
+  return code === "42P01" || code === "42703" || /observer_live_model|does not exist|column .* does not exist/i.test(message)
+}
+
+const dedupeLiveModelSignalRecord = <T extends {
+  fixtureId: string
+  selection: string
+  reason: string
+  edgeVsPolymarketBps: number | null
+}>(signal: T, index: number, signals: T[]) => {
+  const edge = signal.edgeVsPolymarketBps ?? 0
+  return signals.findIndex((candidate) => {
+    const candidateEdge = candidate.edgeVsPolymarketBps ?? 0
+    return (
+      candidate.fixtureId === signal.fixtureId &&
+      candidate.selection === signal.selection &&
+      candidate.reason === signal.reason &&
+      Math.abs(candidateEdge - edge) < 50
+    )
+  }) === index
+}
+
+const buildLiveInningsExpectedStates = (
+  fixture: ObserverFixtureRecord,
+  ballStateOverlay?: BallStateLiveModelOverlay | null,
+): LiveInningsExpectedStates => {
+  const sideStates = buildLiveSideInningsStates(fixture)
+  if (sideStates) {
+    return applyBallStateOverlayToInningsStates(sideStates, ballStateOverlay)
+  }
+
+  const active = parseCricketState(fixture.lastResultPayload)
+  const first = buildExpectedStateFromParsed(parseCricketStateForInnings(fixture.lastResultPayload, 1))
+  const second = buildExpectedStateFromParsed(parseCricketStateForInnings(fixture.lastResultPayload, 2))
+  const activeInnings = active.innings ?? first.innings ?? second.innings
+
+  return applyBallStateOverlayToInningsStates({
+    activeInnings,
+    first: withInningsStatus(first, 1, activeInnings),
+    second: withInningsStatus(second, 2, activeInnings),
+  }, ballStateOverlay)
+}
+
+const applyBallStateOverlayToInningsStates = (
+  states: LiveInningsExpectedStates,
+  ballStateOverlay?: BallStateLiveModelOverlay | null,
+): LiveInningsExpectedStates => {
+  if (!ballStateOverlay?.available) {
+    return states
+  }
+
+  const innings = ballStateOverlay.currentState.innings
+  if (innings !== 1 && innings !== 2) {
+    return states
+  }
+
+  return {
+    activeInnings: innings,
+    first: innings === 1 ? applyBallStateOverlayToInningsState(states.first, ballStateOverlay) : states.first,
+    second: innings === 2 ? applyBallStateOverlayToInningsState(states.second, ballStateOverlay) : states.second,
+  }
+}
+
+const applyBallStateOverlayToInningsState = (
+  state: InningsExpectedState,
+  ballStateOverlay: BallStateLiveModelOverlay,
+): InningsExpectedState => {
+  const balls = ballStateOverlay.currentState.balls
+  const innings = ballStateOverlay.currentState.innings
+  const scoreRuns = ballStateOverlay.currentState.scoreRuns ?? state.scoreRuns
+  const scoreWickets = ballStateOverlay.currentState.scoreWickets ?? state.scoreWickets
+  const targetRuns = state.targetRuns
+  return {
+    ...state,
+    innings,
+    battingTeam: ballStateOverlay.currentState.battingTeam ?? state.battingTeam,
+    bowlingTeam: ballStateOverlay.currentState.bowlingTeam ?? state.bowlingTeam,
+    scoreRuns,
+    scoreWickets,
+    overs: balls === null ? state.overs : ballsToOvers(balls),
+    balls: balls ?? state.balls,
+    expectedRunsNow: ballStateOverlay.predictions.expectedRunsNow,
+    expectedWicketsNow: ballStateOverlay.predictions.expectedWicketsNow,
+    runsDelta: ballStateOverlay.predictions.runsDelta,
+    wicketsDelta: ballStateOverlay.predictions.wicketsDelta,
+    projectedScore: ballStateOverlay.predictions.finalInningsRuns,
+    chaseSuccessProbability: terminalChaseSuccessProbability({
+      innings,
+      scoreRuns,
+      scoreWickets,
+      balls: balls ?? state.balls,
+      targetRuns,
+    }) ?? ballStateOverlay.predictions.chaseSuccessProbability,
+    status: "live",
+  }
+}
+
+const terminalChaseSuccessProbability = (
+  state: Pick<LiveExpectedState, "innings" | "scoreRuns" | "scoreWickets" | "balls" | "targetRuns">,
+) => {
+  if (state.innings !== 2 || state.scoreRuns === null || state.targetRuns === null) {
+    return null
+  }
+
+  if (state.scoreRuns >= state.targetRuns) {
+    return 1
+  }
+
+  if (state.scoreWickets !== null && state.scoreWickets >= 10) {
+    return 0
+  }
+
+  if (state.balls !== null && state.balls >= 120) {
+    return 0
+  }
+
+  return null
+}
+
+const buildLiveSideInningsStates = (fixture: ObserverFixtureRecord): LiveInningsExpectedStates | null => {
+  const payloadRecord = toJsonRecord(fixture.lastResultPayload)
+  const scoreRecord = toJsonRecord(payloadRecord?.score) ?? payloadRecord
+  const inningsSides = readLiveInningsSides(scoreRecord)
+
+  if (!inningsSides) {
+    return null
+  }
+
+  const first = buildExpectedStateFromParsed(readLiveSideInningsState(scoreRecord, 1) ?? blankParsedInnings(1))
+  const second = buildExpectedStateFromParsed(readLiveSideInningsState(scoreRecord, 2) ?? blankParsedInnings(2))
+
+  return {
+    activeInnings: 2,
+    first: { ...first, status: "frozen" },
+    second: { ...second, status: hasMeaningfulExpectedState(second) ? "live" : "pending" },
+  }
+}
+
+const blankParsedInnings = (innings: 1 | 2): ParsedCricketState => ({
+  innings,
+  battingTeam: null,
+  bowlingTeam: null,
+  scoreRuns: null,
+  scoreWickets: null,
+  overs: null,
+  balls: null,
+  targetRuns: null,
+})
+
+const getActiveExpectedState = (inningsStates: LiveInningsExpectedStates): LiveExpectedState => {
+  if (inningsStates.activeInnings === 2) {
+    return stripInningsStatus(inningsStates.second)
+  }
+
+  if (inningsStates.activeInnings === 1) {
+    return stripInningsStatus(inningsStates.first)
+  }
+
+  return stripInningsStatus(inningsStates.first.scoreRuns !== null ? inningsStates.first : inningsStates.second)
+}
+
+const withInningsStatus = (
+  state: LiveExpectedState,
+  innings: 1 | 2,
+  activeInnings: number | null,
+): InningsExpectedState => {
+  const hasScore = state.scoreRuns !== null || state.scoreWickets !== null || state.balls !== null
+  const hasLiveMetrics = hasMeaningfulExpectedState(state)
+  const status = hasLiveMetrics && activeInnings === innings
+    ? "live"
+    : hasScore && activeInnings !== null && activeInnings > innings
+      ? "frozen"
+      : activeInnings === innings
+        ? "pending"
+        : hasScore
+          ? "frozen"
+          : "unavailable"
+
+  return { ...state, status }
+}
+
+const stripInningsStatus = (state: InningsExpectedState): LiveExpectedState => {
+  const { status: _status, ...expectedState } = state
+  return expectedState
+}
+
+const buildExpectedStateFromParsed = (parsed: ParsedCricketState): LiveExpectedState => ({
+  ...parsed,
+  expectedRunsNow: null,
+  expectedWicketsNow: null,
+  runsDelta: null,
+  wicketsDelta: null,
+  projectedScore: null,
+  expectedRunRate: null,
+  chaseSuccessProbability: null,
+})
+
+const parseCricketState = (payload: unknown): ParsedCricketState => {
+  const records = collectJsonRecords(payload)
+  const scoreRecord = toJsonRecord(toJsonRecord(payload)?.score) ?? toJsonRecord(payload)
+  const inPlay = scoreRecord ? toJsonRecord(scoreRecord.in_play) ?? toJsonRecord(scoreRecord.in_play_data) : null
+  const activeInnings = firstInteger(
+    [inPlay, scoreRecord].filter((record): record is JsonRecord => record !== null),
+    ["current_innings", "currentInnings", "innings", "inning"],
+  )
+  const inferredActiveInnings = inferLiveActiveInnings(scoreRecord, activeInnings)
+  const activeSideState = readLiveSideInningsState(scoreRecord, inferredActiveInnings)
+
+  if (activeSideState) {
+    return activeSideState
+  }
+
+  const activeRecords = selectActiveInningsRecords(records, scoreRecord, inPlay, inferredActiveInnings)
+  const resolvedInnings = inferredActiveInnings ?? firstInteger(activeRecords, ["innings", "inning", "current_innings"])
+
+  return {
+    innings: resolvedInnings,
+    battingTeam: firstText(activeRecords, ["batting_team", "battingTeam", "batting_team_name"]),
+    bowlingTeam: firstText(activeRecords, ["bowling_team", "bowlingTeam", "bowling_team_name"]),
+    scoreRuns: firstScoreRuns(activeRecords, inPlay, scoreRecord, resolvedInnings),
+    scoreWickets: firstScoreWickets(payload, activeRecords, inPlay, scoreRecord, resolvedInnings),
+    overs: hasScoreValue(activeRecords) ? firstOverValue(activeRecords, inPlay) : null,
+    balls: hasScoreValue(activeRecords) ? firstBallValue(activeRecords, inPlay) : null,
+    targetRuns: firstInteger(activeRecords, ["target", "target_runs", "runs_to_win"]),
+  }
+}
+
+const parseCricketStateForInnings = (payload: unknown, innings: 1 | 2): ParsedCricketState => {
+  const records = collectJsonRecords(payload)
+  const scoreRecord = toJsonRecord(toJsonRecord(payload)?.score) ?? toJsonRecord(payload)
+  const inPlay = scoreRecord ? toJsonRecord(scoreRecord.in_play) ?? toJsonRecord(scoreRecord.in_play_data) : null
+  const sideState = readLiveSideInningsState(scoreRecord, innings)
+
+  if (sideState) {
+    return sideState
+  }
+
+  const inningsRecords = selectActiveInningsRecords(records, scoreRecord, inPlay, innings)
+
+  return {
+    innings,
+    battingTeam: firstText(inningsRecords, ["batting_team", "battingTeam", "batting_team_name"]),
+    bowlingTeam: firstText(inningsRecords, ["bowling_team", "bowlingTeam", "bowling_team_name"]),
+    scoreRuns: firstScoreRuns(inningsRecords, innings === 2 ? inPlay : null, scoreRecord, innings),
+    scoreWickets: firstScoreWickets(payload, inningsRecords, innings === 2 ? inPlay : null, scoreRecord, innings),
+    overs: hasScoreValue(inningsRecords) ? firstOverValue(inningsRecords, innings === 2 ? inPlay : null) : null,
+    balls: hasScoreValue(inningsRecords) ? firstBallValue(inningsRecords, innings === 2 ? inPlay : null) : null,
+    targetRuns: firstInteger(inningsRecords, ["target", "target_runs", "runs_to_win"]),
+  }
+}
+
+const hasScoreValue = (records: JsonRecord[]) =>
+  records.some((record) =>
+    firstInteger([record], [
+      "total_runs",
+      "runs_total",
+      "scoreRuns",
+      "score_runs",
+      "team_total",
+      "innings_total",
+      "batting_total",
+      "total",
+      "runs",
+      "batting_runs",
+      "batter_runs",
+      "runs_batter",
+      "runs_off_bat",
+      "total_wickets",
+      "scoreWickets",
+      "score_wickets",
+      "wickets_lost",
+      "batting_wickets",
+      "wickets",
+    ]) !== null || readSummaryScoreTotals(record).some((value) => value !== null && value > 0),
+  )
+
+const selectActiveInningsRecords = (
+  records: JsonRecord[],
+  scoreRecord: JsonRecord | null,
+  inPlay: JsonRecord | null,
+  activeInnings: number | null,
+) => {
+  const anchoredRecords = [
+    recordMatchesInnings(inPlay, activeInnings) ? inPlay : null,
+    recordMatchesInnings(scoreRecord, activeInnings) ? scoreRecord : null,
+  ].filter((record): record is JsonRecord => record !== null)
+  const matchingRecords = activeInnings === null
+    ? []
+    : records.filter((record) => {
+        if (activeInnings > 1 && record === scoreRecord) {
+          return false
+        }
+
+        const recordInnings = readNumber(record.current_innings)
+          ?? readNumber(record.currentInnings)
+          ?? readNumber(record.innings)
+          ?? readNumber(record.inning)
+
+        return recordInnings !== null && Math.round(recordInnings) === activeInnings
+      })
+
+  const ordered = [...anchoredRecords, ...matchingRecords]
+  const seen = new Set<JsonRecord>()
+  return ordered.filter((record) => {
+    if (seen.has(record)) {
+      return false
+    }
+
+    seen.add(record)
+    return true
+  })
+}
+
+const recordMatchesInnings = (record: JsonRecord | null, innings: number | null) => {
+  if (!record) {
+    return false
+  }
+
+  if (innings === null) {
+    return true
+  }
+
+  const recordInnings = readNumber(record.current_innings)
+    ?? readNumber(record.currentInnings)
+    ?? readNumber(record.innings)
+    ?? readNumber(record.inning)
+
+  return recordInnings === null ? innings <= 1 : Math.round(recordInnings) === innings
+}
+
+type CricketScoreSide = "home" | "away"
+
+const inferLiveActiveInnings = (scoreRecord: JsonRecord | null, feedInnings: number | null) => {
+  const inningsSides = readLiveInningsSides(scoreRecord)
+  return inningsSides ? 2 : feedInnings
+}
+
+const readLiveSideInningsState = (
+  scoreRecord: JsonRecord | null,
+  innings: number | null,
+): ParsedCricketState | null => {
+  const inningsSides = readLiveInningsSides(scoreRecord)
+  if (!inningsSides || (innings !== 1 && innings !== 2)) {
+    return null
+  }
+
+  const side = innings === 1 ? inningsSides.first : inningsSides.second
+  const oppositeSide = side === "home" ? "away" : "home"
+  const score = toJsonRecord(toJsonRecord(scoreRecord?.scores)?.[side])
+  const summary = readSideBattingSummary(scoreRecord, side)
+  const overs = summary.overs
+  const scoreRuns = readNumber(score?.total) ?? summary.runs
+  const firstInningsRuns = innings === 2
+    ? readNumber(toJsonRecord(toJsonRecord(scoreRecord?.scores)?.[inningsSides.first])?.total)
+    : null
+
+  return {
+    innings,
+    battingTeam: readScoreTeamName(scoreRecord, side),
+    bowlingTeam: readScoreTeamName(scoreRecord, oppositeSide),
+    scoreRuns: scoreRuns === null ? null : Math.round(scoreRuns),
+    scoreWickets: summary.wickets === null ? null : Math.round(summary.wickets),
+    overs,
+    balls: overs === null ? null : oversToBalls(overs),
+    targetRuns: innings === 2 && firstInningsRuns !== null ? Math.round(firstInningsRuns + 1) : null,
+  }
+}
+
+const readLiveInningsSides = (scoreRecord: JsonRecord | null) => {
+  const homeSummary = readSideBattingSummary(scoreRecord, "home")
+  const awaySummary = readSideBattingSummary(scoreRecord, "away")
+  const scores = toJsonRecord(scoreRecord?.scores)
+  const homeTotal = readNumber(toJsonRecord(scores?.home)?.total)
+  const awayTotal = readNumber(toJsonRecord(scores?.away)?.total)
+
+  if ((homeTotal ?? 0) <= 0 || (awayTotal ?? 0) <= 0) {
+    return null
+  }
+
+  if (isCompletedT20Innings(homeSummary) && isCurrentT20Innings(awaySummary)) {
+    return { first: "home" as const, second: "away" as const }
+  }
+
+  if (isCompletedT20Innings(awaySummary) && isCurrentT20Innings(homeSummary)) {
+    return { first: "away" as const, second: "home" as const }
+  }
+
+  return null
+}
+
+const readSideBattingSummary = (scoreRecord: JsonRecord | null, side: CricketScoreSide) => {
+  const stats = toJsonRecord(scoreRecord?.stats)
+  const rows = stats ? stats[side] : null
+  const rowRecords = Array.isArray(rows)
+    ? rows.map((row) => toJsonRecord(row)).filter((row): row is JsonRecord => row !== null)
+    : []
+  const preferredRow = rowRecords.find((row) => readText(row.period) === "period_1") ?? rowRecords[0] ?? null
+  const battingStats = toJsonRecord(preferredRow?.stats)
+  const overs = readText(battingStats?.batting_overs)
+
+  return {
+    runs: readNumber(battingStats?.batting_runs),
+    wickets: readNumber(battingStats?.batting_wickets),
+    overs: overs ? parseCricketOverNotation(overs) : null,
+  }
+}
+
+const isCompletedT20Innings = (summary: { overs: number | null; wickets: number | null }) =>
+  summary.wickets !== null && summary.wickets >= 10 || summary.overs !== null && summary.overs >= 19.5
+
+const isCurrentT20Innings = (summary: { overs: number | null; wickets: number | null }) =>
+  summary.overs !== null && summary.overs < 19.5 && (summary.wickets === null || summary.wickets < 10)
+
+const firstScoreRuns = (
+  activeRecords: JsonRecord[],
+  inPlay: JsonRecord | null,
+  scoreRecord: JsonRecord | null,
+  activeInnings: number | null,
+) => {
+  const liveRuns = firstInteger(activeRecords, [
+    "total_runs",
+    "runs_total",
+    "scoreRuns",
+    "score_runs",
+    "team_total",
+    "innings_total",
+    "batting_total",
+    "total",
+  ])
+
+  if (liveRuns !== null) {
+    return liveRuns
+  }
+
+  const liveRunsWithExtras = firstRunsPlusExtras(activeRecords)
+  if (liveRunsWithExtras !== null) {
+    return liveRunsWithExtras
+  }
+
+  const liveFallbackRuns = firstInteger(activeRecords, ["runs", "batting_runs", "batter_runs", "runs_batter", "runs_off_bat"])
+  if (liveFallbackRuns !== null) {
+    return liveFallbackRuns
+  }
+
+  const inningsSummaryRuns = firstSummaryScoreRuns(scoreRecord, activeInnings)
+  if (inningsSummaryRuns !== null) {
+    return inningsSummaryRuns
+  }
+
+  if (activeInnings !== null && activeInnings > 1) {
+    return null
+  }
+
+  return firstInteger([scoreRecord, inPlay].filter((record): record is JsonRecord => record !== null), [
+    "total_runs",
+    "runs_total",
+    "scoreRuns",
+    "score_runs",
+    "team_total",
+    "innings_total",
+    "batting_total",
+    "total",
+  ])
+}
+
+const firstScoreWickets = (
+  payload: unknown,
+  activeRecords: JsonRecord[],
+  inPlay: JsonRecord | null,
+  scoreRecord: JsonRecord | null,
+  activeInnings: number | null,
+) => {
+  const liveWickets = firstInteger(activeRecords, [
+    "total_wickets",
+    "scoreWickets",
+    "score_wickets",
+    "wickets_lost",
+    "batting_wickets",
+    "wickets",
+  ])
+
+  if (liveWickets !== null) {
+    return liveWickets
+  }
+
+  const dismissedBatters = countDismissedBatters(payload, scoreRecord, activeInnings)
+  if (dismissedBatters !== null) {
+    return dismissedBatters
+  }
+
+  const inningsSummaryWickets = firstSummaryScoreWickets(scoreRecord, activeInnings)
+  if (inningsSummaryWickets !== null) {
+    return inningsSummaryWickets
+  }
+
+  if (activeInnings !== null && activeInnings > 1) {
+    return null
+  }
+
+  return firstInteger([scoreRecord, inPlay].filter((record): record is JsonRecord => record !== null), [
+    "total_wickets",
+    "scoreWickets",
+    "score_wickets",
+    "wickets_lost",
+    "batting_wickets",
+    "wickets",
+  ])
+}
+
+const firstSummaryScoreRuns = (scoreRecord: JsonRecord | null, activeInnings: number | null) => {
+  if (activeInnings !== null && activeInnings > 1) {
+    return null
+  }
+
+  const totals = readSummaryScoreTotals(scoreRecord).filter((value) => value !== null)
+  const positiveTotals = totals.filter((value) => value > 0)
+
+  if (positiveTotals.length === 1) {
+    return positiveTotals[0] ?? null
+  }
+
+  return null
+}
+
+const firstSummaryScoreWickets = (scoreRecord: JsonRecord | null, activeInnings: number | null) => {
+  if (activeInnings !== null && activeInnings > 1) {
+    return null
+  }
+
+  const summaries = readSummaryScoreRecords(scoreRecord)
+  const scoredSummaries = summaries.filter((summary) => (readNumber(summary.total) ?? 0) > 0)
+  const scoredSummary = scoredSummaries.length === 1 ? scoredSummaries[0] : null
+
+  return scoredSummary ? readNumber(scoredSummary.wickets) ?? readNumber(scoredSummary.wickets_lost) : null
+}
+
+const countDismissedBatters = (
+  payload: unknown,
+  scoreRecord: JsonRecord | null,
+  activeInnings: number | null,
+) => {
+  if (activeInnings === null) {
+    return null
+  }
+
+  const battingTeamName = readSoleScoringTeamName(scoreRecord)
+  const period = `period_${activeInnings}`
+  const payloadRecord = toJsonRecord(payload)
+  const playerResults = Array.isArray(payloadRecord?.player_results) ? payloadRecord.player_results : []
+  const dismissedPlayersByTeam = new Map<string, Set<string>>()
+
+  for (const playerResult of playerResults) {
+    const resultRecord = toJsonRecord(playerResult)
+    const teamRecord = toJsonRecord(resultRecord?.team)
+    const teamName = readText(teamRecord?.name)
+    if (!teamName || (battingTeamName && teamName !== battingTeamName)) {
+      continue
+    }
+
+    const playerRecord = toJsonRecord(resultRecord?.player)
+    const playerKey = readText(playerRecord?.id) ?? readText(playerRecord?.name)
+    const statsRows = Array.isArray(resultRecord?.stats) ? resultRecord.stats : []
+
+    for (const statsRow of statsRows) {
+      const statsRecord = toJsonRecord(statsRow)
+      if (statsRecord === null) {
+        continue
+      }
+
+      if (readText(statsRecord.period) !== period) {
+        continue
+      }
+
+      const nestedStats = toJsonRecord(statsRecord.stats)
+      const battingStats = nestedStats === null ? statsRecord : nestedStats
+      const fowType = readText(battingStats.batting_fow_type)?.toLowerCase()
+      if (fowType && fowType !== "not_out") {
+        const teamDismissals = dismissedPlayersByTeam.get(teamName) ?? new Set<string>()
+        teamDismissals.add(playerKey ?? `${teamName}-${teamDismissals.size + 1}`)
+        dismissedPlayersByTeam.set(teamName, teamDismissals)
+      }
+    }
+  }
+
+  if (battingTeamName) {
+    const dismissedPlayers = dismissedPlayersByTeam.get(battingTeamName)
+    return dismissedPlayers && dismissedPlayers.size > 0 ? dismissedPlayers.size : null
+  }
+
+  return dismissedPlayersByTeam.size === 1 ? [...dismissedPlayersByTeam.values()][0]?.size ?? null : null
+}
+
+const readSoleScoringTeamName = (scoreRecord: JsonRecord | null) => {
+  const scores = toJsonRecord(scoreRecord?.scores)
+  const homeScore = toJsonRecord(scores?.home)
+  const awayScore = toJsonRecord(scores?.away)
+  const homeTotal = readNumber(homeScore?.total)
+  const awayTotal = readNumber(awayScore?.total)
+
+  if (homeTotal !== null && homeTotal > 0 && (awayTotal ?? 0) === 0) {
+    return readScoreTeamName(scoreRecord, "home")
+  }
+
+  if (awayTotal !== null && awayTotal > 0 && (homeTotal ?? 0) === 0) {
+    return readScoreTeamName(scoreRecord, "away")
+  }
+
+  return null
+}
+
+const readScoreTeamName = (scoreRecord: JsonRecord | null, side: "home" | "away") => {
+  const fixture = toJsonRecord(scoreRecord?.fixture)
+  const displayName = readText(fixture?.[`${side}_team_display`])
+
+  if (displayName) {
+    return displayName
+  }
+
+  const competitors = fixture?.[`${side}_competitors`]
+  if (!Array.isArray(competitors)) {
+    return null
+  }
+
+  return readText(toJsonRecord(competitors[0])?.name)
+}
+
+const readSummaryScoreTotals = (scoreRecord: JsonRecord | null) =>
+  readSummaryScoreRecords(scoreRecord).map((record) => readNumber(record.total))
+
+const readSummaryScoreRecords = (scoreRecord: JsonRecord | null) => {
+  const scores = toJsonRecord(scoreRecord?.scores) ?? scoreRecord
+
+  if (!scores) {
+    return []
+  }
+
+  return [toJsonRecord(scores.home), toJsonRecord(scores.away)]
+    .filter((record): record is JsonRecord => record !== null)
+}
+
+const firstRunsPlusExtras = (records: JsonRecord[]) => {
+  for (const record of records) {
+    const batterRuns = readNumber(record.batter_runs)
+      ?? readNumber(record.runs_batter)
+      ?? readNumber(record.runs_off_bat)
+      ?? readNumber(record.batting_runs)
+    const extras = readNumber(record.extras)
+      ?? readNumber(record.runs_extras)
+      ?? readNumber(record.extra_runs)
+
+    if (batterRuns !== null && extras !== null) {
+      return Math.round(batterRuns + extras)
+    }
+  }
+
+  return null
+}
+
+const collectJsonRecords = (value: unknown): JsonRecord[] => {
+  const record = toJsonRecord(value)
+
+  if (!record) {
+    return []
+  }
+
+  const nested = Object.values(record).flatMap((item) => {
+    if (Array.isArray(item)) {
+      return item.flatMap((entry) => collectJsonRecords(entry))
+    }
+
+    return collectJsonRecords(item)
+  })
+
+  return [record, ...nested]
+}
+
+const firstText = (records: JsonRecord[], keys: string[]) => {
+  for (const record of records) {
+    for (const key of keys) {
+      const value = readText(record[key])
+      if (value) {
+        return value
+      }
+    }
+  }
+
+  return null
+}
+
+const firstInteger = (records: JsonRecord[], keys: string[]) => {
+  for (const record of records) {
+    for (const key of keys) {
+      const value = readNumber(record[key])
+      if (value !== null) {
+        return Math.round(value)
+      }
+    }
+  }
+
+  return null
+}
+
+const firstOverValue = (records: JsonRecord[], inPlay: JsonRecord | null) => {
+  const raw = firstText(records, ["batting_overs", "overs", "over", "clock"])
+  if (raw) {
+    return parseCricketOverNotation(raw)
+  }
+
+  const clock = readText(inPlay?.clock)
+  if (!clock) {
+    return null
+  }
+
+  return parseCricketOverNotation(clock)
+}
+
+const firstBallValue = (records: JsonRecord[], inPlay: JsonRecord | null) => {
+  const overs = firstOverValue(records, inPlay)
+  if (overs !== null) {
+    return oversToBalls(overs)
+  }
+
+  const explicitBalls = firstInteger(records, ["valid_balls", "balls_batted"])
+  return explicitBalls !== null && explicitBalls > 0 ? explicitBalls : null
+}
+
+const oversToBalls = (overs: number) => {
+  const completedOvers = Math.trunc(overs)
+  const ballsInCurrentOver = Math.round((overs - completedOvers) * 10)
+  return completedOvers * 6 + normalizeCricketBallPart(ballsInCurrentOver)
+}
+
+const parseCricketOverNotation = (value: string) => {
+  const trimmed = value.trim()
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(trimmed)
+
+  if (!match) {
+    const parsed = Number(trimmed)
+    return Number.isFinite(parsed) ? roundMetric(parsed) : null
+  }
+
+  const completedOvers = Number(match[1])
+  const ballsInCurrentOver = match[2] ? Number(match[2]) : 0
+  const totalBalls = completedOvers * 6 + normalizeCricketBallPart(ballsInCurrentOver)
+  const normalizedOvers = Math.trunc(totalBalls / 6) + (totalBalls % 6) / 10
+
+  return roundMetric(normalizedOvers)
+}
+
+const normalizeCricketBallPart = (ballsInCurrentOver: number) => {
+  if (!Number.isFinite(ballsInCurrentOver) || ballsInCurrentOver <= 0) {
+    return 0
+  }
+
+  return Math.min(6, Math.round(ballsInCurrentOver))
+}
+
+const roundMetric = (value: number) => Number(value.toFixed(2))
 
 const parseTokenIdList = (value: unknown) => {
   if (Array.isArray(value)) {

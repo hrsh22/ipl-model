@@ -115,7 +115,6 @@ The standalone predictor now auto-injects these live/current inputs:
 - current Elo context from `model/data/live/upcoming_fixture_elo_context.csv`
 - refreshed current-season form/H2H/venue-toss/rest-day metadata derived from completed 2026 results where available
 - official IPL toss + confirmed XI in `post_toss` mode when available
-- live OpticOdds sportsbook overlay (when `OPTICODDS_API_KEY` is available)
 - live Polymarket market overlay (when a market can be matched)
 
 Current-season metadata refresh currently updates only the features that are safely derivable from completed match metadata (for example recent win rates, H2H, venue win/toss tendencies, batting-first/chasing rates, and rest days). Ball-by-ball phase features and richer XI/player features still fall back to the latest historical trained snapshot until a richer live data layer is added.
@@ -127,13 +126,6 @@ The Polymarket overlay is **not** used as model input. It is returned alongside 
 - volume
 - fair price comparison
 - model vs market edge
-
-The OpticOdds sportsbook overlay is also **not** used as model input. It is returned as:
-
-- per-book team win probabilities
-- consensus sportsbook probabilities
-- max stake / top level when available
-- model vs sportsbook-consensus edge
 
 ## 7. Still manual / override-only for now
 
@@ -154,8 +146,44 @@ Confirmed XI is now auto-fetched in `post_toss` mode from the IPL official match
   - 55% delta CatBoost
 - Post-toss uses the current best post-toss ensemble configuration from `model/final_models/post_toss/`
 - Market prices are auto-fetched only as an overlay/comparison layer outside the model probability.
-- If no matching Polymarket market exists, `market_overlay` will be `null` while `sportsbook_overlay` can still be populated from OpticOdds.
+- If no matching Polymarket market exists, `market_overlay` will be `null`; prediction can still run from official/local fixture data.
 - In `post_toss` mode, official toss + confirmed XI are applied before any file or CLI overrides; file overrides can still replace them if needed.
+
+## Experimental ball-state shadow flags
+
+The ball-by-ball shadow scorer is experimental and isolated from the production
+pre/post-toss predictor. `/observer/live-model` can invoke the scorer as a
+runtime bridge for the current observer payload using
+`model/ball_state_live_candidate_selection.json`; if runtime scoring fails, the
+model-scored fields remain unavailable rather than using heuristic expected-state values. Runtime
+refresh for saved shadow journals remains opt-in:
+
+Selected runtime artifacts are bundled under
+`model/runtime_artifacts/ball_state_live/`. The ignored `model/experiments/`
+tree remains the local research workspace and is recorded as `source_artifact`
+metadata only; production-like deploys should rely on the runtime bundle paths in
+the manifest.
+
+- `EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED=false` by default. When false,
+  `/observer/ball-state-shadow` is read-only and only reports existing ignored
+  experiment artifacts.
+- `EXPERIMENTAL_BALL_STATE_REMOTE_FETCH_ENABLED=false` by default. When false,
+  runtime ingestion will not fetch ESPN URLs from context files; use saved public
+  HTML under `model/experiments/ball-state/` for local experiments.
+
+Keep these disabled in production unless you are intentionally running an
+experimental live ball-state session.
+
+## Experimental 2026 preseason squad context
+
+The live ball-state scorer can read dated preseason squad sidecars without changing the trained artifacts:
+
+- `model/data/features/preseason_team_rosters_2026.csv` stores official IPL retained/traded roster facts available before the 2026 season.
+- `model/data/features/preseason_team_prior_overrides_2026.csv` is an optional numeric override file for preseason-only team-prior adjustments.
+
+At inference time, `PriorLookup.team_priors()` first loads the frozen historical team priors, then overlays date-gated preseason context for 2026 fixtures. The roster sidecar adjusts `team_xi_continuity_score` by comparing the official preseason roster with the team’s last historical XI. This keeps 2026 match results out of training and out of live feature construction.
+
+Do not put 2026 scorecards, completed-match playing XIs, or current-season player performance in these files if 2026 is being used as an out-of-sample test season.
 
 ## 9. Current-season prediction performance tracking
 
@@ -188,6 +216,14 @@ The production model source hash now fingerprints the full deployed `model/final
 The required **human-readable source of truth** now lives in:
 
 - `model/MODEL_CHANGELOG.md`
+
+For concrete data-source attribution, use:
+
+- `model/DATA_LINEAGE.md`
+
+That file maps training inputs, inference-time inputs, runtime overlays, and
+observer persistence boundaries so probability changes can be traced to their
+likely cause before retraining or promoting anything.
 
 Use that file for every material model-affecting change, especially when you:
 
@@ -297,18 +333,6 @@ pnpm model:backtest -- --root current:model/artifacts --root experiment:model/ex
 
 Use this path to decide whether an experiment is better before promoting anything into `model/final_models/`.
 
-## Predictor-only server mode
+## Server runtime
 
-If you want to expose only the predictor UI/API on a VM, you can start the Node server with:
-
-```env
-PREDICTOR_ONLY=true
-```
-
-In this mode:
-
-- `DATABASE_URL` is not required
-- observer startup is skipped
-- observer JSON routes return `503`
-- `/predictor` and `/predictor/api/*` still work
-- `OPTICODDS_API_KEY` is still required for predictor live-data refresh
+The Node server runs the predictor and observer surfaces together. `DATABASE_URL` is required because observer persistence and readiness checks use Postgres. Fixture and predictor operation use official/local IPL data by default, and the observer API surface remains available without a paid odds feed.

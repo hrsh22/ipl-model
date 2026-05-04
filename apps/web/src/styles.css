@@ -703,17 +703,426 @@ input {
   color: var(--danger);
 }
 
+.observer-shell {
+  position: relative;
+  width: min(1500px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 34px 0 72px;
+}
+
+.observer-hero,
+.observer-fixture-card,
+.observer-history-card,
+.observer-signal-rail,
+.observer-metric-card,
+.observer-empty-state,
+.observer-shadow-panel {
+  border: 1px solid var(--border);
+  background: rgba(9, 16, 12, 0.82);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.observer-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: end;
+  padding: 36px;
+  border-radius: 36px;
+  background:
+    radial-gradient(circle at 16% 8%, rgba(216, 255, 56, 0.16), transparent 28rem),
+    linear-gradient(135deg, rgba(18, 28, 24, 0.96), rgba(8, 11, 10, 0.8));
+}
+
+.observer-hero h1 {
+  max-width: 960px;
+}
+
+.observer-copy {
+  max-width: 800px;
+  color: var(--muted);
+  font-size: 1.08rem;
+  line-height: 1.65;
+}
+
+.observer-status-card,
+.observer-score-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #111509;
+  font-weight: 900;
+}
+
+.observer-status-card {
+  min-width: 360px;
+  justify-content: space-between;
+  white-space: nowrap;
+}
+
+.observer-status-card strong,
+.observer-status-card small {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.observer-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #111509;
+  box-shadow: 0 0 0 6px rgba(17, 21, 9, 0.15);
+}
+
+.observer-error-strip {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 90, 70, 0.42);
+  border-radius: 18px;
+  background: rgba(255, 90, 70, 0.14);
+  color: #ffd8d2;
+}
+
+.observer-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.observer-metric-card {
+  padding: 22px;
+  border-radius: 24px;
+}
+
+.observer-metric-card span,
+.observer-section-heading,
+.observer-state-card span,
+.observer-side-card small,
+.observer-side-card span,
+.observer-muted,
+.observer-signal-card small,
+.observer-venue-context span,
+.observer-venue-context small,
+.observer-innings-panel header span,
+.observer-innings-panel header small {
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.observer-metric-card strong {
+  display: block;
+  margin-top: 12px;
+  font-size: 2rem;
+}
+
+.observer-shadow-panel {
+  padding: 24px;
+  margin-bottom: 18px;
+  border-color: rgba(216, 255, 56, 0.26);
+  border-radius: 30px;
+  background:
+    linear-gradient(135deg, rgba(216, 255, 56, 0.12), transparent 38%),
+    linear-gradient(315deg, rgba(255, 191, 63, 0.1), transparent 42%),
+    rgba(9, 16, 12, 0.86);
+}
+
+.observer-shadow-unavailable {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.observer-shadow-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+}
+
+.observer-shadow-header h2 {
+  margin: 4px 0 8px;
+  font-size: clamp(2rem, 4vw, 3.6rem);
+}
+
+.observer-shadow-header p {
+  max-width: 860px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.observer-shadow-header code {
+  color: var(--accent);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.observer-shadow-status {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--accent);
+  color: #111509;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.observer-shadow-status span {
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.observer-shadow-grid,
+.observer-state-grid,
+.observer-history-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.observer-shadow-error {
+  margin: 14px 0 0;
+  color: var(--warning);
+  line-height: 1.45;
+}
+
+.observer-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 18px;
+}
+
+.observer-fixture-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.observer-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 6px;
+}
+
+.observer-section-heading strong {
+  color: var(--text);
+}
+
+.observer-fixture-card,
+.observer-history-card {
+  padding: 24px;
+  border-radius: 30px;
+}
+
+.observer-history-card {
+  border-style: dashed;
+}
+
+.observer-fixture-card header,
+.observer-history-card header,
+.observer-innings-panel header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.observer-fixture-card h2,
+.observer-history-card h3 {
+  margin-top: 4px;
+  font-size: clamp(1.7rem, 4vw, 3.4rem);
+}
+
+.observer-fixture-card h2 span,
+.observer-history-card h3 span {
+  color: var(--warning);
+}
+
+.observer-fixture-card p,
+.observer-history-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.observer-history-score {
+  padding: 10px 14px;
+  border: 1px solid rgba(216, 255, 56, 0.22);
+  border-radius: 999px;
+  background: rgba(216, 255, 56, 0.1);
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.observer-innings-grid,
+.observer-side-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.observer-innings-panel,
+.observer-state-card,
+.observer-side-card,
+.observer-signal-card,
+.observer-terms-card {
+  border: 1px solid rgba(245, 241, 223, 0.1);
+  border-radius: 20px;
+  background: rgba(245, 241, 223, 0.07);
+}
+
+.observer-innings-panel {
+  padding: 16px;
+  border-radius: 24px;
+}
+
+.observer-innings-panel.live,
+.observer-state-card.is-live {
+  border-color: rgba(216, 255, 56, 0.25);
+  background: rgba(216, 255, 56, 0.1);
+}
+
+.observer-innings-panel.frozen {
+  border-color: rgba(255, 191, 63, 0.2);
+  background: rgba(255, 191, 63, 0.08);
+}
+
+.observer-innings-panel header strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.observer-innings-pending {
+  margin: 14px 0 0;
+  color: var(--muted);
+}
+
+.observer-innings-state-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.observer-state-card,
+.observer-side-card,
+.observer-signal-card,
+.observer-terms-card {
+  padding: 18px;
+}
+
+.observer-state-card strong,
+.observer-side-card strong {
+  display: block;
+  min-height: 30px;
+  margin-top: 10px;
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.observer-side-card strong {
+  color: var(--accent);
+}
+
+.observer-venue-context {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(255, 191, 63, 0.2);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255, 191, 63, 0.12), rgba(216, 255, 56, 0.06));
+}
+
+.observer-venue-context.compact {
+  grid-template-columns: minmax(180px, 1fr) repeat(3, minmax(0, 1fr));
+}
+
+.observer-venue-context > div:first-child {
+  padding: 18px;
+}
+
+.observer-venue-context strong {
+  display: block;
+  margin: 8px 0;
+  font-size: 1.2rem;
+}
+
+.observer-signal-rail {
+  position: sticky;
+  top: 78px;
+  align-self: start;
+  padding: 22px;
+  border-radius: 30px;
+}
+
+.observer-signal-card {
+  margin-top: 12px;
+}
+
+.observer-signal-card div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.observer-signal-card p,
+.observer-terms-card p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.observer-terms-card {
+  margin-top: 14px;
+}
+
+.observer-terms-card strong {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--accent);
+}
+
+.observer-empty-state {
+  padding: 34px;
+  border-radius: 28px;
+  color: var(--muted);
+}
+
 @media (max-width: 1100px) {
   .page-grid,
   .scanner-hero,
   .market-header,
   .outcome-grid,
-  .detail-columns {
+  .detail-columns,
+  .observer-hero,
+  .observer-content-grid,
+  .observer-shadow-header {
     grid-template-columns: 1fr;
   }
 
-  .sidebar-panel {
+  .sidebar-panel,
+  .observer-signal-rail {
     position: static;
+  }
+
+  .observer-shadow-grid,
+  .observer-state-grid,
+  .observer-history-grid,
+  .observer-venue-context,
+  .observer-venue-context.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -721,12 +1130,32 @@ input {
   .selected-fixture,
   .detail-grid,
   .summary-grid,
-  .summary-grid-tight,
-  .form-grid,
-  .probable-xi-grid,
-  .input-row,
-  .controls-row {
+    .summary-grid-tight,
+    .form-grid,
+    .probable-xi-grid,
+    .input-row,
+    .controls-row,
+    .observer-metric-grid,
+    .observer-shadow-grid,
+    .observer-state-grid,
+    .observer-side-row,
+    .observer-history-grid,
+    .observer-venue-context,
+    .observer-venue-context.compact,
+    .observer-innings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .observer-hero,
+  .observer-fixture-card,
+  .observer-history-card {
+    padding: 22px;
+    border-radius: 24px;
+  }
+
+  .observer-status-card {
+    width: 100%;
+    min-width: 0;
   }
 
   h1 {
