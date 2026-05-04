@@ -29,6 +29,7 @@ DEFAULT_CANDIDATES = {
     "tuned_stable_depth4_lr003_l28_chase": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr003_l28" / "manifest.json",
     "tuned_stable_depth5_lr003_l28_chase": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth5_lr003_l28" / "manifest.json",
     "tuned_stable_depth4_lr0045_l210_chase": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr0045_l210" / "manifest.json",
+    "tuned_stable_depth4_lr0035_l215_chase": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr0035_l215" / "manifest.json",
     "tuned_selected_depth4_lr003_l28_runs": DEFAULT_EXPERIMENT_DIR / "tuned" / "selected_depth4_lr003_l28_runs" / "manifest.json",
     "tuned_stable_depth4_lr003_l28_remaining_runs": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr003_l28_remaining_runs" / "manifest.json",
     "tuned_selected_depth4_lr003_l28_remaining_wickets": DEFAULT_EXPERIMENT_DIR / "tuned" / "selected_depth4_lr003_l28_remaining_wickets" / "manifest.json",

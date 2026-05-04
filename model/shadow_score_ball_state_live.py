@@ -244,6 +244,38 @@ def target_applicable(entry: dict[str, Any], target: str) -> tuple[bool, str | N
     return True, None
 
 
+def as_number(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def terminal_chase_success_probability(entry: dict[str, Any]) -> float | None:
+    state = entry.get("expectedState") or {}
+    if state.get("innings") != 2:
+        return None
+
+    score_runs = as_number(state.get("scoreRuns"))
+    target_runs = as_number(state.get("targetRuns"))
+    if score_runs is None or target_runs is None:
+        return None
+
+    if score_runs >= target_runs:
+        return 1.0
+
+    score_wickets = as_number(state.get("scoreWickets"))
+    balls = as_number(state.get("balls"))
+    if score_wickets is not None and score_wickets >= 10:
+        return 0.0
+    if balls is not None and balls >= 120:
+        return 0.0
+
+    return None
+
+
 def output_directory(path: Path | None) -> Path:
     if path:
         return path
@@ -334,33 +366,38 @@ def main() -> None:
 
             feature_mode = selected["feature_mode"]
             feature_columns = feature_columns_by_mode[feature_mode]
-            row = feature_row_from_live_model(entry, feature_columns, prior_lookup, snapshot_index)
-            missing = missing_required_features(row, feature_columns)
-            if missing:
-                rejected_rows += 1
-                append_jsonl(rejection_path, {
-                    "fixture_id": fixture_id,
-                    "target": target,
-                    "feature_mode": feature_mode,
-                    "reason": "missing required features",
-                    "missing_features": missing,
-                    "snapshot_diagnostics": row.get("__snapshot_diagnostics", {}),
-                })
-                continue
-
-            artifact = artifacts[target]
-            if target in REGRESSION_TARGETS:
-                prediction = score_regression(artifact, row, feature_columns, dtype_reference)
-            elif target in CLASSIFICATION_TARGETS:
-                prediction = score_classification(artifact, row, feature_columns, dtype_reference)
+            terminal_probability = terminal_chase_success_probability(entry) if target == "chase_success" else None
+            row: dict[str, Any] = {}
+            if terminal_probability is not None:
+                prediction = terminal_probability
             else:
-                rejected_rows += 1
-                append_jsonl(rejection_path, {
-                    "fixture_id": fixture_id,
-                    "target": target,
-                    "reason": "unknown target type",
-                })
-                continue
+                row = feature_row_from_live_model(entry, feature_columns, prior_lookup, snapshot_index)
+                missing = missing_required_features(row, feature_columns)
+                if missing:
+                    rejected_rows += 1
+                    append_jsonl(rejection_path, {
+                        "fixture_id": fixture_id,
+                        "target": target,
+                        "feature_mode": feature_mode,
+                        "reason": "missing required features",
+                        "missing_features": missing,
+                        "snapshot_diagnostics": row.get("__snapshot_diagnostics", {}),
+                    })
+                    continue
+
+                artifact = artifacts[target]
+                if target in REGRESSION_TARGETS:
+                    prediction = score_regression(artifact, row, feature_columns, dtype_reference)
+                elif target in CLASSIFICATION_TARGETS:
+                    prediction = score_classification(artifact, row, feature_columns, dtype_reference)
+                else:
+                    rejected_rows += 1
+                    append_jsonl(rejection_path, {
+                        "fixture_id": fixture_id,
+                        "target": target,
+                        "reason": "unknown target type",
+                    })
+                    continue
 
             baseline = heuristic_value(entry, target)
             record = {
@@ -374,8 +411,10 @@ def main() -> None:
                 "bowling_team": state.get("bowlingTeam"),
                 "score_runs": state.get("scoreRuns"),
                 "score_wickets": state.get("scoreWickets"),
+                "target_runs": state.get("targetRuns"),
                 "balls": state.get("balls"),
                 "shadow_prediction": prediction,
+                "terminal_probability_applied": terminal_probability is not None,
                 "heuristic_value": baseline,
                 "delta_vs_heuristic": prediction - baseline if isinstance(baseline, (int, float)) else None,
                 "snapshot_diagnostics": row.get("__snapshot_diagnostics", {}),

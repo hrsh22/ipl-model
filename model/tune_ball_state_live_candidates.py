@@ -49,6 +49,15 @@ GRID = [
         "target": "chase_success",
     },
     {
+        "label": "stable_depth4_lr0035_l215",
+        "feature_mode": "live_compatible",
+        "iterations": 160,
+        "learning_rate": 0.035,
+        "depth": 4,
+        "l2_leaf_reg": 15,
+        "target": "chase_success",
+    },
+    {
         "label": "selected_depth4_lr003_l28_runs",
         "feature_mode": "live_compatible_selected_trajectory",
         "iterations": 180,

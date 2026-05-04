@@ -35,6 +35,63 @@ Reason: there is not yet a documented training loop, validation split, live fail
 
 ## Experimental timeline
 
+### 2026-05-03 — promoted live chase-success regularization candidate
+
+Change / idea: run a broader live-safe `chase_success` sweep around the previous `stable_depth4_lr0045_l210` candidate and promote the first candidate that beats historical walk-forward guardrails while also improving the 2026 official-innings diagnostic holdout.
+
+What changed:
+
+- Added `stable_depth4_lr0035_l215` to the live tuning grid and candidate-selection inventory.
+- Trained the candidate with `feature_mode=live_compatible`, `iterations=160`, `learning_rate=0.035`, `depth=4`, `l2_leaf_reg=15`, and no calibration.
+- Updated `model/ball_state_live_candidate_selection.json` so the observer runtime bridge uses this artifact for second-innings `chase_success`.
+- Bundled the selected observer runtime artifacts under `model/runtime_artifacts/ball_state_live/` so clean deploys do not depend on the ignored local `model/experiments/` tree.
+
+Measured impact:
+
+| metric | previous `stable_depth4_lr0045_l210` | promoted `stable_depth4_lr0035_l215` | direction |
+| --- | ---: | ---: | --- |
+| walk-forward log loss | `0.4841` | `0.4727` | better |
+| walk-forward Brier | `0.1566` | `0.1530` | better |
+| walk-forward ROC-AUC | `0.8522` | `0.8563` | better |
+| walk-forward ECE | `0.0655` | `0.0605` | better |
+| walk-forward accuracy | `0.7877` | `0.7839` | slightly lower |
+
+2026 official-innings diagnostic holdout, selected after the sweep was frozen:
+
+| metric | previous runtime artifact | promoted artifact | direction |
+| --- | ---: | ---: | --- |
+| row accuracy | `0.7672` | `0.7948` | better |
+| log loss | `0.4445` | `0.4222` | better |
+| Brier | `0.1470` | `0.1369` | better |
+| ROC-AUC | `0.8772` | `0.8927` | better |
+| final-state match accuracy | `0.8571` | `0.9048` | better |
+
+Decision: **promoted for experimental observer runtime**.
+
+Reason: the candidate improves the primary historical walk-forward metric and most probability-quality guardrails, while also improving the untouched 2026 official-innings diagnostic. The small walk-forward accuracy dip is accepted because this target is selected by log loss/probability quality, not raw threshold accuracy.
+
+### 2026-05-03 — live chase-success health check and diagnostics
+
+Change / idea: evaluate the current live `chase_success` artifact on completed IPL 2026 official innings feeds, compare calibration/trajectory alternatives, and make future backtests expose phase, calibration-bin, and worst-match diagnostics.
+
+What changed:
+
+- Extended the 2026 official-innings backtest summary to include phase metrics, probability-bin calibration, and worst matches by log loss.
+- Re-ran the current selected `live_compatible` chase-success artifact on the latest 42 completed 2026 matches.
+- Tested temporary Platt, isotonic, and selected-trajectory alternatives outside the tracked runtime manifest.
+
+Findings:
+
+- Current selected artifact on 42 completed 2026 matches: row accuracy `0.7672`, log loss `0.4445`, Brier `0.1470`, ROC-AUC `0.8772`, final-state match accuracy `0.8571`.
+- Weakest phase is powerplay: accuracy `0.6885`, log loss `0.5660`, calibration gap `-0.1063`; death overs are much stronger with accuracy `0.8637`, log loss `0.3013`, ROC-AUC `0.9592`.
+- The model underestimates successful chases overall on this 2026 slice: average predicted chase success `0.5436` vs actual rate `0.6313`.
+- Platt calibration improved the same 42-match 2026 holdout to log loss `0.4368`, Brier `0.1438`, ROC-AUC `0.9107`, final-state accuracy `0.9524`, but it worsened historical walk-forward metrics versus the currently selected artifact.
+- Uncalibrated selected-trajectory `chase_success` improved the 42-match 2026 holdout to log loss `0.4363`, Brier `0.1419`, accuracy `0.7921`, ROC-AUC `0.8928`, but also trailed the currently selected artifact on historical walk-forward log loss/ROC-AUC.
+
+Decision: **no artifact promotion**.
+
+Reason: the alternatives look promising on the live 2026 holdout, but both regress on the historical walk-forward guardrail. The safe next step is a broader candidate-selection run that treats current-season holdout performance as a diagnostic, not as training or promotion criteria.
+
 ### 2026-05-01 — preseason squad priors for live ball-state inference
 
 Change / idea: add official 2026 preseason roster context to live ball-state inference without adding 2026 match results to the training matrix.

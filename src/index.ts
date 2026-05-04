@@ -179,7 +179,8 @@ const requireObserverAuth = (req: Request, res: Response, next: NextFunction) =>
 }
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
-const modelDirectory = join(currentDirectory, "..", "model")
+const repoRootDirectory = join(currentDirectory, "..")
+const modelDirectory = join(repoRootDirectory, "model")
 const predictorScriptPath = join(modelDirectory, "predict_fixture.py")
 const ballStateRuntimeSelectionReportPath = join(modelDirectory, "ball_state_live_candidate_selection.json")
 const ballStateExperimentsDirectory = join(modelDirectory, "experiments", "ball-state")
@@ -401,6 +402,54 @@ const resolveBallStateExperimentPath = (value: string) => {
   return isPathInside(ballStateExperimentsDirectory, resolved) ? resolved : null
 }
 
+const resolveRepoRelativePath = (value: string) => {
+  const resolved = isAbsolute(value) ? value : resolve(repoRootDirectory, value)
+  return isPathInside(repoRootDirectory, resolved) ? resolved : null
+}
+
+const validateBallStateRuntimeArtifacts = async () => {
+  const manifest = await readJsonFileIfPresent(ballStateRuntimeSelectionReportPath)
+  if (!isJsonRecord(manifest)) {
+    return `Missing or invalid ball-state runtime manifest at ${ballStateRuntimeSelectionReportPath}`
+  }
+
+  const selected = readRecordField(manifest, "selected")
+  if (!selected || Object.keys(selected).length === 0) {
+    return `Ball-state runtime manifest has no selected artifacts: ${ballStateRuntimeSelectionReportPath}`
+  }
+
+  const missingArtifacts: string[] = []
+  const invalidArtifacts: string[] = []
+  for (const [target, rawSelection] of Object.entries(selected)) {
+    if (!isJsonRecord(rawSelection)) {
+      invalidArtifacts.push(`${target}: missing selection object`)
+      continue
+    }
+
+    const artifact = readStringField(rawSelection, "artifact")
+    if (!artifact) {
+      invalidArtifacts.push(`${target}: missing artifact path`)
+      continue
+    }
+
+    const artifactPath = resolveRepoRelativePath(artifact)
+    if (!artifactPath) {
+      invalidArtifacts.push(`${target}: artifact path must stay inside the repo (${artifact})`)
+      continue
+    }
+
+    const artifactStats = await stat(artifactPath).catch(() => null)
+    if (!artifactStats) {
+      missingArtifacts.push(`${target}: ${artifact}`)
+    }
+  }
+
+  const failures = [...invalidArtifacts, ...missingArtifacts]
+  return failures.length > 0
+    ? `Ball-state runtime artifacts are unavailable: ${failures.join("; ")}`
+    : null
+}
+
 const safeBallStateSourceUrl = (value: string) => {
   try {
     const url = new URL(value)
@@ -475,6 +524,14 @@ const runBallStateRuntimeScorer = async (
   liveModelPayload: unknown,
   snapshotPayload: unknown[],
 ): Promise<BallStateRuntimeRun | null> => {
+  const artifactValidationError = await validateBallStateRuntimeArtifacts()
+  if (artifactValidationError) {
+    logger.warn("Runtime ball-state model scoring unavailable", {
+      error: artifactValidationError,
+    })
+    return null
+  }
+
   const tempDir = await mkdtemp(join(tmpdir(), "ipl-trader-ball-state-"))
   const inputPath = join(tempDir, "live-model.json")
   const snapshotsPath = join(tempDir, "live-model-snapshots.json")

@@ -550,7 +550,7 @@ function SideProbability({ side }: { side: LiveModelSide }) {
     <div className="observer-side-card">
       <span>{side.team}</span>
       <strong>{formatProbability(primaryProbability)}</strong>
-      <small>{label} · fair {formatProbability(side.fairProbability)} · PM {formatProbability(side.marketProbability)} · edge {formatBps(side.edgeVsMarketBps)}</small>
+      <small>{label} · PM {formatProbability(side.marketProbability)} · edge {formatBps(side.edgeVsMarketBps)}</small>
     </div>
   )
 }

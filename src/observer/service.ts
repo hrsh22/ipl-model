@@ -1213,6 +1213,7 @@ class IplObserverService {
 
   private async refreshFixtures() {
     const fixtures = await this.fetchActiveFixtures()
+    const refreshedFixtureIds = new Set(fixtures.map((fixture) => fixture.id))
 
     await Promise.all(
       fixtures.map(async (fixture) => {
@@ -1243,12 +1244,37 @@ class IplObserverService {
       }),
     )
 
+    if (!config.opticOddsEnabled) {
+      await this.pruneStaleLocalOfficialFixtures(refreshedFixtureIds)
+    }
+
     this.status.fixtureRefreshAt = new Date().toISOString()
     this.status.trackedFixtures = this.fixtures.size
     this.status.trackedPolymarketTokens = this.trackedTokenIds.size
 
     if (this.trackedTokenIds.size > 0) {
       this.ensurePolymarketSocket()
+    }
+  }
+
+  private async pruneStaleLocalOfficialFixtures(refreshedFixtureIds: Set<string>) {
+    for (const [fixtureId, fixtureState] of this.fixtures.entries()) {
+      if (refreshedFixtureIds.has(fixtureId)) {
+        continue
+      }
+
+      if (!fixtureState.fixture.opticOddsGameId.startsWith("ipl-official:")) {
+        continue
+      }
+
+      await upsertFixture({
+        ...fixtureState.fixture,
+        status: "completed",
+        isLive: false,
+      })
+      this.fixtures.delete(fixtureId)
+      this.officialLiveResultHydratedAt.delete(fixtureId)
+      this.polymarketBookHydratedAt.delete(fixtureId)
     }
   }
 
@@ -1555,11 +1581,12 @@ class IplObserverService {
       return this.fetchPolymarketMarketDetails(tokenMatch.marketSlug)
     }
 
+    const normalizedExpectedTeams = expectedTeams.map((team) => normalizeSelection(team))
     const teamMatch = catalog.find((entry) => {
-      const teamSet = new Set(entry.teams)
+      const teamSet = new Set(entry.teams.map((team) => normalizeSelection(team)))
       return (
         entry.eventDate === fixtureDate &&
-        expectedTeams.every((team) => teamSet.has(team))
+        normalizedExpectedTeams.every((team) => teamSet.has(team))
       )
     })
 
@@ -3844,13 +3871,17 @@ const applyBallStateOverlayToInningsState = (
   ballStateOverlay: BallStateLiveModelOverlay,
 ): InningsExpectedState => {
   const balls = ballStateOverlay.currentState.balls
+  const innings = ballStateOverlay.currentState.innings
+  const scoreRuns = ballStateOverlay.currentState.scoreRuns ?? state.scoreRuns
+  const scoreWickets = ballStateOverlay.currentState.scoreWickets ?? state.scoreWickets
+  const targetRuns = state.targetRuns
   return {
     ...state,
-    innings: ballStateOverlay.currentState.innings,
+    innings,
     battingTeam: ballStateOverlay.currentState.battingTeam ?? state.battingTeam,
     bowlingTeam: ballStateOverlay.currentState.bowlingTeam ?? state.bowlingTeam,
-    scoreRuns: ballStateOverlay.currentState.scoreRuns ?? state.scoreRuns,
-    scoreWickets: ballStateOverlay.currentState.scoreWickets ?? state.scoreWickets,
+    scoreRuns,
+    scoreWickets,
     overs: balls === null ? state.overs : ballsToOvers(balls),
     balls: balls ?? state.balls,
     expectedRunsNow: ballStateOverlay.predictions.expectedRunsNow,
@@ -3858,9 +3889,37 @@ const applyBallStateOverlayToInningsState = (
     runsDelta: ballStateOverlay.predictions.runsDelta,
     wicketsDelta: ballStateOverlay.predictions.wicketsDelta,
     projectedScore: ballStateOverlay.predictions.finalInningsRuns,
-    chaseSuccessProbability: ballStateOverlay.predictions.chaseSuccessProbability,
+    chaseSuccessProbability: terminalChaseSuccessProbability({
+      innings,
+      scoreRuns,
+      scoreWickets,
+      balls: balls ?? state.balls,
+      targetRuns,
+    }) ?? ballStateOverlay.predictions.chaseSuccessProbability,
     status: "live",
   }
+}
+
+const terminalChaseSuccessProbability = (
+  state: Pick<LiveExpectedState, "innings" | "scoreRuns" | "scoreWickets" | "balls" | "targetRuns">,
+) => {
+  if (state.innings !== 2 || state.scoreRuns === null || state.targetRuns === null) {
+    return null
+  }
+
+  if (state.scoreRuns >= state.targetRuns) {
+    return 1
+  }
+
+  if (state.scoreWickets !== null && state.scoreWickets >= 10) {
+    return 0
+  }
+
+  if (state.balls !== null && state.balls >= 120) {
+    return 0
+  }
+
+  return null
 }
 
 const buildLiveSideInningsStates = (fixture: ObserverFixtureRecord): LiveInningsExpectedStates | null => {
@@ -4123,11 +4182,11 @@ const readLiveInningsSides = (scoreRecord: JsonRecord | null) => {
     return null
   }
 
-  if (isCompletedT20Innings(homeSummary.overs) && isCurrentT20Innings(awaySummary.overs)) {
+  if (isCompletedT20Innings(homeSummary) && isCurrentT20Innings(awaySummary)) {
     return { first: "home" as const, second: "away" as const }
   }
 
-  if (isCompletedT20Innings(awaySummary.overs) && isCurrentT20Innings(homeSummary.overs)) {
+  if (isCompletedT20Innings(awaySummary) && isCurrentT20Innings(homeSummary)) {
     return { first: "away" as const, second: "home" as const }
   }
 
@@ -4151,9 +4210,11 @@ const readSideBattingSummary = (scoreRecord: JsonRecord | null, side: CricketSco
   }
 }
 
-const isCompletedT20Innings = (overs: number | null) => overs !== null && overs >= 19.5
+const isCompletedT20Innings = (summary: { overs: number | null; wickets: number | null }) =>
+  summary.wickets !== null && summary.wickets >= 10 || summary.overs !== null && summary.overs >= 19.5
 
-const isCurrentT20Innings = (overs: number | null) => overs !== null && overs < 19.5
+const isCurrentT20Innings = (summary: { overs: number | null; wickets: number | null }) =>
+  summary.overs !== null && summary.overs < 19.5 && (summary.wickets === null || summary.wickets < 10)
 
 const firstScoreRuns = (
   activeRecords: JsonRecord[],

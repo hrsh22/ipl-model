@@ -65,6 +65,46 @@ Copy this block for every material model change:
 
 ## Log
 
+### 2026-05-03 — experimental live chase-success artifact promotion
+
+- Status: promoted
+- Change type: training | inference
+- Hypothesis: a slightly slower, more regularized live-compatible CatBoost chase-success model can improve probability quality without relying on 2026 holdout tuning.
+
+### What changed
+
+- Exact files changed: `model/ball_state_live_candidate_selection.json`, `model/runtime_artifacts/ball_state_live/*`, `model/tune_ball_state_live_candidates.py`, `model/select_ball_state_live_candidate.py`, `model/EXPERIMENTAL_MODEL_HISTORY.md`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: the experimental observer runtime `chase_success` target now uses bundled runtime artifact `model/runtime_artifacts/ball_state_live/chase_success_model.joblib`, sourced from `model/experiments/ball-state/tuned/stable_depth4_lr0035_l215/chase_success_model.joblib`, trained with `feature_mode=live_compatible`, `iterations=160`, `learning_rate=0.035`, `depth=4`, `l2_leaf_reg=15`, and no calibration. The other selected observer runtime artifacts were also copied from ignored experiment outputs into `model/runtime_artifacts/ball_state_live/` so clean deploys do not depend on `model/experiments/`. The tuning grid and selection inventory now include this candidate.
+- Whether this affects pre_toss, post_toss, or both: neither production predictor mode; this affects only experimental observer live ball-state inference for second-innings win probability.
+
+### How we tested it
+
+- Experiment/report paths: `model/experiments/ball-state/tuned/stable_depth4_lr0035_l215/manifest.json`, temp sweep output under `/var/folders/31/p7sq6wwx6p9_6hrm6bx2c2940000gn/T/opencode/ball-state-promote-sweep/`, and 2026 official-innings backtest output under `/var/folders/31/p7sq6wwx6p9_6hrm6bx2c2940000gn/T/opencode/ball-state-promoted-runtime-2026-backtest/`.
+- Baseline artifact or production reference: prior experimental live `chase_success` artifact `stable_depth4_lr0045_l210`.
+- Comparison method: pre-2026 walk-forward selection by log loss, followed by a locked 2026 official-innings diagnostic holdout.
+
+### Measured impact
+
+| metric | baseline | candidate | delta |
+| -------- | --------: | ---------: | -----: |
+| log_loss | 0.4841 | 0.4727 | -0.0115 |
+| brier | 0.1566 | 0.1530 | -0.0036 |
+| roc_auc | 0.8522 | 0.8563 | +0.0041 |
+| accuracy | 0.7877 | 0.7839 | -0.0039 |
+
+- Live/current-season effect after promotion: on the 42-match 2026 official-innings diagnostic, row log loss improved from `0.4445` to `0.4222`, Brier from `0.1470` to `0.1369`, ROC-AUC from `0.8772` to `0.8927`, and final-state match accuracy from `0.8571` to `0.9048`.
+- Confidence / caveats: 2026 was used only as a post-selection diagnostic. The model still underestimates successful chases in some mid-probability bins, so calibration remains a future research item.
+
+### Decision
+
+- Outcome: promoted to experimental observer runtime only
+- Why: it improves the primary historical selection metric and the 2026 diagnostic without changing production pre/post-toss artifacts.
+- Deployed model source hash after change: unchanged for production predictor artifacts; experimental runtime manifest changed.
+- Supporting evidence:
+    - `model/ball_state_live_candidate_selection.json`
+    - `model/runtime_artifacts/ball_state_live/`
+    - `model/EXPERIMENTAL_MODEL_HISTORY.md`
+
 ### 2026-05-01 — 2026 preseason squad sidecars for experimental live inference
 
 - Status: tested

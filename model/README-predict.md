@@ -158,6 +158,12 @@ runtime bridge for the current observer payload using
 model-scored fields remain unavailable rather than using heuristic expected-state values. Runtime
 refresh for saved shadow journals remains opt-in:
 
+Selected runtime artifacts are bundled under
+`model/runtime_artifacts/ball_state_live/`. The ignored `model/experiments/`
+tree remains the local research workspace and is recorded as `source_artifact`
+metadata only; production-like deploys should rely on the runtime bundle paths in
+the manifest.
+
 - `EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED=false` by default. When false,
   `/observer/ball-state-shadow` is read-only and only reports existing ignored
   experiment artifacts.
@@ -210,6 +216,14 @@ The production model source hash now fingerprints the full deployed `model/final
 The required **human-readable source of truth** now lives in:
 
 - `model/MODEL_CHANGELOG.md`
+
+For concrete data-source attribution, use:
+
+- `model/DATA_LINEAGE.md`
+
+That file maps training inputs, inference-time inputs, runtime overlays, and
+observer persistence boundaries so probability changes can be traced to their
+likely cause before retraining or promoting anything.
 
 Use that file for every material model-affecting change, especially when you:
 
