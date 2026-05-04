@@ -2,7 +2,8 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { type Server } from "node:http"
 import { execFile } from "node:child_process"
-import { readFile, readdir, stat } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { readFile, readdir, rm, stat, writeFile, mkdtemp } from "node:fs/promises"
 import express, {
   type Express,
   type NextFunction,
@@ -180,6 +181,7 @@ const requireObserverAuth = (req: Request, res: Response, next: NextFunction) =>
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 const modelDirectory = join(currentDirectory, "..", "model")
 const predictorScriptPath = join(modelDirectory, "predict_fixture.py")
+const ballStateRuntimeSelectionReportPath = join(modelDirectory, "ball_state_live_candidate_selection.json")
 const ballStateExperimentsDirectory = join(modelDirectory, "experiments", "ball-state")
 const upcomingFixturesCsvPath = join(modelDirectory, "data", "live", "upcoming_fixtures.csv")
 const upcomingFixturesJsonPath = join(modelDirectory, "data", "live", "upcoming_fixtures.json")
@@ -193,6 +195,7 @@ const automaticPostTossWindowBeforeStartMs = 90 * 60 * 1000
 const automaticPostTossWindowAfterStartMs = 6 * 60 * 60 * 1000
 const ballStateShadowRefreshIntervalMs = 5_000
 const ballStateShadowRefreshTimeoutMs = 120_000
+const ballStateRuntimeScoringTimeoutMs = 30_000
 const ballStateEventIngestionIntervalMs = 30_000
 const ballStateEventIngestionTimeoutMs = 60_000
 const ballStateShadowMaxAgeMs = 5 * 60 * 1000
@@ -336,6 +339,15 @@ type BallStateShadowRun = {
   fixtureId: string | null
 }
 
+type BallStateRuntimeRun = {
+  outputDir: string
+  relativeOutputDir: string
+  scoresPath: string
+  updatedAtMs: number
+  summaryPath: string
+  parityPath: string | null
+}
+
 type ActiveBallStateFixture = {
   id: string
   homeTeam: string
@@ -458,6 +470,54 @@ const runPythonScript = (args: string[], timeout: number) =>
       },
     )
   })
+
+const runBallStateRuntimeScorer = async (
+  liveModelPayload: unknown,
+  snapshotPayload: unknown[],
+): Promise<BallStateRuntimeRun | null> => {
+  const tempDir = await mkdtemp(join(tmpdir(), "ipl-trader-ball-state-"))
+  const inputPath = join(tempDir, "live-model.json")
+  const snapshotsPath = join(tempDir, "live-model-snapshots.json")
+  const outputDir = join(tempDir, "shadow-run")
+
+  try {
+    await writeFile(inputPath, JSON.stringify(liveModelPayload, null, 2) + "\n")
+    await writeFile(snapshotsPath, JSON.stringify(snapshotPayload, null, 2) + "\n")
+    await runPythonScript([
+      join(modelDirectory, "shadow_score_ball_state_live.py"),
+      "--candidate-manifest",
+      ballStateRuntimeSelectionReportPath,
+      "--input-json",
+      inputPath,
+      "--snapshots-json",
+      snapshotsPath,
+      "--output-dir",
+      outputDir,
+    ], ballStateRuntimeScoringTimeoutMs)
+
+    const scoresPath = join(outputDir, "shadow_scores.jsonl")
+    const stats = await stat(scoresPath).catch(() => null)
+    if (!stats) {
+      await rm(tempDir, { recursive: true, force: true })
+      return null
+    }
+
+    return {
+      outputDir,
+      relativeOutputDir: "runtime:/observer/live-model",
+      scoresPath,
+      updatedAtMs: stats.mtimeMs,
+      summaryPath: join(outputDir, "summary.json"),
+      parityPath: null,
+    }
+  } catch (error) {
+    logger.warn("Runtime ball-state model scoring failed", {
+      error: error instanceof Error ? error.message : String(error),
+    })
+    await rm(tempDir, { recursive: true, force: true })
+    return null
+  }
+}
 
 const readBallStateShadowScores = async (filePath: string) => {
   const text = await readFile(filePath, "utf-8")
@@ -928,13 +988,64 @@ const startBallStateShadowRefreshLoop = () => {
   }, ballStateShadowRefreshIntervalMs)
 }
 
-const getLatestBallStateShadow = async (activeFixtures: ActiveBallStateFixture[] = []): Promise<BallStateShadowResponse> => {
+const getLatestBallStateShadow = async (
+  activeFixtures: ActiveBallStateFixture[] = [],
+): Promise<BallStateShadowResponse> => {
   const latest = await findLatestBallStateShadowRun(activeFixtures)
   if (!latest) {
     return unavailableBallStateShadow("No live-events shadow run found under model/experiments/ball-state.")
   }
 
-  const scores = await readBallStateShadowScores(latest.scoresPath)
+  return buildBallStateShadowResponse({
+    outputDir: latest.outputDir,
+    relativeOutputDir: latest.relativeOutputDir,
+    scoresPath: latest.scoresPath,
+    updatedAtMs: latest.updatedAtMs,
+    summaryPath: join(latest.outputDir, "shadow-run", "summary.json"),
+    parityPath: join(latest.outputDir, "live_feature_parity_report.json"),
+  })
+}
+
+const getRuntimeBallStateOverlays = async (
+  liveModelPayload: unknown,
+  snapshotPayload: unknown[] = [],
+): Promise<BallStateShadowResponse[]> => {
+  const runtime = await runBallStateRuntimeScorer(liveModelPayload, snapshotPayload)
+  if (!runtime) {
+    return []
+  }
+
+  try {
+    const scores = await readBallStateShadowScores(runtime.scoresPath)
+    const groups = groupBallStateScores(scores)
+    return Promise.all(groups.map(async (groupedScores) => {
+      const response = await buildBallStateShadowResponse(runtime, groupedScores)
+      response.notes = [
+        "Runtime bridge over selected experimental ball-state artifacts for the current /observer/live-model payload.",
+        "Unscored targets remain null and render as unavailable in the observer UI.",
+        "Does not read or modify model/final_models, model/predict_fixture.py, or model/data/live.",
+      ]
+      return response
+    }))
+  } finally {
+    await rm(dirname(runtime.outputDir), { recursive: true, force: true })
+  }
+}
+
+const groupBallStateScores = (scores: BallStateShadowScore[]) => {
+  const groups = new Map<string, BallStateShadowScore[]>()
+  for (const score of scores) {
+    const key = score.fixtureId ?? (score.entryIndex === null ? "entry:unknown" : `entry:${score.entryIndex}`)
+    groups.set(key, [...(groups.get(key) ?? []), score])
+  }
+  return [...groups.values()]
+}
+
+const buildBallStateShadowResponse = async (
+  run: BallStateRuntimeRun,
+  providedScores?: BallStateShadowScore[],
+): Promise<BallStateShadowResponse> => {
+  const scores = providedScores ?? await readBallStateShadowScores(run.scoresPath)
   if (!scores.length) {
     return unavailableBallStateShadow("Latest shadow run has no scored targets.")
   }
@@ -945,8 +1056,8 @@ const getLatestBallStateShadow = async (activeFixtures: ActiveBallStateFixture[]
     return unavailableBallStateShadow("Latest shadow run has no scored targets.")
   }
 
-  const summary = await readJsonFileIfPresent(join(latest.outputDir, "shadow-run", "summary.json"))
-  const parity = await readJsonFileIfPresent(join(latest.outputDir, "live_feature_parity_report.json"))
+  const summary = await readJsonFileIfPresent(run.summaryPath)
+  const parity = run.parityPath ? await readJsonFileIfPresent(run.parityPath) : null
   const summaryRecord = isJsonRecord(summary) ? summary : {}
   const parityRecord = isJsonRecord(parity) ? parity : {}
   const livePayloadRecord = readRecordField(parityRecord, "live_payload")
@@ -965,8 +1076,8 @@ const getLatestBallStateShadow = async (activeFixtures: ActiveBallStateFixture[]
     status: "experimental",
     source: "ball-state-shadow",
     available: true,
-    outputDir: latest.relativeOutputDir,
-    updatedAt: new Date(latest.updatedAtMs).toISOString(),
+    outputDir: run.relativeOutputDir,
+    updatedAt: new Date(run.updatedAtMs).toISOString(),
     currentState: {
       fixtureId: firstScore.fixtureId,
       innings: firstScore.innings,
@@ -1654,12 +1765,21 @@ const createApp = Effect.sync((): Express => {
   app.get("/observer/live-model", requireObserverAuth, (_req, res) => {
     sendJson(
       res,
-      Effect.gen(function* () {
-        yield* Effect.sync(() => {
+      Effect.tryPromise({
+        try: async () => {
           logger.debug("Handled GET /observer/live-model")
-        })
-
-        return (yield* loadObserverService()).getLiveModelFixtures()
+          const observerService = await Effect.runPromise(loadObserverService())
+          const baseLiveModelFixtures = await observerService.getLiveModelFixtures()
+          const snapshots = await observerService.getRecentLiveModelSnapshots(500)
+          const ballStateOverlays = await getRuntimeBallStateOverlays(
+            baseLiveModelFixtures,
+            snapshots,
+          )
+          await observerService.recordRuntimeLiveModelSnapshots(ballStateOverlays)
+          return observerService.getLiveModelFixtures(ballStateOverlays)
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error(String(error)),
       }),
     )
   })
@@ -1748,13 +1868,26 @@ const createApp = Effect.sync((): Express => {
       Effect.tryPromise({
         try: async () => {
           logger.debug("Handled GET /observer/ball-state-shadow")
-          const activeFixtures = (await Effect.runPromise(loadObserverService())).getLiveFixtures()
-            .map(({ fixture }) => ({
+          const observerService = await Effect.runPromise(loadObserverService())
+          const activeFixturesById = new Map<string, ActiveBallStateFixture>()
+
+          for (const { fixture } of observerService.getLiveFixtures()) {
+            activeFixturesById.set(fixture.id, {
               id: fixture.id,
               homeTeam: fixture.homeTeam,
               awayTeam: fixture.awayTeam,
-            }))
-          return getLatestBallStateShadow(activeFixtures)
+            })
+          }
+
+          for (const { fixture } of await observerService.getLiveModelFixtures()) {
+            activeFixturesById.set(fixture.id, {
+              id: fixture.id,
+              homeTeam: fixture.homeTeam,
+              awayTeam: fixture.awayTeam,
+            })
+          }
+
+          return getLatestBallStateShadow([...activeFixturesById.values()])
         },
         catch: (error) =>
           error instanceof Error ? error : new Error(String(error)),

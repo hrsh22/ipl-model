@@ -22,13 +22,21 @@ export async function proxyBackendJson(path: string, init: RequestInit = {}): Pr
 }
 
 export async function proxyBackendJsonRequest(path: string, request: Request): Promise<Response> {
-  return await proxyBackendJson(path, {
+  const authorization = request.headers.get('authorization')
+  const hasBody = request.method !== 'GET' && request.method !== 'HEAD'
+  const init: RequestInit = {
     method: request.method,
-    body: await request.text(),
     headers: {
-      'content-type': request.headers.get('content-type') ?? 'application/json',
+      ...(hasBody ? { 'content-type': request.headers.get('content-type') ?? 'application/json' } : {}),
+      ...(authorization ? { authorization } : {}),
     },
-  })
+  }
+
+  if (hasBody) {
+    init.body = await request.text()
+  }
+
+  return await proxyBackendJson(path, init)
 }
 
 function backendOrigin(): string | null {

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Shadow-score live observer states with experimental ball-state artifacts.
 
-This is deliberately offline and experiment-only. It reads captured
+This is deliberately experiment-only. It reads captured or runtime-generated
 `/observer/live-model` payloads, scores them with the selected experimental
-ball-state candidates, and writes comparison journals under
-`model/experiments/ball-state/`. It does not touch production artifacts or wire
-anything into the observer runtime.
+ball-state candidates, and writes comparison journals under the requested
+output directory. The observer may invoke this as a runtime bridge for the
+experimental dashboard, but it does not touch production artifacts.
 """
 
 from __future__ import annotations
@@ -26,8 +26,11 @@ from validate_ball_state_live_parity import (
     CORE_LIVE_FEATURES,
     DEFAULT_MANIFEST,
     EVENT_TRAJECTORY_COLUMNS as PARITY_TRAJECTORY_COLUMNS,
+    DEFAULT_MATCH_SQUADS,
     PriorLookup,
     build_snapshot_index,
+    DEFAULT_PRESEASON_TEAM_PRIORS,
+    DEFAULT_PRESEASON_TEAM_ROSTERS,
     feature_row_from_live_model,
     filter_feature_columns,
     load_feature_columns,
@@ -282,6 +285,9 @@ def main() -> None:
     prior_lookup = PriorLookup(
         ROOT / "data" / "features" / "pre_match_matchup_features.csv",
         ROOT / "data" / "features" / "pre_match_team_features.csv",
+        DEFAULT_PRESEASON_TEAM_PRIORS,
+        DEFAULT_PRESEASON_TEAM_ROSTERS,
+        DEFAULT_MATCH_SQUADS,
     )
     out_dir = output_directory(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

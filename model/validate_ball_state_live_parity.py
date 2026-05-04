@@ -50,6 +50,9 @@ DEFAULT_EXPERIMENT_DIR = ROOT / "experiments" / "ball-state"
 DEFAULT_MANIFEST = DEFAULT_EXPERIMENT_DIR / "ball_state_matrix_manifest.json"
 DEFAULT_MATRIX = DEFAULT_EXPERIMENT_DIR / "ball_state_expected_matrix.csv"
 DEFAULT_OUTPUT = DEFAULT_EXPERIMENT_DIR / "live_feature_parity_report.json"
+DEFAULT_PRESEASON_TEAM_PRIORS = ROOT / "data" / "features" / "preseason_team_prior_overrides_2026.csv"
+DEFAULT_PRESEASON_TEAM_ROSTERS = ROOT / "data" / "features" / "preseason_team_rosters_2026.csv"
+DEFAULT_MATCH_SQUADS = ROOT / "data" / "staged" / "match_squads.csv"
 
 CORE_LIVE_FEATURES = {
     "season",
@@ -79,6 +82,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--matchup-features", type=Path, default=DEFAULT_MATCHUP_FEATURES)
     parser.add_argument("--team-features", type=Path, default=DEFAULT_TEAM_FEATURES)
+    parser.add_argument("--preseason-team-priors", type=Path, default=DEFAULT_PRESEASON_TEAM_PRIORS)
+    parser.add_argument("--preseason-team-rosters", type=Path, default=DEFAULT_PRESEASON_TEAM_ROSTERS)
+    parser.add_argument("--match-squads", type=Path, default=DEFAULT_MATCH_SQUADS)
     parser.add_argument(
         "--feature-mode",
         choices=["full", "live_compatible", "live_compatible_trajectory", "live_compatible_selected_trajectory", "live_expected_now"],
@@ -91,19 +97,140 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def parse_optional_date(value: Any) -> pd.Timestamp | None:
+    if value is None or pd.isna(value):
+        return None
+    parsed = pd.to_datetime(value, errors="coerce")
+    if pd.isna(parsed):
+        return None
+    timestamp = pd.Timestamp(parsed)
+    return timestamp.tz_localize(None) if timestamp.tzinfo is not None else timestamp
+
+
+def player_match_key(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    cleaned = "".join(character if character.isalnum() else " " for character in raw)
+    tokens = [token for token in cleaned.split() if token]
+    if not tokens:
+        return ""
+    if len(tokens) == 1:
+        return tokens[0]
+    initials = "".join(token[0] for token in tokens[:-1])
+    return f"{initials}{tokens[-1]}"
+
+
 class PriorLookup:
-    def __init__(self, matchup_path: Path, team_path: Path) -> None:
+    def __init__(
+        self,
+        matchup_path: Path,
+        team_path: Path,
+        preseason_team_prior_path: Path | None = None,
+        preseason_team_roster_path: Path | None = None,
+        match_squads_path: Path | None = None,
+    ) -> None:
         self.matchup = pd.read_csv(matchup_path, low_memory=False)
         self.team = pd.read_csv(team_path, low_memory=False)
         self.matchup["match_date"] = pd.to_datetime(self.matchup["match_date"], errors="coerce")
         self.team["match_date"] = pd.to_datetime(self.team["match_date"], errors="coerce")
+        self.preseason_team_priors = self.load_preseason_team_priors(preseason_team_prior_path)
+        self.preseason_team_rosters = self.load_preseason_team_rosters(preseason_team_roster_path)
+        self.match_squads = self.load_match_squads(match_squads_path)
+
+    def load_preseason_team_priors(self, path: Path | None) -> pd.DataFrame:
+        if path is None or not path.exists():
+            return pd.DataFrame()
+        rows = pd.read_csv(path, low_memory=False)
+        required = {"season", "team", "source_date"}
+        missing = sorted(required.difference(rows.columns))
+        if missing:
+            raise ValueError(f"preseason team prior overrides missing columns: {', '.join(missing)}")
+        rows["source_date"] = pd.to_datetime(rows["source_date"], errors="coerce")
+        rows = rows[rows["source_date"].notna()].copy()
+        rows["season"] = pd.to_numeric(rows["season"], errors="coerce").astype("Int64")
+        return rows
+
+    def load_preseason_team_rosters(self, path: Path | None) -> pd.DataFrame:
+        if path is None or not path.exists():
+            return pd.DataFrame()
+        rows = pd.read_csv(path, low_memory=False)
+        required = {"season", "team", "source_date", "player_name"}
+        missing = sorted(required.difference(rows.columns))
+        if missing:
+            raise ValueError(f"preseason team rosters missing columns: {', '.join(missing)}")
+        rows["source_date"] = pd.to_datetime(rows["source_date"], errors="coerce")
+        rows = rows[rows["source_date"].notna()].copy()
+        rows["season"] = pd.to_numeric(rows["season"], errors="coerce").astype("Int64")
+        rows["player_match_key"] = rows["player_name"].map(player_match_key)
+        return rows
+
+    def load_match_squads(self, path: Path | None) -> pd.DataFrame:
+        if path is None or not path.exists():
+            return pd.DataFrame()
+        rows = pd.read_csv(path, low_memory=False)
+        required = {"team", "match_date", "player_name"}
+        missing = sorted(required.difference(rows.columns))
+        if missing:
+            raise ValueError(f"match squads missing columns: {', '.join(missing)}")
+        rows["match_date"] = pd.to_datetime(rows["match_date"], errors="coerce")
+        rows["player_match_key"] = rows["player_name"].map(player_match_key)
+        return rows
+
+    def preseason_roster_continuity(self, team: str | None, before: datetime | None) -> dict[str, Any]:
+        if not team or before is None or self.preseason_team_rosters.empty or self.match_squads.empty:
+            return {}
+        before_timestamp = parse_optional_date(before)
+        if before_timestamp is None:
+            return {}
+        roster_rows = self.preseason_team_rosters[
+            (self.preseason_team_rosters["team"] == team)
+            & (self.preseason_team_rosters["season"] == before_timestamp.year)
+            & (self.preseason_team_rosters["source_date"] <= before_timestamp)
+        ]
+        if roster_rows.empty:
+            return {}
+        roster_keys = {key for key in roster_rows["player_match_key"] if key}
+        squad_rows = self.match_squads[(self.match_squads["team"] == team) & (self.match_squads["match_date"] < before_timestamp)]
+        if squad_rows.empty:
+            return {}
+        latest_date = squad_rows["match_date"].max()
+        latest_squad_keys = {key for key in squad_rows[squad_rows["match_date"] == latest_date]["player_match_key"] if key}
+        if not latest_squad_keys:
+            return {}
+        continuity = len(latest_squad_keys.intersection(roster_keys)) / len(latest_squad_keys)
+        return {"team_xi_continuity_score": continuity}
+
+    def preseason_team_prior_overrides(self, team: str | None, before: datetime | None) -> dict[str, Any]:
+        if not team or before is None or self.preseason_team_priors.empty:
+            return {}
+        before_timestamp = parse_optional_date(before)
+        if before_timestamp is None:
+            return {}
+        rows = self.preseason_team_priors[
+            (self.preseason_team_priors["team"] == team)
+            & (self.preseason_team_priors["season"] == before_timestamp.year)
+            & (self.preseason_team_priors["source_date"] <= before_timestamp)
+        ].copy()
+        if rows.empty:
+            return {}
+        row = rows.sort_values("source_date").iloc[-1]
+        overrides: dict[str, Any] = {}
+        for column in TEAM_PRIOR_COLUMNS:
+            if column not in row.index:
+                continue
+            value = row.get(column)
+            if value is None or pd.isna(value):
+                continue
+            overrides[column] = value
+        return overrides
 
     def venue_priors(self, venue: str | None, before: datetime | None) -> dict[str, Any]:
         if not venue:
             return {}
         rows = self.matchup[self.matchup["venue"] == venue].copy()
         if before is not None:
-            rows = rows[rows["match_date"] <= pd.Timestamp(before).tz_localize(None)]
+            before_timestamp = parse_optional_date(before)
+            if before_timestamp is not None:
+                rows = rows[rows["match_date"] <= before_timestamp]
         if rows.empty:
             return {}
         row = rows.sort_values("match_date").iloc[-1]
@@ -114,11 +241,17 @@ class PriorLookup:
             return {}
         rows = self.team[self.team["team"] == team].copy()
         if before is not None:
-            rows = rows[rows["match_date"] <= pd.Timestamp(before).tz_localize(None)]
+            before_timestamp = parse_optional_date(before)
+            if before_timestamp is not None:
+                rows = rows[rows["match_date"] <= before_timestamp]
         if rows.empty:
-            return {}
-        row = rows.sort_values("match_date").iloc[-1]
-        return {f"{prefix}_{column}": row.get(column) for column in TEAM_PRIOR_COLUMNS}
+            base: dict[str, Any] = {}
+        else:
+            row = rows.sort_values("match_date").iloc[-1]
+            base = {column: row.get(column) for column in TEAM_PRIOR_COLUMNS}
+        base.update(self.preseason_roster_continuity(team, before))
+        base.update(self.preseason_team_prior_overrides(team, before))
+        return {f"{prefix}_{column}": value for column, value in base.items()}
 
 
 def read_json_payload(args: argparse.Namespace) -> Any | None:
@@ -520,7 +653,13 @@ def main() -> None:
     args = parse_args()
     full_feature_columns = load_feature_columns(args.manifest)
     feature_columns = filter_feature_columns(full_feature_columns, args.feature_mode)
-    prior_lookup = PriorLookup(args.matchup_features, args.team_features)
+    prior_lookup = PriorLookup(
+        args.matchup_features,
+        args.team_features,
+        args.preseason_team_priors,
+        args.preseason_team_rosters,
+        args.match_squads,
+    )
     payload = read_json_payload(args)
     snapshot_index = build_snapshot_index(read_snapshot_payload(args))
     report = {

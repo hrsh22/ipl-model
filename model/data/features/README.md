@@ -10,6 +10,8 @@ Derived historical feature tables.
 - `training_ready_player_features.csv`: filtered player-level rows where `training_eligible=true`
 - `training_ready_matchup_features.csv`: filtered pre-match matchup rows where `training_eligible=true`
 - `training_ready_post_toss_matchup_features.csv`: filtered post-toss matchup rows where `training_eligible=true`
+- `preseason_team_rosters_2026.csv`: dated official preseason retained/traded roster facts used only by live inference to adjust roster-continuity priors for 2026 fixtures
+- `preseason_team_prior_overrides_2026.csv`: optional dated numeric team-prior override sidecar for 2026 live inference; keep empty unless a value is backed by preseason-only evidence
 
 Notes:
 - Team order comes from Cricsheet match info when available, otherwise alphabetical order is used to avoid innings-order leakage.
@@ -19,3 +21,4 @@ Notes:
 - Home/neutral context comes from a static venue mapping with season overrides.
 - Training exclusions currently remove neutral-venue seasons/legs, no-result/tie matches, D/L matches, super-over matches, and unresolved home-context rows.
 - Post-toss datasets are kept separate so toss-known fields do not leak into the pre-toss model matrix.
+- The 2026 preseason sidecars are not model-training inputs. They are read by the live ball-state parity/scoring path after historical priors are loaded, are date-gated by `source_date`, and must not contain 2026 match results, scorecards, playing-XI outcomes, or player performance.

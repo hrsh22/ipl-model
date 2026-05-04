@@ -35,6 +35,35 @@ Reason: there is not yet a documented training loop, validation split, live fail
 
 ## Experimental timeline
 
+### 2026-05-01 — preseason squad priors for live ball-state inference
+
+Change / idea: add official 2026 preseason roster context to live ball-state inference without adding 2026 match results to the training matrix.
+
+What changed:
+
+- Added dated preseason roster and optional numeric prior sidecars under `model/data/features/`.
+- Updated the shared live feature path so `PriorLookup.team_priors()` overlays date-gated 2026 preseason continuity after loading frozen historical priors.
+- Runtime shadow scoring uses the same overlay because it reuses the parity feature builder.
+
+Decision: **accepted for experimental live inference only**.
+
+Reason: this captures squad churn before the 2026 season while keeping 2026 matches available for out-of-sample testing.
+
+### 2026-05-01 — live observer runtime ball-state scoring bridge
+
+Change / idea: wire the current `/observer/live-model` payload through the selected experimental ball-by-ball artifacts at request time instead of relying on pre-generated shadow files.
+
+What changed:
+
+- The observer runtime now invokes the existing live ball-state scorer against the current live payload and recent observer snapshots.
+- Expected runs now and expected wickets now use `live_expected_now` artifacts so they do not copy the actual score state.
+- Projected innings uses the selected-trajectory final-innings artifact when snapshot coverage is sufficient; otherwise the target remains unavailable.
+- Chase success uses the stable live-compatible `chase_success` artifact for second innings.
+
+Decision: **accepted for the experimental observer only**.
+
+Reason: this makes the operator dashboard use the trained ball-by-ball workstream automatically for live expected-state fields while preserving the production predictor boundary and making missing model targets explicit.
+
 ### Initial model architecture — cricket fundamentals first, markets second
 
 Change / idea: build an IPL prediction system that outputs team win probabilities, confidence, fair prices, market edge, and an explanation.

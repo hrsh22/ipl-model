@@ -65,6 +65,83 @@ Copy this block for every material model change:
 
 ## Log
 
+### 2026-05-01 — 2026 preseason squad sidecars for experimental live inference
+
+- Status: tested
+- Change type: inference
+- Hypothesis: roster churn before IPL 2026 can improve live ball-state priors if applied as dated inference-only context, while preserving 2026 matches as out-of-sample tests.
+
+### What changed
+
+- Exact files changed: `model/validate_ball_state_live_parity.py`, `model/shadow_score_ball_state_live.py`, `model/data/features/preseason_team_rosters_2026.csv`, `model/data/features/preseason_team_prior_overrides_2026.csv`, `model/data/README.md`, `model/data/features/README.md`, `model/README-predict.md`, `model/EXPERIMENTAL_MODEL_HISTORY.md`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: live ball-state feature construction now reads official preseason retained/traded roster facts dated `2025-11-15` and applies a 2026-only `team_xi_continuity_score` overlay by comparing the roster with the last historical XI. Optional numeric team-prior overrides are supported only when source-dated before the fixture.
+- Whether this affects pre_toss, post_toss, or both: neither production predictor mode; this affects only experimental observer live ball-state inference.
+
+### How we tested it
+
+- Experiment/report paths: live parity/scorer scripts using `model/ball_state_live_candidate_selection.json` and the shared `PriorLookup` path.
+- Baseline artifact or production reference: frozen historical team priors through the 2025 matrix.
+- Comparison method: implementation review plus focused script/import checks; no production artifact retraining.
+
+### Measured impact
+
+| metric   | baseline | candidate | delta |
+| -------- | -------- | --------- | ----- |
+| log_loss | n/a      | n/a       | n/a   |
+| brier    | n/a      | n/a       | n/a   |
+| roc_auc  | n/a      | n/a       | n/a   |
+| accuracy | n/a      | n/a       | n/a   |
+
+- Live/current-season effect after promotion: 2026 live ball-state rows can reflect preseason squad continuity without using 2026 match outcomes.
+- Confidence / caveats: continuity is a conservative roster-overlap signal, not a full predicted XI model.
+
+### Decision
+
+- Outcome: promoted to experimental observer runtime only
+- Why: it adds the requested 2026 squad context at inference time and preserves the training/test boundary.
+- Deployed model source hash after change: unchanged; no production model artifact was retrained.
+- Supporting evidence:
+    - `model/EXPERIMENTAL_MODEL_HISTORY.md`
+    - `model/data/features/preseason_team_rosters_2026.csv`
+    - `model/data/features/preseason_team_prior_overrides_2026.csv`
+
+### 2026-05-01 — experimental observer ball-state runtime bridge
+
+- Status: tested
+- Change type: inference
+- Hypothesis: the live observer should use the trained ball-by-ball expected-state artifacts automatically for current innings fields, while keeping production pre-toss/post-toss predictor behavior unchanged.
+
+### What changed
+
+- Exact files changed: `src/index.ts`, `src/observer/service.ts`, `apps/web/src/routes/observer.tsx`, `apps/web/src/server/backendProxy.ts`, observer web API proxy routes, `model/ball_state_live_candidate_selection.json`, `model/shadow_score_ball_state_live.py`, `package.json`, `model/EXPERIMENTAL_MODEL_HISTORY.md`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: `/observer/live-model` now sends the current live payload and recent live-model snapshots through `model/shadow_score_ball_state_live.py` using selected experimental ball-state artifacts. Expected-now targets use `live_expected_now`; projected innings uses selected trajectory features when snapshot coverage is available; chase success uses the stable live-compatible classifier in innings 2. Runtime scoring failures or rejected targets leave model-scored fields null/unavailable instead of using heuristic expected-state values.
+- Whether this affects pre_toss, post_toss, or both: neither; this affects only the experimental observer live expected-state route and does not change `model/predict_fixture.py` or production artifacts.
+
+### How we tested it
+
+- Experiment/report paths: `model/ball_state_live_candidate_selection.json` and the referenced ball-state manifests/artifacts.
+- Baseline artifact or production reference: previous observer `expected-state-heuristic-v0` route behavior.
+- Comparison method: manual fixture/runtime integration review plus TypeScript/web build verification.
+
+### Measured impact
+
+| metric   | baseline | candidate | delta |
+| -------- | -------- | --------- | ----- |
+| log_loss | n/a      | n/a       | n/a   |
+| brier    | n/a      | n/a       | n/a   |
+| roc_auc  | n/a      | n/a       | n/a   |
+| accuracy | n/a      | n/a       | n/a   |
+
+- Live/current-season effect after promotion: operator dashboard expected-state fields are model-scored when scorer inputs are sufficient; rejected targets render as unavailable.
+- Confidence / caveats: experimental observer only; selected-trajectory projected score depends on snapshot coverage.
+
+### Decision
+
+- Outcome: promoted to experimental observer runtime only
+- Why: satisfies live operator need for automatic trained ball-by-ball expected-state scoring without promoting or modifying the production predictor.
+- Deployed model source hash after change: unchanged for production predictor artifacts.
+- Supporting evidence: verification commands in the implementation session.
+
 ### 2026-05-01 — post-toss XI contract and UI state audit fixes
 
 - Status: tested

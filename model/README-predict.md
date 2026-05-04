@@ -152,7 +152,11 @@ Confirmed XI is now auto-fetched in `post_toss` mode from the IPL official match
 ## Experimental ball-state shadow flags
 
 The ball-by-ball shadow scorer is experimental and isolated from the production
-pre/post-toss predictor. Runtime refresh is opt-in:
+pre/post-toss predictor. `/observer/live-model` can invoke the scorer as a
+runtime bridge for the current observer payload using
+`model/ball_state_live_candidate_selection.json`; if runtime scoring fails, the
+model-scored fields remain unavailable rather than using heuristic expected-state values. Runtime
+refresh for saved shadow journals remains opt-in:
 
 - `EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED=false` by default. When false,
   `/observer/ball-state-shadow` is read-only and only reports existing ignored
@@ -163,6 +167,17 @@ pre/post-toss predictor. Runtime refresh is opt-in:
 
 Keep these disabled in production unless you are intentionally running an
 experimental live ball-state session.
+
+## Experimental 2026 preseason squad context
+
+The live ball-state scorer can read dated preseason squad sidecars without changing the trained artifacts:
+
+- `model/data/features/preseason_team_rosters_2026.csv` stores official IPL retained/traded roster facts available before the 2026 season.
+- `model/data/features/preseason_team_prior_overrides_2026.csv` is an optional numeric override file for preseason-only team-prior adjustments.
+
+At inference time, `PriorLookup.team_priors()` first loads the frozen historical team priors, then overlays date-gated preseason context for 2026 fixtures. The roster sidecar adjusts `team_xi_continuity_score` by comparing the official preseason roster with the team’s last historical XI. This keeps 2026 match results out of training and out of live feature construction.
+
+Do not put 2026 scorecards, completed-match playing XIs, or current-season player performance in these files if 2026 is being used as an out-of-sample test season.
 
 ## 9. Current-season prediction performance tracking
 

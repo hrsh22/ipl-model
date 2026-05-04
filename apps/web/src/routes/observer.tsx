@@ -7,6 +7,7 @@ export const Route = createFileRoute('/observer')({
 
 type LiveModelSide = {
   team: string
+  winProbability: number | null
   fairProbability: number | null
   marketProbability: number | null
   referenceProbability: number | null
@@ -40,6 +41,7 @@ type ExpectedState = {
   wicketsDelta: number | null
   projectedScore: number | null
   expectedRunRate: number | null
+  chaseSuccessProbability: number | null
 }
 
 type InningsExpectedState = ExpectedState & {
@@ -123,74 +125,11 @@ type LiveModelHistoryEntry = {
   signalCount: number
 }
 
-type BallStateShadow = {
-  status: 'experimental'
-  source: 'ball-state-shadow'
-  available: boolean
-  reason?: string | undefined
-  outputDir: string | null
-  updatedAt: string | null
-  currentState: {
-    fixtureId: string | null
-    innings: number | null
-    battingTeam: string | null
-    bowlingTeam: string | null
-    scoreRuns: number | null
-    scoreWickets: number | null
-    balls: number | null
-  }
-  predictions: {
-    expectedRunsNow: number | null
-    expectedWicketsNow: number | null
-    runsDelta: number | null
-    wicketsDelta: number | null
-    finalInningsRuns: number | null
-    finalInningsWickets: number | null
-    remainingInningsRuns: number | null
-    remainingInningsWickets: number | null
-    chaseSuccessProbability: number | null
-  }
-  parity: {
-    readyForInference: boolean | null
-    featureMode: string | null
-    missingCoreFeatures: unknown[]
-    missingEventTrajectoryFeatures: unknown[]
-    snapshotDiagnostics: Record<string, unknown> | null
-  }
-  summary: {
-    inputRows: number | null
-    scoredEntries: number | null
-    targetScores: number | null
-    rejectedRows: number | null
-    targetScoreCounts: Record<string, unknown> | null
-    notes: unknown[]
-  }
-  refresh: {
-    status: 'idle' | 'running' | 'skipped' | 'succeeded' | 'failed'
-    ingestionStatus: 'idle' | 'unconfigured' | 'running' | 'succeeded' | 'failed'
-    lastAttemptAt: string | null
-    lastSuccessAt: string | null
-    lastError: string | null
-    ingestionLastAttemptAt: string | null
-    ingestionLastSuccessAt: string | null
-    ingestionLastError: string | null
-    ingestionSource: string | null
-    ingestionIntervalMs: number
-    eventJournalUpdatedAt: string | null
-    shadowUpdatedAt: string | null
-    autoRefreshIntervalMs: number
-    autoRefreshEnabled: boolean
-    remoteFetchEnabled: boolean
-  }
-  notes: string[]
-}
-
 type DashboardData = {
   ready: Record<string, unknown>
   fixtures: LiveModelFixture[]
   signals: LiveModelSignal[]
   history: LiveModelHistoryEntry[]
-  ballStateShadow: BallStateShadow
 }
 
 type ObserverState = {
@@ -209,7 +148,6 @@ function ObserverPage() {
   const fixtures = data?.fixtures ?? []
   const signals = data?.signals ?? []
   const history = data?.history ?? []
-  const shadow = data?.ballStateShadow ?? null
   const ready = data?.ready ?? null
   const observerStatusLabel = ready?.ready === true
     ? ready.degraded === true
@@ -228,10 +166,10 @@ function ObserverPage() {
     <main className="observer-shell">
       <section className="observer-hero">
         <div>
-          <p className="eyebrow">Experimental observer · isolated from deployed predictor</p>
-          <h1>Live expected-state moneyline desk</h1>
+          <p className="eyebrow">Live ball-by-ball observer · isolated from deployed predictor</p>
+          <h1>Model-scored expected-state moneyline desk</h1>
           <p className="observer-copy">
-            Track expected runs, expected wickets, Betfair-led fair probability, and Polymarket moneyline disagreement without touching production model artifacts.
+            Track trained expected runs, expected wickets, projected score, Betfair-led fair probability, and Polymarket moneyline disagreement without touching production model artifacts.
           </p>
         </div>
         <div className="observer-status-card">
@@ -248,10 +186,7 @@ function ObserverPage() {
         <ObserverMetric label="Tracked live models" value={fixtures.length.toString()} />
         <ObserverMetric label="Avg absolute edge" value={aggregateEdge === null ? '—' : `${Math.round(aggregateEdge)} bps`} />
         <ObserverMetric label="Recent signals" value={signals.length.toString()} />
-        <ObserverMetric label="Shadow final runs" value={formatShadowRuns(shadow?.predictions.finalInningsRuns ?? null)} />
       </section>
-
-      <BallStateShadowPanel shadow={shadow} />
 
       <section className="observer-content-grid">
         <div className="observer-fixture-stack">
@@ -273,12 +208,12 @@ function ObserverPage() {
           <SectionHeading label="Signal tape" value="latest" />
           <div className="observer-terms-card">
             <strong>Terms</strong>
-            <p><b>Expected now</b> uses the experimental ball-by-ball model when shadow scores are available, otherwise it falls back to heuristic par.</p>
+            <p><b>Expected now</b> is scored through the trained ball-by-ball model for the current live payload; unavailable model targets render as —.</p>
             <p><b>Fair probability</b> is the Betfair-led reference price, not the deployed predictor.</p>
             <p><b>PM</b> is Polymarket moneyline probability.</p>
           </div>
           {signals.length === 0 ? (
-            <p className="observer-muted">No live-model signals have crossed the experimental threshold yet.</p>
+            <p className="observer-muted">No live-model signals have crossed the runtime threshold yet.</p>
           ) : (
             signals.map((signal) => <SignalCard signal={signal} key={signal.id} />)
           )}
@@ -347,7 +282,6 @@ async function loadObserverDashboard(): Promise<DashboardData> {
     fetch('/api/observer/live-model'),
     fetch('/api/observer/live-model/signals?limit=8'),
     fetch('/api/observer/live-model/history?limit=12'),
-    fetch('/api/observer/ball-state-shadow'),
   ])
 
   const failed = responses.find((response) => !response.ok)
@@ -355,20 +289,18 @@ async function loadObserverDashboard(): Promise<DashboardData> {
     throw new Error(await responseMessage(failed))
   }
 
-  const [ready, fixtures, signals, history, ballStateShadow] = await Promise.all([
+  const [ready, fixtures, signals, history] = await Promise.all([
     responses[0].json() as Promise<Record<string, unknown>>,
     responses[1].json() as Promise<LiveModelFixture[]>,
     responses[2].json() as Promise<LiveModelSignal[]>,
     responses[3].json() as Promise<LiveModelHistoryEntry[]>,
-    responses[4].json() as Promise<BallStateShadow>,
   ])
 
   const dashboard = mergeWithStableDashboardData({
     ready,
-    fixtures: applyShadowExpectedStateToFixtures(fixtures, ballStateShadow),
+    fixtures,
     signals,
     history,
-    ballStateShadow,
   })
   lastStableDashboardData = dashboard
   return dashboard
@@ -388,43 +320,6 @@ async function parseJsonResponse(response: Response): Promise<unknown> {
     return await response.json()
   }
   return { error: await response.text() }
-}
-
-function applyShadowExpectedStateToFixtures(fixtures: LiveModelFixture[], shadow: BallStateShadow): LiveModelFixture[] {
-  if (!shadow.available || !shadow.currentState.fixtureId) {
-    return fixtures
-  }
-
-  return fixtures.map((fixture) => {
-    if (fixture.fixture.id !== shadow.currentState.fixtureId) {
-      return fixture
-    }
-
-    const expectedState = applyShadowExpectedState(fixture.expectedState, shadow)
-    const inningsStates = fixture.inningsStates
-      ? {
-          ...fixture.inningsStates,
-          first: fixture.inningsStates.first.innings === shadow.currentState.innings ? applyShadowExpectedState(fixture.inningsStates.first, shadow) : fixture.inningsStates.first,
-          second: fixture.inningsStates.second.innings === shadow.currentState.innings ? applyShadowExpectedState(fixture.inningsStates.second, shadow) : fixture.inningsStates.second,
-        }
-      : fixture.inningsStates
-
-    return { ...fixture, expectedState, inningsStates }
-  })
-}
-
-function applyShadowExpectedState<T extends ExpectedState>(state: T, shadow: BallStateShadow): T {
-  if (state.innings !== shadow.currentState.innings || shadow.predictions.expectedRunsNow === null) {
-    return state
-  }
-  return {
-    ...state,
-    expectedRunsNow: shadow.predictions.expectedRunsNow,
-    expectedWicketsNow: shadow.predictions.expectedWicketsNow,
-    runsDelta: shadow.predictions.runsDelta,
-    wicketsDelta: shadow.predictions.wicketsDelta,
-    projectedScore: shadow.predictions.finalInningsRuns ?? state.projectedScore,
-  }
 }
 
 function mergeWithStableDashboardData(next: DashboardData): DashboardData {
@@ -471,12 +366,13 @@ function mergeExpectedState(previous: ExpectedState, next: ExpectedState): Expec
     scoreRuns: next.scoreRuns ?? previous.scoreRuns,
     scoreWickets: next.scoreWickets ?? previous.scoreWickets,
     overs: next.overs ?? previous.overs,
-    expectedRunsNow: next.expectedRunsNow ?? previous.expectedRunsNow,
-    expectedWicketsNow: next.expectedWicketsNow ?? previous.expectedWicketsNow,
-    runsDelta: next.runsDelta ?? previous.runsDelta,
-    wicketsDelta: next.wicketsDelta ?? previous.wicketsDelta,
-    projectedScore: next.projectedScore ?? previous.projectedScore,
-    expectedRunRate: next.expectedRunRate ?? previous.expectedRunRate,
+    expectedRunsNow: next.expectedRunsNow,
+    expectedWicketsNow: next.expectedWicketsNow,
+    runsDelta: next.runsDelta,
+    wicketsDelta: next.wicketsDelta,
+    projectedScore: next.projectedScore,
+    expectedRunRate: next.expectedRunRate,
+    chaseSuccessProbability: next.chaseSuccessProbability,
   }
 }
 
@@ -493,60 +389,6 @@ function mergeInningsStates(previous: InningsStates | undefined, next: InningsSt
 function mergeInningsState(previous: InningsExpectedState, next: InningsExpectedState): InningsExpectedState {
   if (next.status === 'unavailable' || next.status === 'pending') return next
   return { ...mergeExpectedState(previous, next), status: next.status }
-}
-
-function BallStateShadowPanel({ shadow }: { shadow: BallStateShadow | null }) {
-  if (!shadow || !shadow.available) {
-    return (
-      <section className="observer-shadow-panel observer-shadow-unavailable">
-        <div>
-          <span className="eyebrow">Experimental ball-by-ball model</span>
-          <h2>Shadow scorer waiting for a live run</h2>
-          <p>{shadow?.reason ?? 'No ball-state shadow output has been exposed yet.'}</p>
-          {shadow?.refresh.ingestionLastError ? <p className="observer-shadow-error">Ingestion: {shadow.refresh.ingestionLastError}</p> : null}
-          {shadow?.refresh.lastError ? <p className="observer-shadow-error">{shadow.refresh.lastError}</p> : null}
-        </div>
-      </section>
-    )
-  }
-
-  const state = shadow.currentState
-  const predictions = shadow.predictions
-  const refresh = shadow.refresh
-  const diagnostics = shadow.parity.snapshotDiagnostics
-  const coverage = typeof diagnostics?.snapshot_exact_coverage_balls === 'number' ? `${diagnostics.snapshot_exact_coverage_balls} balls covered` : 'coverage unavailable'
-
-  return (
-    <section className="observer-shadow-panel">
-      <header className="observer-shadow-header">
-        <div>
-          <span className="eyebrow">Experimental ball-by-ball shadow model</span>
-          <h2>{state.battingTeam ?? 'Batting side'} innings projection</h2>
-          <p>Read-only output from <code>{shadow.outputDir}</code>. This no-paid ball-by-ball model is separate from the heuristic observer expected-state view.</p>
-        </div>
-        <div className="observer-shadow-status">
-          <strong>{refresh.status}</strong>
-          <span>{shadow.parity.featureMode ?? 'feature mode pending'} · ingest {refresh.ingestionStatus}</span>
-        </div>
-      </header>
-      <div className="observer-shadow-grid">
-        <State label="Current score" value={formatShadowScore(state.scoreRuns, state.scoreWickets, state.balls)} tone="live" />
-        <State label="Model expected now" value={formatScoreExpectation(predictions.expectedRunsNow, predictions.expectedWicketsNow)} tone="live" />
-        <State label="Model actual delta" value={formatDelta(predictions.runsDelta, predictions.wicketsDelta)} />
-        <State label="Projected final runs" value={formatShadowRuns(predictions.finalInningsRuns)} tone="live" />
-        <State label="Projected final wickets" value={formatShadowWickets(predictions.finalInningsWickets)} />
-        <State label="Remaining runs" value={formatShadowRuns(predictions.remainingInningsRuns)} />
-        <State label="Remaining wickets" value={formatShadowWickets(predictions.remainingInningsWickets)} />
-        <State label="Chase success" value={formatProbability(predictions.chaseSuccessProbability)} />
-        <State label="Snapshot coverage" value={coverage} />
-        <State label="Shadow updated" value={formatTime(shadow.updatedAt)} />
-        <State label="Event journal" value={formatTime(refresh.eventJournalUpdatedAt)} />
-        <State label="Auto refresh" value={refresh.autoRefreshEnabled ? `${Math.round(refresh.autoRefreshIntervalMs / 1000)}s · ${refresh.status}` : 'disabled'} />
-      </div>
-      {refresh.ingestionLastError ? <p className="observer-shadow-error">Ingestion: {refresh.ingestionLastError}</p> : null}
-      {refresh.lastError ? <p className="observer-shadow-error">{refresh.lastError}</p> : null}
-    </section>
-  )
 }
 
 function ObserverMetric({ label, value }: { label: string; value: string }) {
@@ -600,6 +442,7 @@ function InningsPanel({ title, innings }: { title: string; innings: InningsExpec
           <State label="Expected now" value={formatScoreExpectation(innings.expectedRunsNow, innings.expectedWicketsNow)} />
           <State label="Actual delta" value={formatDelta(innings.runsDelta, innings.wicketsDelta)} />
           <State label="Projected innings" value={innings.projectedScore === null ? '—' : `${innings.projectedScore.toFixed(0)} runs`} />
+          {innings.innings === 2 ? <State label="Chase win" value={formatProbability(innings.chaseSuccessProbability)} tone="live" /> : null}
         </div>
       )}
     </section>
@@ -701,11 +544,13 @@ function hasHistoricalInningsState(state: InningsExpectedState | undefined): sta
 }
 
 function SideProbability({ side }: { side: LiveModelSide }) {
+  const primaryProbability = side.winProbability ?? side.fairProbability
+  const label = side.winProbability === null ? 'Fair probability' : 'Model win probability'
   return (
     <div className="observer-side-card">
       <span>{side.team}</span>
-      <strong>{formatProbability(side.fairProbability)}</strong>
-      <small>Fair probability · PM {formatProbability(side.marketProbability)} · edge {side.edgeVsMarketBps ?? '—'} bps</small>
+      <strong>{formatProbability(primaryProbability)}</strong>
+      <small>{label} · fair {formatProbability(side.fairProbability)} · PM {formatProbability(side.marketProbability)} · edge {formatBps(side.edgeVsMarketBps)}</small>
     </div>
   )
 }
@@ -785,6 +630,7 @@ function toFallbackInningsStates(state: ExpectedState): InningsStates {
     wicketsDelta: null,
     projectedScore: null,
     expectedRunRate: null,
+    chaseSuccessProbability: null,
     status: 'unavailable',
   })
   return { activeInnings: state.innings, first: state.innings === 1 ? fallback : blank(1), second: state.innings === 2 ? fallback : blank(2) }
@@ -803,17 +649,8 @@ function formatProbability(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : `${Math.round(value * 1000) / 10}%`
 }
 
-function formatShadowRuns(value: number | null | undefined): string {
-  return value === null || value === undefined ? '—' : `${value.toFixed(1)} runs`
-}
-
-function formatShadowWickets(value: number | null): string {
-  return value === null ? '—' : `${value.toFixed(2)} wkts`
-}
-
-function formatShadowScore(runs: number | null, wickets: number | null, balls: number | null): string {
-  const score = runs === null && wickets === null ? '—' : `${runs ?? '—'}/${wickets ?? '—'}`
-  return balls === null ? score : `${score} · ${Math.floor(balls / 6)}.${balls % 6} ov`
+function formatBps(value: number | null | undefined): string {
+  return value === null || value === undefined ? '—' : `${value > 0 ? '+' : ''}${value} bps`
 }
 
 function formatScoreExpectation(runs: number | null, wickets: number | null): string {
@@ -842,10 +679,6 @@ function formatDelta(runs: number | null, wickets: number | null): string {
 
 function formatRuns(value: number | null): string {
   return value === null ? '—' : `${Math.round(value)} runs`
-}
-
-function formatTime(value: string | null): string {
-  return value ? new Date(value).toLocaleTimeString() : '—'
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
