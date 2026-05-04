@@ -360,11 +360,14 @@ Runtime selection boundary:
 | `model/runtime_artifacts/ball_state_live/expected_wickets_now_model.joblib` | Deployed experimental runtime artifact. |
 | `model/runtime_artifacts/ball_state_live/final_innings_runs_model.joblib` | Deployed experimental runtime artifact. |
 | `model/runtime_artifacts/ball_state_live/chase_success_model.joblib` | Deployed experimental runtime artifact. |
+| `model/runtime_artifacts/ball_state_live/ball_state_matrix_manifest.json` | Deployed feature-column contract for the runtime scorer. |
 
 The `source_artifact` fields in `model/ball_state_live_candidate_selection.json`
 point back to ignored experiment outputs for provenance. Runtime deploys should
 depend on `model/runtime_artifacts/ball_state_live/**`, not on ignored
-`model/experiments/**` files.
+`model/experiments/**` files. The runtime manifest intentionally omits the full
+training matrix CSV; the scorer can run without it and will skip dtype hints when
+the matrix CSV is absent.
 
 Feature-mode leakage controls:
 

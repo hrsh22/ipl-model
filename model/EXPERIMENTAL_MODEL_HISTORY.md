@@ -44,7 +44,7 @@ What changed:
 - Added `stable_depth4_lr0035_l215` to the live tuning grid and candidate-selection inventory.
 - Trained the candidate with `feature_mode=live_compatible`, `iterations=160`, `learning_rate=0.035`, `depth=4`, `l2_leaf_reg=15`, and no calibration.
 - Updated `model/ball_state_live_candidate_selection.json` so the observer runtime bridge uses this artifact for second-innings `chase_success`.
-- Bundled the selected observer runtime artifacts under `model/runtime_artifacts/ball_state_live/` so clean deploys do not depend on the ignored local `model/experiments/` tree.
+- Bundled the selected observer runtime artifacts and the runtime feature-column manifest under `model/runtime_artifacts/ball_state_live/` so clean deploys do not depend on the ignored local `model/experiments/` tree.
 
 Measured impact:
 

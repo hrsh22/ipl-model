@@ -41,6 +41,7 @@ ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parent
 DEFAULT_EXPERIMENT_DIR = ROOT / "experiments" / "ball-state"
 DEFAULT_SELECTION_REPORT = DEFAULT_EXPERIMENT_DIR / "live_candidate_selection_report.json"
+DEFAULT_RUNTIME_MATRIX_MANIFEST = ROOT / "runtime_artifacts" / "ball_state_live" / "ball_state_matrix_manifest.json"
 DEFAULT_OUTPUT_ROOT = DEFAULT_EXPERIMENT_DIR / "runs"
 
 REGRESSION_TARGETS = {
@@ -57,7 +58,7 @@ CLASSIFICATION_TARGETS = {"chase_success"}
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidate-manifest", type=Path, default=DEFAULT_SELECTION_REPORT)
-    parser.add_argument("--matrix-manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--matrix-manifest", type=Path, default=DEFAULT_RUNTIME_MATRIX_MANIFEST)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--input-json", type=Path, help="Captured /observer/live-model JSON list or object")
     parser.add_argument("--input-jsonl", type=Path, help="Captured /observer/live-model JSONL entries")

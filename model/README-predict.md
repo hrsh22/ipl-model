@@ -159,10 +159,11 @@ model-scored fields remain unavailable rather than using heuristic expected-stat
 refresh for saved shadow journals remains opt-in:
 
 Selected runtime artifacts are bundled under
-`model/runtime_artifacts/ball_state_live/`. The ignored `model/experiments/`
-tree remains the local research workspace and is recorded as `source_artifact`
-metadata only; production-like deploys should rely on the runtime bundle paths in
-the manifest.
+`model/runtime_artifacts/ball_state_live/`, including the feature-column contract
+`ball_state_matrix_manifest.json`. The ignored `model/experiments/` tree remains
+the local research workspace and is recorded as `source_artifact` metadata only;
+production-like deploys should rely on the runtime bundle paths rather than
+requiring experiment manifests or matrices to be present.
 
 - `EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED=false` by default. When false,
   `/observer/ball-state-shadow` is read-only and only reports existing ignored
