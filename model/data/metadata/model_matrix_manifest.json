@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-30T04:00:48.954Z",
+  "generatedAt": "2026-05-04T04:00:57.059Z",
   "note": "Frozen model-matrix layer built from training-ready feature datasets. Excluded seasons are already removed upstream by training eligibility rules.",
   "preToss": {
     "rows": 850,
