@@ -1,10 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 import { fetchDefaultIplMarket, type DefaultMarketResponse } from '../lib/defaultIplMarket'
 
 export const Route = createFileRoute('/scanner')({
   loader: async () => await loadDefaultMarket(),
+  staleTime: 0,
+  gcTime: 0,
+  shouldReload: true,
   component: ScannerPage,
 })
 
@@ -61,7 +64,6 @@ type ScanState =
   | { status: 'success'; data: ScanResponse }
   | { status: 'error'; message: string }
 
-const FALLBACK_URL = 'https://polymarket.com/sports/cricipl/cricipl-mum-che-2026-04-23'
 const compactNumberFormatter = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })
 
 async function loadDefaultMarket(): Promise<DefaultMarketResponse | null> {
@@ -74,9 +76,25 @@ async function loadDefaultMarket(): Promise<DefaultMarketResponse | null> {
 
 function ScannerPage() {
   const defaultMarket = Route.useLoaderData()
-  const [marketUrl, setMarketUrl] = useState(defaultMarket?.url ?? FALLBACK_URL)
+  const [resolvedDefaultMarket, setResolvedDefaultMarket] = useState(defaultMarket)
+  const [marketUrl, setMarketUrl] = useState(defaultMarket?.url ?? '')
   const [holderLimit, setHolderLimit] = useState(20)
   const [state, setState] = useState<ScanState>({ status: 'idle' })
+  const userEditedMarketUrl = useRef(false)
+
+  useEffect(() => {
+    setResolvedDefaultMarket(defaultMarket)
+    if (!defaultMarket) {
+      return
+    }
+
+    setMarketUrl((currentUrl) => {
+      if (userEditedMarketUrl.current && currentUrl.trim() !== '') {
+        return currentUrl
+      }
+      return defaultMarket.url
+    })
+  }, [defaultMarket])
 
   async function scanMarket(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -120,7 +138,15 @@ function ScannerPage() {
       <form className="scan-panel" onSubmit={scanMarket}>
         <label htmlFor="market-url">Polymarket link or slug</label>
         <div className="input-row">
-          <input id="market-url" value={marketUrl} onChange={(event) => setMarketUrl(event.target.value)} />
+          <input
+            id="market-url"
+            value={marketUrl}
+            onChange={(event) => {
+              userEditedMarketUrl.current = true
+              setMarketUrl(event.target.value)
+            }}
+            placeholder="Resolving today's IPL market…"
+          />
           <button type="submit" disabled={state.status === 'loading'}>{state.status === 'loading' ? 'Scanning…' : 'Scan sharks'}</button>
         </div>
         <div className="controls-row">
@@ -137,8 +163,8 @@ function ScannerPage() {
         </div>
       </form>
 
-      {defaultMarket ? (
-        <p className="subdued inline-note">Default market: {defaultMarket.title} · {defaultMarket.status} · {defaultMarket.matchDate}</p>
+      {resolvedDefaultMarket ? (
+        <p className="subdued inline-note">Default market: {resolvedDefaultMarket.title} · {resolvedDefaultMarket.status} · {resolvedDefaultMarket.matchDate}</p>
       ) : null}
 
       {state.status === 'idle' && <StateCard label="Ready" message="Use the prefilled IPL market or paste another Polymarket link." />}
