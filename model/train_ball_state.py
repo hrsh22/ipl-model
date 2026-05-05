@@ -51,7 +51,10 @@ TARGETS = [
     "remaining_innings_runs",
     "remaining_innings_wickets",
 ]
-CLASSIFICATION_TARGETS = ["chase_success"]
+CLASSIFICATION_TARGETS = ["batting_team_match_win", "chase_success"]
+CLASSIFICATION_TARGET_INNINGS = {
+    "batting_team_match_win": 1,
+}
 DROP_COLUMNS = {
     "match_id",
     "date",
@@ -59,6 +62,7 @@ DROP_COLUMNS = {
     "expected_wickets_now",
     "remaining_innings_runs",
     "remaining_innings_wickets",
+    "batting_team_match_win",
     "chase_success",
     *TARGETS,
 }
@@ -449,6 +453,10 @@ def evaluate_classification_target(
 ) -> tuple[CatBoostClassifier, object | None, pd.Series, dict[str, float], dict[str, float], list[dict[str, float | int]], dict[str, object]]:
     train_target = train.dropna(subset=[target]).copy()
     test_target = test.dropna(subset=[target]).copy()
+    target_innings = CLASSIFICATION_TARGET_INNINGS.get(target)
+    if target_innings is not None:
+        train_target = train_target[train_target["innings"] == target_innings].copy()
+        test_target = test_target[test_target["innings"] == target_innings].copy()
     train_target[target] = train_target[target].astype(int)
     test_target[target] = test_target[target].astype(int)
 
@@ -506,6 +514,9 @@ def train_final_classifier_payload(
     calibration_size: float,
 ) -> tuple[dict[str, object], dict[str, object]]:
     final_train = data.dropna(subset=[target]).copy()
+    target_innings = CLASSIFICATION_TARGET_INNINGS.get(target)
+    if target_innings is not None:
+        final_train = final_train[final_train["innings"] == target_innings].copy()
     final_train[target] = final_train[target].astype(int)
     classifier_train = final_train
     calibration_target = pd.DataFrame()

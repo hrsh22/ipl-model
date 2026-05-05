@@ -41,6 +41,7 @@ type ExpectedState = {
   wicketsDelta: number | null
   projectedScore: number | null
   expectedRunRate: number | null
+  battingTeamWinProbability: number | null
   chaseSuccessProbability: number | null
 }
 
@@ -372,6 +373,7 @@ function mergeExpectedState(previous: ExpectedState, next: ExpectedState): Expec
     wicketsDelta: next.wicketsDelta,
     projectedScore: next.projectedScore,
     expectedRunRate: next.expectedRunRate,
+    battingTeamWinProbability: next.battingTeamWinProbability,
     chaseSuccessProbability: next.chaseSuccessProbability,
   }
 }
@@ -442,6 +444,7 @@ function InningsPanel({ title, innings }: { title: string; innings: InningsExpec
           <State label="Expected now" value={formatScoreExpectation(innings.expectedRunsNow, innings.expectedWicketsNow)} />
           <State label="Actual delta" value={formatDelta(innings.runsDelta, innings.wicketsDelta)} />
           <State label="Projected innings" value={innings.projectedScore === null ? '—' : `${innings.projectedScore.toFixed(0)} runs`} />
+          {innings.innings === 1 ? <State label="Batting win" value={formatProbability(innings.battingTeamWinProbability)} tone="live" /> : null}
           {innings.innings === 2 ? <State label="Chase win" value={formatProbability(innings.chaseSuccessProbability)} tone="live" /> : null}
         </div>
       )}
@@ -630,6 +633,7 @@ function toFallbackInningsStates(state: ExpectedState): InningsStates {
     wicketsDelta: null,
     projectedScore: null,
     expectedRunRate: null,
+    battingTeamWinProbability: null,
     chaseSuccessProbability: null,
     status: 'unavailable',
   })

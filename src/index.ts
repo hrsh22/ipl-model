@@ -275,6 +275,7 @@ type BallStateShadowResponse = {
     finalInningsWickets: number | null
     remainingInningsRuns: number | null
     remainingInningsWickets: number | null
+    battingTeamMatchWinProbability: number | null
     chaseSuccessProbability: number | null
   }
   parity: {
@@ -642,6 +643,7 @@ const unavailableBallStateShadow = (reason: string): BallStateShadowResponse => 
     finalInningsWickets: null,
     remainingInningsRuns: null,
     remainingInningsWickets: null,
+    battingTeamMatchWinProbability: null,
     chaseSuccessProbability: null,
   },
   parity: {
@@ -1153,6 +1155,7 @@ const buildBallStateShadowResponse = async (
       finalInningsWickets: scoreByTarget.get("final_innings_wickets") ?? null,
       remainingInningsRuns: scoreByTarget.get("remaining_innings_runs") ?? null,
       remainingInningsWickets: scoreByTarget.get("remaining_innings_wickets") ?? null,
+      battingTeamMatchWinProbability: scoreByTarget.get("batting_team_match_win") ?? null,
       chaseSuccessProbability: scoreByTarget.get("chase_success") ?? null,
     },
     parity: {

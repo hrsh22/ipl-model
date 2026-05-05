@@ -65,6 +65,92 @@ Copy this block for every material model change:
 
 ## Log
 
+### 2026-05-05 — first-innings-only live win-probability target
+
+- Status: promoted
+- Change type: training | inference
+- Hypothesis: restricting the batting-team match-win target to the same innings-one population used at runtime should improve 2026 first-innings probability quality and avoid second-innings target contamination.
+
+### What changed
+
+- Exact files changed: `model/build_ball_state_matrix.py`, `model/train_ball_state.py`, `model/tune_ball_state_live_candidates.py`, `model/select_ball_state_live_candidate.py`, `model/shadow_score_ball_state_live.py`, `model/backtest_ball_state_2026_official.py`, `model/test_ball_state_match_win_regressions.py`, `model/ball_state_live_candidate_selection.json`, `model/runtime_artifacts/ball_state_live/batting_team_match_win_model.joblib`, `src/index.ts`, `src/observer/service.ts`, `apps/web/src/routes/observer.tsx`, `package.json`, `model/EXPERIMENTAL_MODEL_HISTORY.md`, `model/MODEL_CHANGELOG.md`.
+- Exact data points / features / rules added, removed, or modified: added experiment-only target wiring for `batting_team_match_win`, labeled as whether the current batting team eventually wins the match. The initial all-innings candidate was rejected after review because second-innings rows contaminated a probability consumed only in innings one. `model/train_ball_state.py` now filters `batting_team_match_win` training/evaluation/final fitting to innings 1, and the observer runtime only consumes `battingTeamMatchWinProbability` when `innings === 1`; innings 2 remains governed by `chase_success` / terminal chase logic. Platt and isotonic calibration candidates were tested and rejected because they worsened locked-2026 probability quality. The promoted experimental observer runtime artifact is `stable_depth4_lr003_l28_match_win_innings1`.
+- Whether this affects pre_toss, post_toss, or both: neither production predictor mode; this affects only experimental observer live ball-state inference.
+
+### How we tested it
+
+- Experiment/report paths: `model/experiments/ball-state/tuned/stable_depth4_lr003_l28_match_win/manifest.json`, `model/experiments/ball-state/tuned/stable_depth4_lr003_l28_match_win_platt/manifest.json`, `model/experiments/ball-state/tuned/stable_depth4_lr003_l28_match_win_isotonic/manifest.json`, `model/experiments/ball-state/tuned/selected_trajectory_depth4_lr0035_l215_match_win/manifest.json`, `model/experiments/ball-state/tuned/stable_depth4_lr003_l28_match_win_innings1/manifest.json`, temp locked-2026 reports under `/var/folders/31/p7sq6wwx6p9_6hrm6bx2c2940000gn/T/opencode/ball-state-match-win-*-2026-backtest/`.
+- Baseline artifact or production reference: constant-rate classification baseline from `train_ball_state.py`; production `model/final_models/**` unchanged.
+- Comparison method: historical walk-forward training metrics plus completed-2026 official first-innings diagnostic backtest over 44 matches.
+
+### Measured impact
+
+| metric | prior all-innings artifact | innings-one candidate | delta |
+| -------- | --------: | ---------: | -----: |
+| walk-forward log_loss | 0.5728 | 0.6809 | +0.1080 |
+| walk-forward brier | 0.1959 | 0.2425 | +0.0466 |
+| walk-forward roc_auc | 0.7715 | 0.6420 | -0.1296 |
+| walk-forward accuracy | 0.7033 | 0.5768 | -0.1264 |
+| 2026 first-innings row accuracy | 0.5909 | 0.6538 | +0.0629 |
+| 2026 first-innings final-state match accuracy | 0.6591 | 0.6818 | +0.0227 |
+| 2026 first-innings row log_loss | 0.6535 | 0.6163 | -0.0373 |
+| 2026 first-innings row Brier | 0.2318 | 0.2145 | -0.0173 |
+| 2026 first-innings row ROC-AUC | 0.6911 | 0.7306 | +0.0395 |
+| 2026 first-innings calibration gap | +0.1794 | +0.1430 | -0.0364 |
+
+- Live/current-season effect after promotion: observer runtime can emit `battingTeamMatchWinProbability` / first-innings `winProbability` when the live ball-state bridge can score the active innings-one payload. It no longer uses this target during innings 2.
+- Confidence / caveats: the corrected candidate is better on the locked 2026 first-innings diagnostic but still overconfident (`average_prediction=0.4797`, `actual_rate=0.3367`, calibration gap `+0.1430`). Treat as an experimental overlay and monitor; not execution-grade by itself.
+
+### Decision
+
+- Outcome: promoted to experimental observer runtime only
+- Why: the corrected innings-one candidate scores all 44 completed 2026 first innings and materially improves the locked 2026 diagnostic versus the original all-innings artifact. Calibration-only and selected-trajectory alternatives were rejected because they worsened locked-2026 log loss or retained larger overconfidence.
+- Deployed model source hash after change: unchanged.
+- Supporting evidence:
+    - `model/EXPERIMENTAL_MODEL_HISTORY.md`
+    - `model/ball_state_live_candidate_selection.json`
+    - `model/test_ball_state_match_win_regressions.py`
+
+### 2026-05-04 — experiment-only squad-info match model workflow
+
+- Status: tested
+- Change type: data | feature | training | calibration | other
+- Hypothesis: 2026 preseason squad continuity and prior context may improve out-of-sample 2026 match probabilities when evaluated as an isolated experiment rather than deployed directly.
+
+### What changed
+
+- Exact files changed: `model/build_squad_info_experiment.py`, `model/train_baselines.py`, `model/train_xgboost.py`, `model/predict_fixture.py`, `model/check_toss_sensitivity.py`, `model/check_match_model_promotion_eligibility.py`, `model/README-squad-info-experiments.md`, `model/EXPERIMENTAL_MODEL_HISTORY.md`, `model/MODEL_CHANGELOG.md`, `package.json`.
+- Exact data points / features / rules added, removed, or modified: added an experiment-only matrix builder that copies canonical through-2025 rows, writes completed 2026 rows to separate holdout CSVs, appends those rows to the experiment matrix only for `test_season=2026` scoring, and builds 2026 test-time XI/resource features from date-gated preseason roster/prior sidecars. The roster overlay selects a likely XI from active preseason roster players and excludes inactive statuses such as injuries/withdrawals/replaced-out rows. The match-level trainers now accept optional `--manifest-path` and `--final-holdout-season` arguments; their defaults remain the canonical production manifest and normal walk-forward folds. Final-holdout mode aborts if the holdout season enters train/calibration/validation seasons. Experimental post-toss feature views now include `post_toss_state_delta` and `post_toss_state_delta_plus_mean`; both remove toss-agency columns before building state-safe matchup features. `predict_fixture.py` also fixed the likely-XI profile ranking key from the non-existent `match_count` field to `appearances`, and now supports calibrated CatBoost final components through `calibrationMethod` / `calibratorPath`. `check_toss_sensitivity.py` can now receive a fixture shell through `--fixture-row-json`, which lets staged final-model candidates be tested without writing runtime fixture files. `check_match_model_promotion_eligibility.py` records local promotion-readiness gates for the primary pre-toss and post-toss squad-info candidates.
+- Whether this affects pre_toss, post_toss, or both: experimental pre_toss and experimental post_toss only; production artifacts and serving remain unchanged.
+
+### How we tested it
+
+- Experiment/report paths: `model/experiments/squad-info-2026-post-toss/reports/`, `model/experiments/squad-info-2026-post-toss/artifacts_parity/`, `model/experiments/squad-info-2026-post-toss/artifacts_sweep/`, `model/experiments/squad-info-2026-post-toss/artifacts_post_improve/`, `model/experiments/promotion-readiness/`.
+- Baseline artifact or production reference: production `model/final_models/**` unchanged; same-row final-model diagnostics were used as references.
+- Comparison method: current-season 2026 holdout as final test season in an experiment-only manifest; train through 2024, calibrate/validate on 2025, test on 44 completed 2026 rows.
+
+### Measured impact
+
+| metric | baseline | candidate | delta |
+| -------- | --------: | ---------: | -----: |
+| log_loss | 0.6911 | 0.6712 | -0.0199 |
+| brier | 0.2490 | 0.2395 | -0.0095 |
+| roc_auc | 0.5888 | 0.5506 | -0.0382 |
+| accuracy | 0.5227 | 0.5682 | +0.0455 |
+
+- Live/current-season effect after promotion: none; this is not promoted.
+- Confidence / caveats: the best post-toss experimental candidate is CatBoost `post_toss_state_delta_plus_mean` with isotonic calibration. It improves log loss and Brier on the 44-match 2026 diagnostic holdout, and a staged final-models bundle passed post-toss batting-order equivalence exactly with `0.0` equivalent-state diffs and `0.2009569378` spread across batting-order states. Broader historical guardrails are still required before any production decision, and pre-toss/post-toss should be promoted only together.
+
+### Decision
+
+- Outcome: not promoted
+- Why: experiment-only results are promising but selected using a narrow current-season diagnostic holdout, and probability-quality gains are mixed with a ROC-AUC regression.
+- Deployed model source hash after change: unchanged.
+- Supporting evidence:
+    - `model/experiments/squad-info-2026-post-toss/artifacts_post_improve/post_toss/cat_state_dpm_uniform/fold_metrics.csv`
+    - `model/experiments/promotion-readiness/promotion_eligibility_report.json`
+    - `model/EXPERIMENTAL_MODEL_HISTORY.md`
+
 ### 2026-05-03 — experimental live chase-success artifact promotion
 
 - Status: promoted

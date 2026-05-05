@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Backtest experimental ball-state chase success on completed IPL 2026 official innings feeds."""
+"""Backtest experimental ball-state win-probability targets on completed IPL 2026 official innings feeds."""
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ DEFAULT_COMPLETED_RESULTS = ROOT / "data" / "live" / "completed_results_2026.csv
 DEFAULT_CANDIDATE_MANIFEST = ROOT.parent / "model" / "ball_state_live_candidate_selection.json"
 DEFAULT_OUTPUT_DIR = ROOT / "experiments" / "ball-state" / "backtests" / "2026-official-innings"
 INNINGS_URL_TEMPLATE = "https://scores.iplt20.com/ipl/feeds/{match_id}-Innings{innings}.js"
+SUPPORTED_TARGETS = {"batting_team_match_win", "chase_success"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,6 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--candidate-manifest", type=Path, default=DEFAULT_CANDIDATE_MANIFEST)
     parser.add_argument("--matrix-manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--target", choices=sorted(SUPPORTED_TARGETS), default="chase_success")
     parser.add_argument("--limit", type=int, help="Optional match limit for smoke runs")
     return parser.parse_args()
 
@@ -200,7 +202,11 @@ def safe_probability(value: float) -> float:
     return min(1 - 1e-15, max(1e-15, value))
 
 
-def probability_metrics(frame: pd.DataFrame) -> dict[str, float | int | None]:
+def target_column(target: str, prefix: str) -> str:
+    return f"{prefix}_{target}"
+
+
+def probability_metrics(frame: pd.DataFrame, target: str) -> dict[str, float | int | None]:
     if frame.empty:
         return {
             "rows": 0,
@@ -212,8 +218,8 @@ def probability_metrics(frame: pd.DataFrame) -> dict[str, float | int | None]:
             "actual_rate": None,
             "calibration_gap": None,
         }
-    labels = [int(value) for value in frame["label_chase_success"]]
-    probabilities = [float(value) for value in frame["prediction_chase_success"]]
+    labels = [int(value) for value in frame[target_column(target, "label")]]
+    probabilities = [float(value) for value in frame[target_column(target, "prediction")]]
     predicted = [int(value) for value in frame["predicted_label"]]
     log_loss_value = sum(
         -(label * math.log(safe_probability(prob)) + (1 - label) * math.log(1 - safe_probability(prob)))
@@ -235,45 +241,48 @@ def probability_metrics(frame: pd.DataFrame) -> dict[str, float | int | None]:
     }
 
 
-def phase_metrics(predictions: pd.DataFrame) -> dict[str, dict[str, float | int | None]]:
+def phase_metrics(predictions: pd.DataFrame, target: str) -> dict[str, dict[str, float | int | None]]:
     return {
-        "powerplay": probability_metrics(predictions[predictions["balls"] <= 36]),
-        "middle": probability_metrics(predictions[(predictions["balls"] > 36) & (predictions["balls"] <= 90)]),
-        "death": probability_metrics(predictions[predictions["balls"] > 90]),
+        "powerplay": probability_metrics(predictions[predictions["balls"] <= 36], target),
+        "middle": probability_metrics(predictions[(predictions["balls"] > 36) & (predictions["balls"] <= 90)], target),
+        "death": probability_metrics(predictions[predictions["balls"] > 90], target),
     }
 
 
-def calibration_bins(predictions: pd.DataFrame) -> list[dict[str, float | int | str | None]]:
+def calibration_bins(predictions: pd.DataFrame, target: str) -> list[dict[str, float | int | str | None]]:
     output: list[dict[str, float | int | str | None]] = []
+    prediction_column = target_column(target, "prediction")
     for lower in range(10):
         low = lower / 10
         high = (lower + 1) / 10
         if lower == 9:
             rows = predictions[
-                (predictions["prediction_chase_success"] >= low)
-                & (predictions["prediction_chase_success"] <= high)
+                (predictions[prediction_column] >= low)
+                & (predictions[prediction_column] <= high)
             ]
         else:
             rows = predictions[
-                (predictions["prediction_chase_success"] >= low)
-                & (predictions["prediction_chase_success"] < high)
+                (predictions[prediction_column] >= low)
+                & (predictions[prediction_column] < high)
             ]
         if rows.empty:
             continue
         output.append({
             "range": f"{low:.1f}-{high:.1f}",
-            **probability_metrics(rows),
+            **probability_metrics(rows, target),
         })
     return output
 
 
-def worst_match_slices(predictions: pd.DataFrame, limit: int = 10) -> list[dict[str, Any]]:
+def worst_match_slices(predictions: pd.DataFrame, target: str, limit: int = 10) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    label_column = target_column(target, "label")
+    prediction_column = target_column(target, "prediction")
     for (match_id, batting_team, bowling_team), group in predictions.groupby(
         ["match_id", "batting_team", "bowling_team"],
         sort=False,
     ):
-        metrics = probability_metrics(group)
+        metrics = probability_metrics(group, target)
         latest = group.sort_values("balls").iloc[-1]
         rows.append({
             "match_id": str(match_id),
@@ -285,10 +294,22 @@ def worst_match_slices(predictions: pd.DataFrame, limit: int = 10) -> list[dict[
             "brier": metrics["brier"],
             "average_prediction": metrics["average_prediction"],
             "actual_rate": metrics["actual_rate"],
-            "final_prediction": float(latest["prediction_chase_success"]),
-            "actual": int(latest["label_chase_success"]),
+            "final_prediction": float(latest[prediction_column]),
+            "actual": int(latest[label_column]),
         })
     return sorted(rows, key=lambda row: float(row["log_loss"] or 0), reverse=True)[:limit]
+
+
+def target_innings(target: str) -> int:
+    return 1 if target == "batting_team_match_win" else 2
+
+
+def target_label(target: str, batting_team: str, match: dict[str, Any]) -> int:
+    return 1 if batting_team == match["winner"] else 0
+
+
+def target_runs_for_entry(target: str, first_runs: int | None) -> int | None:
+    return first_runs + 1 if target == "chase_success" and first_runs is not None else None
 
 
 def main() -> None:
@@ -300,7 +321,11 @@ def main() -> None:
         completed = completed.head(args.limit)
 
     selection = json.loads(args.candidate_manifest.read_text())
-    selected = selection["selected"]["chase_success"]
+    target = args.target
+    selected = selection["selected"].get(target)
+    if not selected:
+        raise SystemExit(f"No selected artifact configured for {target} in {args.candidate_manifest}")
+
     artifact = joblib.load(Path(selected["artifact"]))
     full_feature_columns = load_feature_columns(args.matrix_manifest)
     feature_columns = filter_feature_columns(full_feature_columns, selected["feature_mode"])
@@ -326,19 +351,24 @@ def main() -> None:
             continue
 
         first_runs = final_runs(innings1)
-        rows = over_history(innings2)
-        if first_runs is None or not rows:
-            rejected_rows.append({"match_id": match_id, "reason": "missing first innings total or second innings balls"})
+        innings_number = target_innings(target)
+        innings_payload = innings1 if innings_number == 1 else innings2
+        rows = over_history(innings_payload)
+        if target == "chase_success" and first_runs is None:
+            rejected_rows.append({"match_id": match_id, "reason": "missing first innings total"})
+            continue
+        if not rows:
+            rejected_rows.append({"match_id": match_id, "reason": f"missing innings {innings_number} balls"})
             continue
 
-        batting_team = team_name(rows[-1], innings2)
-        bowling_team = bowling_team_name(innings2) or opponent_for(batting_team, match)
+        batting_team = team_name(rows[-1], innings_payload)
+        bowling_team = bowling_team_name(innings_payload) or opponent_for(batting_team, match)
         if not batting_team or not bowling_team:
             rejected_rows.append({"match_id": match_id, "reason": "missing innings team metadata"})
             continue
 
-        label = 1 if batting_team == match["winner"] else 0
-        snapshots = build_snapshots(match_id, 2, rows)
+        label = target_label(target, batting_team, match)
+        snapshots = build_snapshots(match_id, innings_number, rows)
         snapshot_index = build_snapshot_index(snapshots)
         legal_balls = 0
 
@@ -357,13 +387,13 @@ def main() -> None:
                     "score": None,
                 },
                 "expectedState": {
-                    "innings": 2,
+                    "innings": innings_number,
                     "battingTeam": batting_team,
                     "bowlingTeam": bowling_team,
                     "balls": legal_balls,
                     "scoreRuns": cumulative_runs(event),
                     "scoreWickets": cumulative_wickets(event),
-                    "targetRuns": first_runs + 1,
+                    "targetRuns": target_runs_for_entry(target, first_runs),
                 },
                 "venueContext": {
                     "avgFirstInningsScore": None,
@@ -385,39 +415,44 @@ def main() -> None:
                 "batting_team": batting_team,
                 "bowling_team": bowling_team,
                 "winner": match["winner"],
-                "label_chase_success": label,
+                target_column(target, "label"): label,
+                "innings": innings_number,
                 "balls": legal_balls,
                 "score_runs": cumulative_runs(event),
                 "score_wickets": cumulative_wickets(event),
-                "target_runs": first_runs + 1,
-                "prediction_chase_success": probability,
+                "target_runs": target_runs_for_entry(target, first_runs),
+                target_column(target, "prediction"): probability,
                 "predicted_label": 1 if probability >= 0.5 else 0,
             })
 
     predictions = pd.DataFrame(scored_rows)
     rejections = pd.DataFrame(rejected_rows)
-    predictions.to_csv(args.output_dir / "chase_success_predictions.csv", index=False)
+    predictions.to_csv(args.output_dir / f"{target}_predictions.csv", index=False)
     rejections.to_csv(args.output_dir / "rejections.csv", index=False)
 
     if predictions.empty:
         summary = {"status": "no_scores", "scored_rows": 0, "rejected_rows": len(rejected_rows)}
     else:
         match_latest = predictions.sort_values(["match_id", "balls"]).groupby("match_id").tail(1)
-        match_labels = [int(value) for value in match_latest["label_chase_success"]]
+        match_labels = [int(value) for value in match_latest[target_column(target, "label")]]
         match_predicted = [int(value) for value in match_latest["predicted_label"]]
-        row_metrics = probability_metrics(predictions)
+        row_metrics = probability_metrics(predictions, target)
         summary = {
             "status": "ok",
             "generated_at": datetime.now(UTC).isoformat(),
             "source": "official_ipl_innings_feeds",
+            "target": target,
+            "innings": target_innings(target),
+            "candidate": selected.get("candidate"),
+            "feature_mode": selected.get("feature_mode"),
             "matches_considered": int(completed.shape[0]),
             "matches_scored": int(predictions["match_id"].nunique()),
             "scored_ball_states": int(predictions.shape[0]),
             "rejected_rows": len(rejected_rows),
             "row_metrics": row_metrics,
-            "phase_metrics": phase_metrics(predictions),
-            "calibration_bins": calibration_bins(predictions),
-            "worst_matches_by_log_loss": worst_match_slices(predictions),
+            "phase_metrics": phase_metrics(predictions, target),
+            "calibration_bins": calibration_bins(predictions, target),
+            "worst_matches_by_log_loss": worst_match_slices(predictions, target),
             "final_state_match_accuracy": sum(1 for label, pred in zip(match_labels, match_predicted) if label == pred) / len(match_labels),
         }
 

@@ -52,7 +52,7 @@ REGRESSION_TARGETS = {
     "remaining_innings_runs",
     "remaining_innings_wickets",
 }
-CLASSIFICATION_TARGETS = {"chase_success"}
+CLASSIFICATION_TARGETS = {"batting_team_match_win", "chase_success"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -216,7 +216,7 @@ def heuristic_value(entry: dict[str, Any], target: str) -> float | None:
         return state.get("runsDelta") or entry.get("runsDelta")
     if target == "remaining_innings_wickets":
         return state.get("wicketsDelta") or entry.get("wicketsDelta")
-    if target == "chase_success":
+    if target in {"batting_team_match_win", "chase_success"}:
         batting_team = state.get("battingTeam")
         if not batting_team:
             score = fixture.get("score")
@@ -240,6 +240,8 @@ def heuristic_value(entry: dict[str, Any], target: str) -> float | None:
 
 def target_applicable(entry: dict[str, Any], target: str) -> tuple[bool, str | None]:
     state = entry.get("expectedState") or {}
+    if target == "batting_team_match_win" and state.get("innings") != 1:
+        return False, "batting_team_match_win requires innings 1"
     if target == "chase_success" and state.get("innings") != 2:
         return False, "chase_success requires innings 2"
     return True, None
@@ -367,7 +369,7 @@ def main() -> None:
 
             feature_mode = selected["feature_mode"]
             feature_columns = feature_columns_by_mode[feature_mode]
-            terminal_probability = terminal_chase_success_probability(entry) if target == "chase_success" else None
+            terminal_probability = terminal_chase_success_probability(entry) if target in {"batting_team_match_win", "chase_success"} else None
             row: dict[str, Any] = {}
             if terminal_probability is not None:
                 prediction = terminal_probability

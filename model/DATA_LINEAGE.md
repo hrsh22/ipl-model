@@ -313,6 +313,7 @@ Targets in the ball-state matrix:
 - `final_innings_wickets`
 - `remaining_innings_runs`
 - `remaining_innings_wickets`
+- `batting_team_match_win` (trained and consumed for innings 1 only)
 - `chase_success`
 
 Leakage controls:
@@ -359,6 +360,7 @@ Runtime selection boundary:
 | `model/runtime_artifacts/ball_state_live/expected_runs_now_model.joblib` | Deployed experimental runtime artifact. |
 | `model/runtime_artifacts/ball_state_live/expected_wickets_now_model.joblib` | Deployed experimental runtime artifact. |
 | `model/runtime_artifacts/ball_state_live/final_innings_runs_model.joblib` | Deployed experimental runtime artifact. |
+| `model/runtime_artifacts/ball_state_live/batting_team_match_win_model.joblib` | Deployed experimental first-innings batting-team match-win artifact. |
 | `model/runtime_artifacts/ball_state_live/chase_success_model.joblib` | Deployed experimental runtime artifact. |
 | `model/runtime_artifacts/ball_state_live/ball_state_matrix_manifest.json` | Deployed feature-column contract for the runtime scorer. |
 

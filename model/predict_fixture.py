@@ -216,8 +216,10 @@ def load_live_fixtures() -> pd.DataFrame:
     if json_path.exists():
         payload = json.loads(json_path.read_text())
         fixtures = pd.DataFrame(payload)
-    else:
+    elif csv_path.exists():
         fixtures = load_csv(csv_path)
+    else:
+        fixtures = pd.DataFrame()
     return normalize_identifier_columns(fixtures)
 
 
@@ -1405,7 +1407,7 @@ def build_named_xi_suggestions(
             {
                 "name": name,
                 "key": key,
-                "recent_appearances": int(profile.get("match_count") or 0),
+                "recent_appearances": int(profile.get("appearances") or 0),
                 "last_seen": str(profile.get("last_match_date") or "official_feed"),
                 "batting_order_estimate": int(estimated_order),
                 "role": role,
@@ -2035,7 +2037,8 @@ def latest_venue_snapshot(matchups: pd.DataFrame, venue: str) -> dict[str, Any]:
 
 
 def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
-    elo = load_csv(LIVE_DIR / "upcoming_fixture_elo_context.csv")
+    elo_path = LIVE_DIR / "upcoming_fixture_elo_context.csv"
+    elo = load_csv(elo_path) if elo_path.exists() else pd.DataFrame()
     matchup_path = FEATURES_DIR / "training_ready_matchup_features.csv"
     matchup_rows = load_csv(matchup_path)
     matchup_rows["match_date"] = pd.to_datetime(matchup_rows["match_date"]).map(
@@ -2052,7 +2055,11 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
     venue = fixture["venue"]
     season = pd.Timestamp(fixture["match_date"]).year
     override_entry = load_fixture_override_entry(str(fixture["fixture_id"]))
-    official_post_toss = fetch_official_post_toss_context(fixture)
+    official_post_toss = (
+        {}
+        if args.mode == "post_toss" and args.toss_winner and args.toss_decision
+        else fetch_official_post_toss_context(fixture)
+    )
     team1_probable_xi = parse_string_array(
         args.team1_probable_xi_json, "team1_probable_xi_json"
     )
@@ -2292,7 +2299,8 @@ def build_base_row(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def describe_context(args: argparse.Namespace) -> dict[str, Any]:
-    elo = load_csv(LIVE_DIR / "upcoming_fixture_elo_context.csv")
+    elo_path = LIVE_DIR / "upcoming_fixture_elo_context.csv"
+    elo = load_csv(elo_path) if elo_path.exists() else pd.DataFrame()
     fixture = load_fixture_row_from_args(args)
     elo_row = find_fixture_rows(elo, args.fixture_id)
     season = pd.Timestamp(fixture["match_date"]).year
@@ -2470,6 +2478,31 @@ def predict_component(
     x = feature_view.frame[component_manifest["featureColumns"]]
     model_type = str(component_manifest.get("modelType", "catboost")).lower()
 
+    def apply_component_calibration(probability: float) -> float:
+        calibration_method = component_manifest.get("calibrationMethod")
+        calibrator_path = component_manifest.get("calibratorPath")
+        if not calibration_method and not calibrator_path:
+            return probability
+        if not calibration_method or not calibrator_path:
+            raise ValueError(
+                "Component manifest must provide both calibrationMethod and calibratorPath"
+            )
+
+        calibrator = joblib.load(
+            resolve_repo_path(calibrator_path, final_models_dir=final_models_dir)
+        )
+        if calibration_method == "platt":
+            return float(
+                apply_platt_calibrator(calibrator, pd.Series([probability]).to_numpy())[0]
+            )
+        if calibration_method == "isotonic":
+            return float(
+                apply_isotonic_calibrator(
+                    calibrator, pd.Series([probability]).to_numpy()
+                )[0]
+            )
+        raise ValueError(f"Unsupported calibration method: {calibration_method}")
+
     if model_type == "catboost":
         model = CatBoostClassifier()
         model.load_model(
@@ -2479,7 +2512,7 @@ def predict_component(
                 )
             )
         )
-        return float(model.predict_proba(x)[0, 1])
+        return apply_component_calibration(float(model.predict_proba(x)[0, 1]))
 
     if model_type == "xgboost":
         if Booster is None or DMatrix is None:
@@ -2505,29 +2538,7 @@ def predict_component(
         )
         probabilities = booster.predict(DMatrix(transformed))
         probability = float(probabilities[0])
-
-        calibration_method = component_manifest.get("calibrationMethod")
-        calibrator_path = component_manifest.get("calibratorPath")
-        if calibration_method and calibrator_path:
-            calibrator = joblib.load(
-                resolve_repo_path(calibrator_path, final_models_dir=final_models_dir)
-            )
-            if calibration_method == "platt":
-                probability = float(
-                    apply_platt_calibrator(calibrator, pd.Series([probability]).to_numpy())[0]
-                )
-            elif calibration_method == "isotonic":
-                probability = float(
-                    apply_isotonic_calibrator(
-                        calibrator, pd.Series([probability]).to_numpy()
-                    )[0]
-                )
-            else:
-                raise ValueError(
-                    f"Unsupported XGBoost calibration method: {calibration_method}"
-                )
-
-        return probability
+        return apply_component_calibration(probability)
 
     raise ValueError(f"Unsupported modelType in component manifest: {model_type}")
 

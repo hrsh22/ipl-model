@@ -16,9 +16,14 @@ PREDICT_SCRIPT = ROOT / "model" / "predict_fixture.py"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate that post-toss XGBoost predictions move across toss permutations"
+        description="Validate that post-toss predictions move across toss permutations"
     )
     parser.add_argument("--fixture-id", required=True)
+    parser.add_argument(
+        "--fixture-row-json",
+        default=None,
+        help="Optional JSON fixture shell passed through to predict_fixture.py when live fixture files are unavailable.",
+    )
     parser.add_argument("--final-models-dir", default="model/final_models")
     parser.add_argument("--min-spread", type=float, default=0.001)
     parser.add_argument(
@@ -33,7 +38,13 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def load_fixture(fixture_id: str) -> pd.Series:
+def load_fixture(fixture_id: str, fixture_row_json: str | None) -> pd.Series:
+    if fixture_row_json:
+        payload = json.loads(fixture_row_json)
+        if not isinstance(payload, dict):
+            raise ValueError("fixture-row-json must be a JSON object")
+        return pd.Series(payload)
+
     json_path = LIVE_DIR / "upcoming_fixtures.json"
     if json_path.exists():
         fixtures = pd.DataFrame(json.loads(json_path.read_text()))
@@ -47,23 +58,31 @@ def load_fixture(fixture_id: str) -> pd.Series:
 
 
 def run_prediction(
-    *, fixture_id: str, team: str, decision: str, final_models_dir: str
+    *,
+    fixture_id: str,
+    fixture_row_json: str | None,
+    team: str,
+    decision: str,
+    final_models_dir: str,
 ) -> dict[str, Any]:
+    command = [
+        "python3",
+        str(PREDICT_SCRIPT),
+        "--fixture-id",
+        fixture_id,
+        "--mode",
+        "post_toss",
+        "--toss-winner",
+        team,
+        "--toss-decision",
+        decision,
+        "--final-models-dir",
+        final_models_dir,
+    ]
+    if fixture_row_json:
+        command.extend(["--fixture-row-json", fixture_row_json])
     output = subprocess.check_output(
-        [
-            "python3",
-            str(PREDICT_SCRIPT),
-            "--fixture-id",
-            fixture_id,
-            "--mode",
-            "post_toss",
-            "--toss-winner",
-            team,
-            "--toss-decision",
-            decision,
-            "--final-models-dir",
-            final_models_dir,
-        ],
+        command,
         cwd=ROOT,
         text=True,
     )
@@ -72,7 +91,7 @@ def run_prediction(
 
 def main() -> None:
     args = parse_args()
-    fixture = load_fixture(args.fixture_id)
+    fixture = load_fixture(args.fixture_id, args.fixture_row_json)
     teams = [str(fixture["team1"]), str(fixture["team2"])]
     results = []
 
@@ -80,6 +99,7 @@ def main() -> None:
         for decision in ["bat", "field"]:
             payload = run_prediction(
                 fixture_id=args.fixture_id,
+                fixture_row_json=args.fixture_row_json,
                 team=team,
                 decision=decision,
                 final_models_dir=args.final_models_dir,

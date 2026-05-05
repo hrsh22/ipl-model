@@ -22,6 +22,24 @@ DEFAULT_REPORT = ROOT / "experiments" / "ball-state" / "live_tuning_report.json"
 
 GRID = [
     {
+        "label": "stable_depth4_lr003_l28_match_win",
+        "feature_mode": "live_compatible",
+        "iterations": 180,
+        "learning_rate": 0.03,
+        "depth": 4,
+        "l2_leaf_reg": 8,
+        "target": "batting_team_match_win",
+    },
+    {
+        "label": "stable_depth4_lr0035_l215_match_win",
+        "feature_mode": "live_compatible",
+        "iterations": 160,
+        "learning_rate": 0.035,
+        "depth": 4,
+        "l2_leaf_reg": 15,
+        "target": "batting_team_match_win",
+    },
+    {
         "label": "stable_depth4_lr003_l28",
         "feature_mode": "live_compatible",
         "iterations": 180,

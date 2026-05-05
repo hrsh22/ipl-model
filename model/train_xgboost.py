@@ -20,6 +20,7 @@ from train_baselines import (
     apply_platt_calibrator,
     build_artifact_dirs,
     build_feature_view,
+    build_final_holdout_fold,
     build_folds,
     compute_season_sample_weights,
     compute_sha256,
@@ -66,11 +67,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-train-seasons", type=int, default=4)
     parser.add_argument("--artifacts-dir", default="model/artifacts")
     parser.add_argument(
+        "--manifest-path",
+        default="model/data/metadata/model_matrix_manifest.json",
+        help="Model matrix manifest to read; defaults to the canonical production manifest",
+    )
+    parser.add_argument(
         "--feature-mode",
         choices=[
             "full",
             "full_no_identity",
             "post_toss_state",
+            "post_toss_state_delta",
+            "post_toss_state_delta_plus_mean",
             "delta",
             "delta_plus_mean",
         ],
@@ -103,6 +111,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=2.0,
         help="Half-life in seasons when season-weight-mode=exponential_half_life",
+    )
+    parser.add_argument(
+        "--final-holdout-season",
+        type=int,
+        default=None,
+        help="Optional single final holdout season; all prior seasons are used for train/calibration",
     )
     argv = sys.argv[1:]
     if argv and argv[0] == "--":
@@ -281,8 +295,7 @@ def train() -> None:
     )
 
     root_dir = Path.cwd()
-    metadata_dir = root_dir / "model" / "data" / "metadata"
-    manifest_path = metadata_dir / "model_matrix_manifest.json"
+    manifest_path = resolve_repo_path(args.manifest_path, root_dir=root_dir)
     manifest = load_manifest(manifest_path)
     manifest_key = "preToss" if args.matrix == "pre_toss" else "postToss"
     matrix_manifest = manifest[manifest_key]
@@ -312,7 +325,13 @@ def train() -> None:
     feature_columns = feature_view.feature_columns
     categorical_columns = feature_view.categorical_columns
     numeric_columns = feature_view.numeric_columns
-    folds = build_folds(available_seasons, args.min_train_seasons)
+    folds = (
+        build_final_holdout_fold(
+            available_seasons, args.final_holdout_season, args.min_train_seasons
+        )
+        if args.final_holdout_season is not None
+        else build_folds(available_seasons, args.min_train_seasons)
+    )
 
     artifacts_dir, models_dir = build_artifact_dirs(
         root_dir / args.artifacts_dir,
@@ -326,6 +345,12 @@ def train() -> None:
     for fold_index, fold in enumerate(folds, start=1):
         train_seasons_for_model = fold.train_seasons[:-1]
         calibration_season = fold.train_seasons[-1]
+        if args.final_holdout_season is not None and (
+            args.final_holdout_season in train_seasons_for_model
+            or args.final_holdout_season == calibration_season
+            or args.final_holdout_season == fold.validation_season
+        ):
+            raise ValueError("Final holdout season leaked into train/calibration/validation split")
 
         train_frame = dataframe[dataframe["season"].isin(train_seasons_for_model)].copy()
         calibration_frame = dataframe[dataframe["season"] == calibration_season].copy()
@@ -520,6 +545,7 @@ def train() -> None:
         "matrixSha256": compute_sha256(matrix_path),
         "modelMatrixManifestSha256": compute_sha256(manifest_path),
         "minTrainSeasons": args.min_train_seasons,
+        "finalHoldoutSeason": args.final_holdout_season,
         "calibrationMethods": calibration_methods,
         "seasonWeighting": {
             "mode": args.season_weight_mode,

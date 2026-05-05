@@ -35,6 +35,151 @@ Reason: there is not yet a documented training loop, validation split, live fail
 
 ## Experimental timeline
 
+### 2026-05-05 — first-innings observer win-probability target
+
+Change / idea: prepare the experimental live ball-state observer to score a batting-team match-win probability during innings one, so the dashboard can show a model win probability before a chase target exists.
+
+What changed:
+
+- Added `batting_team_match_win` target wiring to the ball-state matrix/training scripts and tuning/selection inventories.
+- The first all-innings target candidate looked strong in walk-forward but was rejected after the 2026 first-innings diagnostic showed material overconfidence. The trainer now restricts `batting_team_match_win` to innings 1 so its training population matches runtime use.
+- Tested Platt, isotonic, and selected-trajectory alternatives. They either worsened locked-2026 log loss/Brier/ROC-AUC or retained worse overconfidence, so they were not promoted.
+- Promoted `stable_depth4_lr003_l28_match_win_innings1` to the experimental observer runtime artifact.
+- Extended live shadow scoring and the observer runtime payload to carry `battingTeamMatchWinProbability` / `battingTeamWinProbability` when a selected artifact exists.
+- Updated the observer dashboard to render a first-innings `Batting win` probability separately from the existing second-innings `Chase win` probability. The runtime consumes `battingTeamMatchWinProbability` only in innings 1; innings 2 remains governed by `chase_success` and terminal chase logic.
+- Generalized `model/backtest_ball_state_2026_official.py` so it can score either innings-2 `chase_success` or innings-1 `batting_team_match_win`.
+- Added `model/test_ball_state_match_win_regressions.py` and `pnpm model:test:ball-state-live` to protect the innings-one training contract, runtime selection manifest, and observer innings gate.
+
+Measured impact:
+
+| evaluation | accuracy | ROC-AUC | log loss | Brier | calibration gap |
+| --- | ---: | ---: | ---: | ---: |
+| original all-innings walk-forward rows | `0.7033` | `0.7715` | `0.5728` | `0.1959` | `0.0602` ECE |
+| original all-innings completed 2026 first-innings ball states | `0.5909` | `0.6911` | `0.6535` | `0.2318` | `+0.1794` |
+| corrected innings-one walk-forward rows | `0.5768` | `0.6420` | `0.6809` | `0.2425` | `0.1000` ECE |
+| corrected innings-one completed 2026 first-innings ball states | `0.6538` | `0.7306` | `0.6163` | `0.2145` | `+0.1430` |
+| corrected innings-one completed 2026 first-innings final state by match | `0.6818` | n/a | n/a | n/a | n/a |
+
+Decision: **experimental observer runtime only**.
+
+Reason: the corrected innings-one model improves the locked 2026 first-innings diagnostic versus the original all-innings artifact and covers all 44 completed matches, but the 2026 diagnostic still shows positive overconfidence (`+0.1430` calibration gap). It is acceptable as an experimental live overlay, not as an execution-grade probability by itself.
+
+### 2026-05-04 — experiment-only squad-info match model workflow
+
+Change / idea: create a separate match-level experiment path that can test 2025-trained models with 2026 preseason squad information on the completed 2026 holdout without changing production serving or artifacts.
+
+What changed:
+
+- Added an experiment-only matrix builder that writes squad-info holdout CSVs, combined test matrices, and a dedicated matrix manifest under `model/experiments/<name>/`. The 2026 holdout rows now derive likely-XI/resource features from the dated preseason roster sidecar instead of falling back to stale historical XIs.
+- Added optional `--manifest-path` and `--final-holdout-season` support to the CatBoost and XGBoost match-level trainers so experiments can train from non-production manifests while keeping 2026 as the untouched final holdout.
+- Documented the workflow in `model/README-squad-info-experiments.md`.
+
+Decision: **experimental only**.
+
+Reason: the workflow isolates the squad-info idea under `model/experiments/` and treats 2026 completed matches as holdout labels, not training/calibration data.
+
+### 2026-05-04 — production-parity squad-info 2026 holdout
+
+Change / idea: rerun the squad-info 2026 holdout with the same model shapes used by production instead of generic full-feature baselines.
+
+What changed:
+
+- Pre-toss parity used the production-style CatBoost `top60_full` allowlist component, the CatBoost `delta` component, and a validation-selected CatBoost blend under `model/experiments/squad-info-2026-post-toss/artifacts_parity/`.
+- Post-toss parity used the production-style XGBoost `post_toss_state` feature mode with a linear booster and exponential half-life season weighting.
+- 2026 completed matches remained a final holdout: train through 2024, calibrate/validate on 2025, test on 44 completed 2026 rows.
+
+Measured 2026 holdout impact:
+
+| candidate | accuracy | ROC-AUC | log loss | Brier |
+| --- | ---: | ---: | ---: | ---: |
+| pre-toss CatBoost `top60_full` | `0.4318` | `0.3543` | `0.7102` | `0.2585` |
+| pre-toss CatBoost `delta` | `0.5682` | `0.5413` | `0.6888` | `0.2479` |
+| pre-toss validation-selected ensemble (`25% top60`, `75% delta`) | `0.5455` | `0.5021` | `0.6938` | `0.2503` |
+| pre-toss fixed production-weight ensemble (`45% top60`, `55% delta`) | `0.4545` | `0.4525` | `0.6979` | `0.2524` |
+| post-toss XGBoost `post_toss_state` linear | `0.5227` | `0.5744` | `0.6896` | `0.2482` |
+
+Decision: **experimental only / not promoted**.
+
+Reason: production-parity shape fixed the earlier generic-baseline mismatch and materially improved the 2026 holdout, especially post-toss. The pre-toss delta component beat the ensemble on this narrow 44-match slice, so promotion needs a broader guardrail run before changing production weights.
+
+### 2026-05-04 — squad-info current-season breakthrough sweep
+
+Change / idea: run targeted safe sweeps on the squad-info matrices with 2026 as the untouched final holdout, using feature views and recency settings suggested by prior production experiments.
+
+What changed:
+
+- Pre-toss sweep tested CatBoost `delta`, `delta_plus_mean`, no-identity variants, XGBoost delta variants, and weighted blends of the strongest components.
+- Post-toss sweep tested production-safe `post_toss_state` XGBoost linear models across recency half-lives, shallow tree/state variants, no-identity variants, CatBoost state variants, weighted blends, and a modern-season-only matrix variant.
+- All runs used the squad-info experiment manifest with `--final-holdout-season 2026`, so 2026 stayed test-only.
+
+Breakthrough candidates on the 44 completed 2026 holdout:
+
+| phase | candidate | accuracy | ROC-AUC | log loss | Brier |
+| --- | --- | ---: | ---: | ---: | ---: |
+| pre-toss | CatBoost `delta_plus_mean` uniform | `0.5909` | `0.5950` | `0.6872` | `0.2470` |
+| pre-toss | weighted `delta_plus_mean` + XGBoost delta | `0.6136` | `0.5950` | `0.6875` | `0.2472` |
+| post-toss | modern-season XGBoost `post_toss_state` linear, half-life `1.0` | `0.5455` | `0.5971` | `0.6853` | `0.2461` |
+
+Decision: **experimental breakthrough / not promoted yet**.
+
+Reason: both phases now beat the previous production-parity squad-info baselines on probability quality. The pre-toss weighted blend improves accuracy but slightly worsens log loss versus raw `delta_plus_mean`, so the primary pre-toss candidate is `delta_plus_mean` by probability quality. The post-toss modern half-life-1 state model is the best safe post-toss candidate found so far. Promotion still needs broader historical guardrails because the selection pressure used 2026 as the diagnostic holdout.
+
+### 2026-05-04 — post-toss squad-info delta-plus-mean breakthrough
+
+Change / idea: test whether post-toss should use the same matchup-compressed `delta_plus_mean` representation that improved pre-toss, while still preserving batting-order equivalence and keeping 2026 as a final holdout.
+
+What changed:
+
+- Added and evaluated post-toss `post_toss_state_delta_plus_mean` candidates under `model/experiments/squad-info-2026-post-toss/artifacts_post_improve/`.
+- The best candidate was uniform-history CatBoost with isotonic calibration on the full squad-info post-toss matrix.
+- The run kept the same leakage boundary as the earlier squad-info experiments: train through 2024, calibrate/validate on 2025, and test on 44 completed 2026 rows only.
+
+Measured 2026 holdout impact:
+
+| candidate | accuracy | ROC-AUC | log loss | Brier |
+| --- | ---: | ---: | ---: | ---: |
+| prior post-toss best: modern XGBoost `post_toss_state` linear, half-life `1.0` | `0.5455` | `0.5971` | `0.6853` | `0.2461` |
+| prior pre-toss probability-quality best: CatBoost `delta_plus_mean` uniform | `0.5909` | `0.5950` | `0.6872` | `0.2470` |
+| post-toss CatBoost `post_toss_state_delta_plus_mean` uniform + isotonic | `0.5682` | `0.5506` | `0.6712` | `0.2395` |
+
+Decision: **experimental post-toss breakthrough / not promoted yet**.
+
+Reason: the new post-toss candidate materially improves probability quality versus both the prior safe post-toss best and the best pre-toss probability-quality candidate on this 44-match 2026 diagnostic holdout. ROC-AUC is lower than the previous modern XGBoost state model, so this is not promotion-ready by itself; it needs broader historical guardrails and calibration checks before any production decision.
+
+### 2026-05-04 — match-model promotion-readiness gate for squad-info candidates
+
+Change / idea: add a promotion-readiness audit for the squad-info match-model experiments, then stage the post-toss CatBoost state delta-plus-mean candidate in a temporary final-models tree to test batting-order equivalence without touching production artifacts.
+
+What changed:
+
+- Added `model/check_match_model_promotion_eligibility.py` and the `pnpm model:eligibility:match` script.
+- The checker verifies candidate artifacts, final-holdout isolation, production daily-refresh-style metric gates, and post-toss sensitivity/equivalence evidence.
+- Updated post-toss inference so CatBoost final components can use `calibrationMethod` / `calibratorPath`, matching the experimental `catboost_tuned_isotonic` candidate instead of silently scoring the uncalibrated base model.
+- Updated toss sensitivity testing so a fixture shell can be passed through `--fixture-row-json`, allowing staged validation without writing runtime fixture files.
+- Staged the post-toss candidate under `/var/folders/31/p7sq6wwx6p9_6hrm6bx2c2940000gn/T/opencode/post-toss-promotion-readiness/final_models` and ran the toss sensitivity gate there.
+
+Promotion-readiness results:
+
+| candidate | eligible | accuracy | ROC-AUC | log loss | Brier | blocker |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| pre-toss CatBoost `delta_plus_mean` uniform | yes | `0.5909` | `0.5950` | `0.6872` | `0.2470` | none |
+| pre-toss weighted `delta_plus_mean` + XGBoost delta | no | `0.6136` | `0.5950` | `0.6875` | `0.2472` | blend-search output is not directly packageable |
+| post-toss CatBoost `post_toss_state_delta_plus_mean` uniform + isotonic | yes | `0.5682` | `0.5506` | `0.6712` | `0.2395` | none |
+
+Post-toss staged sensitivity result:
+
+| check | value |
+| --- | ---: |
+| observed spread across toss states | `0.2009569378` |
+| equivalent-state diff when team1 bats first | `0.0` |
+| equivalent-state diff when team2 bats first | `0.0` |
+| equivalent states match | `true` |
+| sensitivity gate passed | `true` |
+
+Decision: **promotion-ready evidence package for the primary pre-toss and post-toss candidates / not promoted**.
+
+Reason: both primary candidates now clear the local promotion-readiness audit, but production artifacts must not be changed until an explicit joint pre-toss + post-toss promotion is requested. The higher-accuracy pre-toss blend remains blocked because it is only a blend-search result, not a serialized/packageable production candidate.
+
 ### 2026-05-03 — promoted live chase-success regularization candidate
 
 Change / idea: run a broader live-safe `chase_success` sweep around the previous `stable_depth4_lr0045_l210` candidate and promote the first candidate that beats historical walk-forward guardrails while also improving the 2026 official-innings diagnostic holdout.

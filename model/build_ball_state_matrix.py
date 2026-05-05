@@ -172,6 +172,7 @@ TARGET_COLUMNS = [
     "final_innings_wickets",
     "remaining_innings_runs",
     "remaining_innings_wickets",
+    "batting_team_match_win",
     "chase_success",
 ]
 
@@ -364,6 +365,7 @@ def build_matrix(deliveries: pd.DataFrame, matchup_path: Path, team_path: Path) 
     matrix["expected_wickets_now"] = matrix["current_wickets"]
     matrix["remaining_innings_runs"] = matrix["final_innings_runs"] - matrix["current_runs"]
     matrix["remaining_innings_wickets"] = matrix["final_innings_wickets"] - matrix["current_wickets"]
+    matrix["batting_team_match_win"] = (matrix["match_won_by"] == matrix["batting_team"]).map({True: 1, False: 0})
     matrix["chase_success"] = (matrix["match_won_by"] == matrix["batting_team"]).where(
         matrix["innings"] == 2,
     )

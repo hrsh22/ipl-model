@@ -370,6 +370,7 @@ type LiveExpectedState = ParsedCricketState & {
   wicketsDelta: number | null
   projectedScore: number | null
   expectedRunRate: number | null
+  battingTeamWinProbability: number | null
   chaseSuccessProbability: number | null
 }
 
@@ -412,6 +413,7 @@ export type BallStateLiveModelOverlay = {
     runsDelta: number | null
     wicketsDelta: number | null
     finalInningsRuns: number | null
+    battingTeamMatchWinProbability: number | null
     chaseSuccessProbability: number | null
   }
 }
@@ -3715,16 +3717,18 @@ const getPolymarketBookMidpoint = (book: PolymarketBookState) =>
     : null
 
 const getTeamLiveWinProbability = (team: string, expectedState: LiveExpectedState) => {
-  if (expectedState.chaseSuccessProbability === null) {
+  const battingTeamWinProbability = expectedState.battingTeamWinProbability ?? expectedState.chaseSuccessProbability
+
+  if (battingTeamWinProbability === null) {
     return null
   }
 
   if (teamsComparable(team, expectedState.battingTeam)) {
-    return expectedState.chaseSuccessProbability
+    return battingTeamWinProbability
   }
 
   if (teamsComparable(team, expectedState.bowlingTeam)) {
-    return roundMetric(1 - expectedState.chaseSuccessProbability)
+    return roundMetric(1 - battingTeamWinProbability)
   }
 
   return null
@@ -3875,6 +3879,17 @@ const applyBallStateOverlayToInningsState = (
   const scoreRuns = ballStateOverlay.currentState.scoreRuns ?? state.scoreRuns
   const scoreWickets = ballStateOverlay.currentState.scoreWickets ?? state.scoreWickets
   const targetRuns = state.targetRuns
+  const terminalProbability = terminalChaseSuccessProbability({
+    innings,
+    scoreRuns,
+    scoreWickets,
+    balls: balls ?? state.balls,
+    targetRuns,
+  })
+  const battingTeamWinProbability = terminalProbability
+    ?? (innings === 1 ? ballStateOverlay.predictions.battingTeamMatchWinProbability : null)
+    ?? (innings === 2 ? ballStateOverlay.predictions.chaseSuccessProbability : null)
+
   return {
     ...state,
     innings,
@@ -3889,13 +3904,8 @@ const applyBallStateOverlayToInningsState = (
     runsDelta: ballStateOverlay.predictions.runsDelta,
     wicketsDelta: ballStateOverlay.predictions.wicketsDelta,
     projectedScore: ballStateOverlay.predictions.finalInningsRuns,
-    chaseSuccessProbability: terminalChaseSuccessProbability({
-      innings,
-      scoreRuns,
-      scoreWickets,
-      balls: balls ?? state.balls,
-      targetRuns,
-    }) ?? ballStateOverlay.predictions.chaseSuccessProbability,
+    battingTeamWinProbability,
+    chaseSuccessProbability: terminalProbability ?? (innings === 2 ? ballStateOverlay.predictions.chaseSuccessProbability : null),
     status: "live",
   }
 }
@@ -3997,6 +4007,7 @@ const buildExpectedStateFromParsed = (parsed: ParsedCricketState): LiveExpectedS
   wicketsDelta: null,
   projectedScore: null,
   expectedRunRate: null,
+  battingTeamWinProbability: null,
   chaseSuccessProbability: null,
 })
 

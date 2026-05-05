@@ -26,6 +26,8 @@ DEFAULT_CANDIDATES = {
     "selected_trajectory": DEFAULT_EXPERIMENT_DIR / "live-compatible-selected-trajectory-artifacts" / "manifest.json",
     "selected_trajectory_platt": DEFAULT_EXPERIMENT_DIR / "live-compatible-selected-trajectory-platt-artifacts" / "manifest.json",
     "expected_now": DEFAULT_EXPERIMENT_DIR / "live-expected-now-artifacts" / "manifest.json",
+    "tuned_stable_depth4_lr003_l28_match_win": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr003_l28_match_win" / "manifest.json",
+    "tuned_stable_depth4_lr0035_l215_match_win": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr0035_l215_match_win" / "manifest.json",
     "tuned_stable_depth4_lr003_l28_chase": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr003_l28" / "manifest.json",
     "tuned_stable_depth5_lr003_l28_chase": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth5_lr003_l28" / "manifest.json",
     "tuned_stable_depth4_lr0045_l210_chase": DEFAULT_EXPERIMENT_DIR / "tuned" / "stable_depth4_lr0045_l210" / "manifest.json",

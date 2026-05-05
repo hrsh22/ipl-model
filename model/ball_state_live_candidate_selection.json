@@ -20,6 +20,34 @@
       "artifact": "model/runtime_artifacts/ball_state_live/final_innings_runs_model.joblib",
       "source_artifact": "model/experiments/ball-state/live-compatible-selected-trajectory-artifacts/final_innings_runs_model.joblib"
     },
+    "batting_team_match_win": {
+      "candidate": "stable_depth4_lr003_l28_match_win_innings1",
+      "feature_mode": "live_compatible",
+      "artifact": "model/runtime_artifacts/ball_state_live/batting_team_match_win_model.joblib",
+      "source_artifact": "model/experiments/ball-state/tuned/stable_depth4_lr003_l28_match_win_innings1/batting_team_match_win_model.joblib",
+      "target_innings": 1,
+      "calibration": {
+        "method": "none",
+        "reason": "Platt and isotonic calibration reduced discrimination and worsened locked-2026 log loss; the corrected innings-one training population is the best validated candidate."
+      },
+      "weighted_metrics": {
+        "log_loss": 0.6808563629455033,
+        "brier": 0.24251821982996188,
+        "accuracy": 0.57683067727513,
+        "roc_auc": 0.6419560208783006,
+        "ece": 0.1000080170719306
+      },
+      "official_2026_first_innings_backtest": {
+        "matches_scored": 44,
+        "scored_ball_states": 5185,
+        "row_accuracy": 0.6538090646094503,
+        "final_state_match_accuracy": 0.6818181818181818,
+        "log_loss": 0.6162716830987174,
+        "brier": 0.21445899909794025,
+        "roc_auc": 0.7306027785188893,
+        "calibration_gap": 0.14299386921712764
+      }
+    },
     "chase_success": {
       "candidate": "stable_depth4_lr0035_l215",
       "feature_mode": "live_compatible",
@@ -31,6 +59,7 @@
     "Used by the observer runtime bridge to score the current /observer/live-model payload with selected experimental ball-state artifacts.",
     "Expected-now targets use live_expected_now features so they do not copy the actual score state.",
     "Projected innings uses selected trajectory features and therefore requires snapshot coverage; rejected targets stay null in the observer.",
-    "Chase success is only applicable in innings 2."
+    "batting_team_match_win is trained and consumed for innings 1 only. It improves the completed-2026 first-innings backtest versus the original all-innings artifact, but still carries a positive calibration gap and should be monitored as an experimental overlay.",
+    "Chase success remains applicable only in innings 2."
   ]
 }

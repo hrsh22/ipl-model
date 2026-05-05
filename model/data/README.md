@@ -19,12 +19,12 @@ This directory is the ML data boundary for the IPL prediction system.
 - `raw/cricsheet_squads.csv` - raw-ish squad rows extracted from Cricsheet info files
 - `metadata/dataset_summary.json` - generated row counts and source summary
 - `metadata/aliases.json` - explicit team, venue, and city normalization rules
-- `features/preseason_team_rosters_2026.csv` - official preseason retained/traded roster facts for inference-only 2026 squad context
-- `features/preseason_team_prior_overrides_2026.csv` - optional inference-only numeric prior overrides sourced from preseason facts
+- `features/preseason_team_rosters_2026.csv` - official preseason retained/traded roster facts for 2026 inference and leakage-safe 2026 experiment holdout rows
+- `features/preseason_team_prior_overrides_2026.csv` - optional numeric prior overrides sourced from preseason facts for 2026 inference/experiment holdout rows
 
 ## Notes
 
 - Historical market odds are intentionally excluded from this first data-gathering pass.
 - Live OpticOdds and Polymarket data should be treated as inference-time context, not training inputs.
 - Post-toss fields should be prepared later on top of these staged historical datasets.
-- 2026 preseason roster sidecars are inference-time context. Do not merge them into historical staged data or regenerate training matrices with 2026 match outcomes when using 2026 as an out-of-sample test season.
+- 2026 preseason roster sidecars are inference-time context and may be used to build 2026 out-of-sample experiment rows. Do not merge them into historical staged data or train/calibrate on 2026 match outcomes when using 2026 as an out-of-sample test season.
