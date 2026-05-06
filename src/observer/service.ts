@@ -48,6 +48,7 @@ const CHECKPOINT_RESULTS_STREAM = "opticodds:ipl:results"
 
 const SIGNAL_THRESHOLD_BPS = 100
 const ODDS_STALENESS_MS = 30_000
+const LIVE_MODEL_DISPLAY_ODDS_STALENESS_MS = 30 * 60 * 1000
 const FIXTURE_REFRESH_INTERVAL_MS = 120_000
 const ACTIVE_FIXTURE_RECONCILIATION_INTERVAL_MS = 30_000
 const POLYMARKET_PING_INTERVAL_MS = 10_000
@@ -2566,7 +2567,7 @@ class IplObserverService {
           period: publicFixture.period ?? formatBallStateFixturePeriod(matchingOverlay.currentState.balls),
         }
       : publicFixture
-    const summary = this.buildFixtureSummary(fixtureState)
+    const summary = this.buildFixtureSummary(fixtureState, LIVE_MODEL_DISPLAY_ODDS_STALENESS_MS)
     const inningsStates = buildLiveInningsExpectedStates(fixtureState.fixture, matchingOverlay)
     const expectedState = getActiveExpectedState(inningsStates)
     const selections = summary?.selections ?? []
@@ -2633,8 +2634,11 @@ class IplObserverService {
     }
   }
 
-  private buildFixtureSummary(fixtureState: FixtureState) {
-    const reference = this.buildReferenceProbabilities(fixtureState)
+  private buildFixtureSummary(
+    fixtureState: FixtureState,
+    oddsStalenessMs = ODDS_STALENESS_MS,
+  ) {
+    const reference = this.buildReferenceProbabilities(fixtureState, oddsStalenessMs)
 
     if (!reference) {
       return null
@@ -2649,7 +2653,7 @@ class IplObserverService {
       excludedBooks: reference.excludedBooks,
       selections: Array.from(reference.probabilities.entries())
         .map(([selection, referenceProbability]) =>
-          this.buildSelectionSummary(fixtureState, referenceProbability, selection),
+          this.buildSelectionSummary(fixtureState, referenceProbability, selection, oddsStalenessMs),
         )
         .filter((summary): summary is SelectionSummary => summary !== null),
     }
@@ -2741,6 +2745,7 @@ class IplObserverService {
     fixtureState: FixtureState,
     referenceProbability: number,
     selection: string,
+    oddsStalenessMs = ODDS_STALENESS_MS,
   ): SelectionSummary | null {
     const polymarketBook = fixtureState.oddsByBook.get("polymarket")
     const polymarketOddState = polymarketBook?.get(selection)
@@ -2750,15 +2755,15 @@ class IplObserverService {
 
     if (
       (!polymarketOddState || polymarketOddState.isLocked) &&
-      (!directBook || Date.now() - directBook.updatedAt.getTime() > ODDS_STALENESS_MS)
+      (!directBook || Date.now() - directBook.updatedAt.getTime() > oddsStalenessMs)
     ) {
       return null
     }
 
     if (
       polymarketOddState &&
-      Date.now() - polymarketOddState.observedAt.getTime() > ODDS_STALENESS_MS &&
-      (!directBook || Date.now() - directBook.updatedAt.getTime() > ODDS_STALENESS_MS)
+      Date.now() - polymarketOddState.observedAt.getTime() > oddsStalenessMs &&
+      (!directBook || Date.now() - directBook.updatedAt.getTime() > oddsStalenessMs)
     ) {
       return null
     }
@@ -2877,8 +2882,11 @@ class IplObserverService {
     }
   }
 
-  private buildReferenceProbabilities(fixtureState: FixtureState) {
-    const { books, excludedBooks } = this.collectReferenceBooks(fixtureState)
+  private buildReferenceProbabilities(
+    fixtureState: FixtureState,
+    oddsStalenessMs = ODDS_STALENESS_MS,
+  ) {
+    const { books, excludedBooks } = this.collectReferenceBooks(fixtureState, oddsStalenessMs)
 
     const anchorBook = books.find((book) => book.bookId === PRIMARY_REFERENCE_BOOK)
 
@@ -2943,7 +2951,7 @@ class IplObserverService {
     } satisfies ReferenceBlend
   }
 
-  private collectReferenceBooks(fixtureState: FixtureState) {
+  private collectReferenceBooks(fixtureState: FixtureState, oddsStalenessMs = ODDS_STALENESS_MS) {
     const excludedBooks: ExcludedReferenceBook[] = []
     const books: Array<{
       bookId: string
@@ -2968,13 +2976,13 @@ class IplObserverService {
 
       const activeSelections = Array.from(selections.values()).filter(
         (entry) =>
-          !entry.isLocked && Date.now() - entry.observedAt.getTime() <= ODDS_STALENESS_MS,
+          !entry.isLocked && Date.now() - entry.observedAt.getTime() <= oddsStalenessMs,
       )
 
       if (activeSelections.length < 2) {
         const hasLockedSelection = Array.from(selections.values()).some((entry) => entry.isLocked)
         const hasFreshSelection = Array.from(selections.values()).some(
-          (entry) => Date.now() - entry.observedAt.getTime() <= ODDS_STALENESS_MS,
+          (entry) => Date.now() - entry.observedAt.getTime() <= oddsStalenessMs,
         )
 
         excludedBooks.push({
@@ -3998,6 +4006,19 @@ const stripInningsStatus = (state: InningsExpectedState): LiveExpectedState => {
   const { status: _status, ...expectedState } = state
   return expectedState
 }
+
+const isMidInningsBreak = (states: LiveInningsExpectedStates) =>
+  isCompletedLiveInningsState(states.first) && !hasSecondInningsStarted(states.second)
+
+const isCompletedLiveInningsState = (state: InningsExpectedState) =>
+  state.scoreWickets !== null && state.scoreWickets >= 10 || state.overs !== null && state.overs >= 19.5
+
+const hasSecondInningsStarted = (state: InningsExpectedState) =>
+  state.balls !== null && state.balls > 0 ||
+  state.overs !== null && state.overs > 0 ||
+  state.scoreRuns !== null && state.scoreRuns > 0 ||
+  state.scoreWickets !== null && state.scoreWickets > 0 ||
+  state.status === "live"
 
 const buildExpectedStateFromParsed = (parsed: ParsedCricketState): LiveExpectedState => ({
   ...parsed,

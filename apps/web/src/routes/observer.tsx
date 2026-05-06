@@ -340,11 +340,14 @@ function mergeWithStableDashboardData(next: DashboardData): DashboardData {
 }
 
 function mergeFixture(previous: LiveModelFixture, next: LiveModelFixture): LiveModelFixture {
+  const preserveBreakValues = isMidInningsBreak(next.inningsStates)
   return {
     ...next,
-    expectedState: mergeExpectedState(previous.expectedState, next.expectedState),
-    inningsStates: mergeInningsStates(previous.inningsStates, next.inningsStates),
+    expectedState: mergeExpectedState(previous.expectedState, next.expectedState, preserveBreakValues),
+    inningsStates: mergeInningsStates(previous.inningsStates, next.inningsStates, preserveBreakValues),
     venueContext: next.venueContext ?? previous.venueContext,
+    home: preserveBreakValues ? mergeLiveModelSide(previous.home, next.home) : next.home,
+    away: preserveBreakValues ? mergeLiveModelSide(previous.away, next.away) : next.away,
   }
 }
 
@@ -358,7 +361,7 @@ function mergeHistoryEntry(previous: LiveModelHistoryEntry, next: LiveModelHisto
   }
 }
 
-function mergeExpectedState(previous: ExpectedState, next: ExpectedState): ExpectedState {
+function mergeExpectedState(previous: ExpectedState, next: ExpectedState, preserveNulls = false): ExpectedState {
   if (previous.innings !== null && next.innings !== null && previous.innings !== next.innings) return next
   return {
     innings: next.innings ?? previous.innings,
@@ -367,30 +370,59 @@ function mergeExpectedState(previous: ExpectedState, next: ExpectedState): Expec
     scoreRuns: next.scoreRuns ?? previous.scoreRuns,
     scoreWickets: next.scoreWickets ?? previous.scoreWickets,
     overs: next.overs ?? previous.overs,
-    expectedRunsNow: next.expectedRunsNow,
-    expectedWicketsNow: next.expectedWicketsNow,
-    runsDelta: next.runsDelta,
-    wicketsDelta: next.wicketsDelta,
-    projectedScore: next.projectedScore,
-    expectedRunRate: next.expectedRunRate,
-    battingTeamWinProbability: next.battingTeamWinProbability,
-    chaseSuccessProbability: next.chaseSuccessProbability,
+    expectedRunsNow: preserveNulls ? next.expectedRunsNow ?? previous.expectedRunsNow : next.expectedRunsNow,
+    expectedWicketsNow: preserveNulls ? next.expectedWicketsNow ?? previous.expectedWicketsNow : next.expectedWicketsNow,
+    runsDelta: preserveNulls ? next.runsDelta ?? previous.runsDelta : next.runsDelta,
+    wicketsDelta: preserveNulls ? next.wicketsDelta ?? previous.wicketsDelta : next.wicketsDelta,
+    projectedScore: preserveNulls ? next.projectedScore ?? previous.projectedScore : next.projectedScore,
+    expectedRunRate: preserveNulls ? next.expectedRunRate ?? previous.expectedRunRate : next.expectedRunRate,
+    battingTeamWinProbability: preserveNulls ? next.battingTeamWinProbability ?? previous.battingTeamWinProbability : next.battingTeamWinProbability,
+    chaseSuccessProbability: preserveNulls ? next.chaseSuccessProbability ?? previous.chaseSuccessProbability : next.chaseSuccessProbability,
   }
 }
 
-function mergeInningsStates(previous: InningsStates | undefined, next: InningsStates | undefined): InningsStates | undefined {
+function mergeLiveModelSide(previous: LiveModelSide, next: LiveModelSide): LiveModelSide {
+  return {
+    ...next,
+    winProbability: next.winProbability ?? previous.winProbability,
+    fairProbability: next.fairProbability ?? previous.fairProbability,
+    marketProbability: next.marketProbability ?? previous.marketProbability,
+    referenceProbability: next.referenceProbability ?? previous.referenceProbability,
+    edgeVsMarketBps: next.edgeVsMarketBps ?? previous.edgeVsMarketBps,
+  }
+}
+
+function mergeInningsStates(previous: InningsStates | undefined, next: InningsStates | undefined, preserveNulls = false): InningsStates | undefined {
   if (!previous) return next
   if (!next) return previous
   return {
     ...next,
-    first: mergeInningsState(previous.first, next.first),
-    second: mergeInningsState(previous.second, next.second),
+    first: mergeInningsState(previous.first, next.first, preserveNulls),
+    second: mergeInningsState(previous.second, next.second, preserveNulls),
   }
 }
 
-function mergeInningsState(previous: InningsExpectedState, next: InningsExpectedState): InningsExpectedState {
+function mergeInningsState(previous: InningsExpectedState, next: InningsExpectedState, preserveNulls = false): InningsExpectedState {
   if (next.status === 'unavailable' || next.status === 'pending') return next
-  return { ...mergeExpectedState(previous, next), status: next.status }
+  return { ...mergeExpectedState(previous, next, preserveNulls), status: next.status }
+}
+
+function isMidInningsBreak(states: InningsStates | undefined): boolean {
+  if (!states) return false
+  return isCompletedT20Innings(states.first) && !hasSecondInningsStarted(states.second)
+}
+
+function isCompletedT20Innings(state: InningsExpectedState): boolean {
+  return (state.scoreWickets !== null && state.scoreWickets >= 10) || (state.overs !== null && state.overs >= 19.5)
+}
+
+function hasSecondInningsStarted(state: InningsExpectedState): boolean {
+  return Boolean(
+    (state.overs !== null && state.overs > 0) ||
+    (state.scoreRuns !== null && state.scoreRuns > 0) ||
+    (state.scoreWickets !== null && state.scoreWickets > 0) ||
+    state.status === 'live',
+  )
 }
 
 function ObserverMetric({ label, value }: { label: string; value: string }) {
