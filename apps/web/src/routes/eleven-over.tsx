@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import type { CSSProperties } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useReducer } from 'react'
 
 export const Route = createFileRoute('/eleven-over')({
   component: ElevenOverStrategyPage,
@@ -15,6 +15,12 @@ type StateTone = 'default' | 'live' | 'pressure'
 const ENTRY_WINDOW_START_BALLS = 66
 const ENTRY_WINDOW_END_BALLS = 73
 const IPL_TIME_ZONE = 'Asia/Kolkata'
+const localDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: IPL_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
 const TEAM_NAME_ALIASES: Record<string, string> = {
   csk: 'chennaisuperkings',
   chennai: 'chennaisuperkings',
@@ -185,6 +191,19 @@ type StrategyState = {
   refreshing: boolean
 }
 
+type StrategyStateAction =
+  | { type: 'refresh-start'; initial: boolean }
+  | { type: 'success'; data: StrategyDashboardData; updatedAt: Date }
+  | { type: 'error'; message: string }
+
+const initialStrategyState: StrategyState = {
+  data: null,
+  error: null,
+  status: 'loading',
+  updatedAt: null,
+  refreshing: false,
+}
+
 type FavouriteResult =
   | {
       kind: 'clear'
@@ -337,13 +356,7 @@ function ElevenOverStrategyPage() {
 }
 
 function useStrategyDashboard(): StrategyState {
-  const [state, setState] = useState<StrategyState>({
-    data: null,
-    error: null,
-    status: 'loading',
-    updatedAt: null,
-    refreshing: false,
-  })
+  const [state, dispatch] = useReducer(strategyStateReducer, initialStrategyState)
 
   useEffect(() => {
     let cancelled = false
@@ -352,11 +365,11 @@ function useStrategyDashboard(): StrategyState {
 
     const load = async (initial: boolean) => {
       if (stopped) return
-      setState((current) => ({ ...current, refreshing: !initial }))
+      dispatch({ type: 'refresh-start', initial })
       try {
         const data = await loadStrategyDashboard()
         if (cancelled) return
-        setState({ data, error: null, status: 'success', updatedAt: new Date(), refreshing: false })
+        dispatch({ type: 'success', data, updatedAt: new Date() })
       } catch (error) {
         if (cancelled) return
         const message = error instanceof Error ? error.message : '11-over strategy dashboard request failed.'
@@ -364,12 +377,7 @@ function useStrategyDashboard(): StrategyState {
           stopped = true
           if (interval !== null) window.clearInterval(interval)
         }
-        setState((current) => ({
-          ...current,
-          error: message,
-          status: current.data ? 'success' : 'error',
-          refreshing: false,
-        }))
+        dispatch({ type: 'error', message })
       }
     }
 
@@ -385,6 +393,17 @@ function useStrategyDashboard(): StrategyState {
   }, [])
 
   return state
+}
+
+function strategyStateReducer(state: StrategyState, action: StrategyStateAction): StrategyState {
+  switch (action.type) {
+    case 'refresh-start':
+      return { ...state, refreshing: !action.initial }
+    case 'success':
+      return { data: action.data, error: null, status: 'success', updatedAt: action.updatedAt, refreshing: false }
+    case 'error':
+      return { ...state, error: action.message, status: state.data ? 'success' : 'error', refreshing: false }
+  }
 }
 
 async function loadStrategyDashboard(): Promise<StrategyDashboardData> {
@@ -421,15 +440,21 @@ async function fetchOptionalJson<T>(url: string): Promise<T | null> {
 
 function findNextScheduleFixture(fixtures: PredictorFixture[], defaultMarket: DefaultMarket | null): PredictorFixture | null {
   const now = Date.now()
-  const candidates = fixtures
-    .filter((fixture) => !isCompletedPredictorFixture(fixture))
-    .map((fixture) => ({ fixture, startMs: new Date(String(fixture.match_date ?? '')).getTime() }))
-    .filter((candidate) => Number.isFinite(candidate.startMs) && (isLivePredictorFixture(candidate.fixture) || candidate.startMs >= now - 15 * 60 * 1000))
-    .sort((left, right) => {
-      const liveDiff = Number(isLivePredictorFixture(right.fixture)) - Number(isLivePredictorFixture(left.fixture))
-      if (liveDiff !== 0) return liveDiff
-      return left.startMs - right.startMs
-    })
+  const candidates: Array<{ fixture: PredictorFixture; startMs: number }> = []
+  for (const fixture of fixtures) {
+    if (isCompletedPredictorFixture(fixture)) {
+      continue
+    }
+    const startMs = new Date(String(fixture.match_date ?? '')).getTime()
+    if (Number.isFinite(startMs) && (isLivePredictorFixture(fixture) || startMs >= now - 15 * 60 * 1000)) {
+      candidates.push({ fixture, startMs })
+    }
+  }
+  candidates.sort((left, right) => {
+    const liveDiff = Number(isLivePredictorFixture(right.fixture)) - Number(isLivePredictorFixture(left.fixture))
+    if (liveDiff !== 0) return liveDiff
+    return left.startMs - right.startMs
+  })
 
   if (defaultMarket !== null) {
     const marketDateCandidate = candidates.find((candidate) => localDateKey(new Date(candidate.startMs)) === defaultMarket.matchDate)
@@ -455,10 +480,16 @@ function findMappedObserverFixture(fixture: PredictorFixture, observerFixtures: 
     return slugMatch
   }
 
-  const matches = openFixtures
-    .filter((observerFixture) => teamsMatchFixture(fixture, observerFixture))
-    .map((observerFixture) => ({ observerFixture, startMs: new Date(observerFixture.startTime).getTime() }))
-    .filter((candidate) => Number.isFinite(candidate.startMs))
+  const matches: Array<{ observerFixture: ObserverFixture; startMs: number }> = []
+  for (const observerFixture of openFixtures) {
+    if (!teamsMatchFixture(fixture, observerFixture)) {
+      continue
+    }
+    const startMs = new Date(observerFixture.startTime).getTime()
+    if (Number.isFinite(startMs)) {
+      matches.push({ observerFixture, startMs })
+    }
+  }
 
   if (fixtureDate !== null) {
     const sameDate = matches.find((candidate) => localDateKey(new Date(candidate.startMs)) === fixtureDate)
@@ -471,12 +502,16 @@ function findMappedObserverFixture(fixture: PredictorFixture, observerFixtures: 
     return matches[0].observerFixture
   }
 
-  const sameDateMatches = fixtureDate === null
-    ? []
-    : openFixtures
-        .map((observerFixture) => ({ observerFixture, startMs: new Date(observerFixture.startTime).getTime() }))
-        .filter((candidate) => Number.isFinite(candidate.startMs) && localDateKey(new Date(candidate.startMs)) === fixtureDate)
-  return sameDateMatches.length === 1 ? sameDateMatches[0]?.observerFixture ?? null : null
+  const sameDateMatches: ObserverFixture[] = []
+  if (fixtureDate !== null) {
+    for (const observerFixture of openFixtures) {
+      const startMs = new Date(observerFixture.startTime).getTime()
+      if (Number.isFinite(startMs) && localDateKey(new Date(startMs)) === fixtureDate) {
+        sameDateMatches.push(observerFixture)
+      }
+    }
+  }
+  return sameDateMatches.length === 1 ? sameDateMatches[0] ?? null : null
 }
 
 function teamsMatchFixture(fixture: PredictorFixture, observerFixture: ObserverFixture): boolean {
@@ -829,8 +864,8 @@ function NextMatchPanel({
         <State label="Fixture status" value={formatPredictorFixtureStatus(fixture)} />
         <State label="Schedule source" value="predictor" tone="live" />
         <State label="Polymarket map" value={mapLabel} tone={mapTone} />
-        <State label="Live cards now" value={liveCount.toString()} />
-        <State label="Avg live strength" value={averageStrength === null ? 'pending chase' : `${averageStrength}/100`} />
+        <State label="Live strategy cards" value={liveCount.toString()} />
+        <State label="Avg chase strength" value={averageStrength === null ? 'pending chase' : `${averageStrength}/100`} />
         <State label="Next action" value="wait for chase" />
       </div>
       <div className="strategy-next-brief">
@@ -1005,7 +1040,12 @@ function buildReasons(
   if (action === 'buy' && role === 'chasing') return ['Chasing favourite is comfortable: rate is manageable, wickets are in hand, and CRR is at or above RRR.', 'Suggested stake comes from signal cleanliness, not favourite price alone.']
   if (action === 'buy' && role === 'defending') return ['Defending favourite is backed by real chase damage.', 'The board is avoiding the trap of buying a defender against a healthy, fast chase.']
   if (!isRuleQualified && checkpoint === 'entry') {
-    const failed = conditions.filter((conditionItem) => !conditionItem.passed).map((conditionItem) => `${conditionItem.label}: ${conditionItem.value}`)
+    const failed: string[] = []
+    for (const conditionItem of conditions) {
+      if (!conditionItem.passed) {
+        failed.push(`${conditionItem.label}: ${conditionItem.value}`)
+      }
+    }
     return failed.length > 0 ? failed : ['The scoreboard contradicts the favourite.']
   }
   return ['No qualifying 11-over trade.']
@@ -1151,12 +1191,7 @@ function isCompletedPredictorFixture(fixture: PredictorFixture): boolean {
 }
 
 function localDateKey(date: Date): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: IPL_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date)
+  const parts = localDateFormatter.formatToParts(date)
   const year = parts.find((part) => part.type === 'year')?.value
   const month = parts.find((part) => part.type === 'month')?.value
   const day = parts.find((part) => part.type === 'day')?.value
