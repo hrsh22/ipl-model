@@ -36,6 +36,7 @@ function RootComponent() {
           <Link to="/predictor" activeProps={{ className: 'active' }}>Predictor</Link>
           <Link to="/scanner" activeProps={{ className: 'active' }}>Scanner</Link>
           <Link to="/observer" activeProps={{ className: 'active' }}>Observer</Link>
+          <Link to="/eleven-over" activeProps={{ className: 'active' }}>11-over</Link>
         </nav>
         <Outlet />
         <Scripts />

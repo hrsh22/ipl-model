@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ScannerRouteImport } from './routes/scanner'
 import { Route as PredictorRouteImport } from './routes/predictor'
 import { Route as ObserverRouteImport } from './routes/observer'
+import { Route as ElevenOverRouteImport } from './routes/eleven-over'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiScannerScanRouteImport } from './routes/api/scanner/scan'
 import { Route as ApiScannerDefaultMarketRouteImport } from './routes/api/scanner/default-market'
@@ -21,6 +22,7 @@ import { Route as ApiPredictorFixturesRouteImport } from './routes/api/predictor
 import { Route as ApiPredictorContextRouteImport } from './routes/api/predictor/context'
 import { Route as ApiObserverReadyRouteImport } from './routes/api/observer/ready'
 import { Route as ApiObserverLiveModelRouteImport } from './routes/api/observer/live-model'
+import { Route as ApiObserverFixturesRouteImport } from './routes/api/observer/fixtures'
 import { Route as ApiObserverBallStateShadowRouteImport } from './routes/api/observer/ball-state-shadow'
 import { Route as ApiObserverLiveModelSignalsRouteImport } from './routes/api/observer/live-model/signals'
 import { Route as ApiObserverLiveModelHistoryRouteImport } from './routes/api/observer/live-model/history'
@@ -38,6 +40,11 @@ const PredictorRoute = PredictorRouteImport.update({
 const ObserverRoute = ObserverRouteImport.update({
   id: '/observer',
   path: '/observer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElevenOverRoute = ElevenOverRouteImport.update({
+  id: '/eleven-over',
+  path: '/eleven-over',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -85,6 +92,11 @@ const ApiObserverLiveModelRoute = ApiObserverLiveModelRouteImport.update({
   path: '/api/observer/live-model',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiObserverFixturesRoute = ApiObserverFixturesRouteImport.update({
+  id: '/api/observer/fixtures',
+  path: '/api/observer/fixtures',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiObserverBallStateShadowRoute =
   ApiObserverBallStateShadowRouteImport.update({
     id: '/api/observer/ball-state-shadow',
@@ -106,10 +118,12 @@ const ApiObserverLiveModelHistoryRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/eleven-over': typeof ElevenOverRoute
   '/observer': typeof ObserverRoute
   '/predictor': typeof PredictorRoute
   '/scanner': typeof ScannerRoute
   '/api/observer/ball-state-shadow': typeof ApiObserverBallStateShadowRoute
+  '/api/observer/fixtures': typeof ApiObserverFixturesRoute
   '/api/observer/live-model': typeof ApiObserverLiveModelRouteWithChildren
   '/api/observer/ready': typeof ApiObserverReadyRoute
   '/api/predictor/context': typeof ApiPredictorContextRoute
@@ -123,10 +137,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/eleven-over': typeof ElevenOverRoute
   '/observer': typeof ObserverRoute
   '/predictor': typeof PredictorRoute
   '/scanner': typeof ScannerRoute
   '/api/observer/ball-state-shadow': typeof ApiObserverBallStateShadowRoute
+  '/api/observer/fixtures': typeof ApiObserverFixturesRoute
   '/api/observer/live-model': typeof ApiObserverLiveModelRouteWithChildren
   '/api/observer/ready': typeof ApiObserverReadyRoute
   '/api/predictor/context': typeof ApiPredictorContextRoute
@@ -141,10 +157,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/eleven-over': typeof ElevenOverRoute
   '/observer': typeof ObserverRoute
   '/predictor': typeof PredictorRoute
   '/scanner': typeof ScannerRoute
   '/api/observer/ball-state-shadow': typeof ApiObserverBallStateShadowRoute
+  '/api/observer/fixtures': typeof ApiObserverFixturesRoute
   '/api/observer/live-model': typeof ApiObserverLiveModelRouteWithChildren
   '/api/observer/ready': typeof ApiObserverReadyRoute
   '/api/predictor/context': typeof ApiPredictorContextRoute
@@ -160,10 +178,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/eleven-over'
     | '/observer'
     | '/predictor'
     | '/scanner'
     | '/api/observer/ball-state-shadow'
+    | '/api/observer/fixtures'
     | '/api/observer/live-model'
     | '/api/observer/ready'
     | '/api/predictor/context'
@@ -177,10 +197,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/eleven-over'
     | '/observer'
     | '/predictor'
     | '/scanner'
     | '/api/observer/ball-state-shadow'
+    | '/api/observer/fixtures'
     | '/api/observer/live-model'
     | '/api/observer/ready'
     | '/api/predictor/context'
@@ -194,10 +216,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/eleven-over'
     | '/observer'
     | '/predictor'
     | '/scanner'
     | '/api/observer/ball-state-shadow'
+    | '/api/observer/fixtures'
     | '/api/observer/live-model'
     | '/api/observer/ready'
     | '/api/predictor/context'
@@ -212,10 +236,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ElevenOverRoute: typeof ElevenOverRoute
   ObserverRoute: typeof ObserverRoute
   PredictorRoute: typeof PredictorRoute
   ScannerRoute: typeof ScannerRoute
   ApiObserverBallStateShadowRoute: typeof ApiObserverBallStateShadowRoute
+  ApiObserverFixturesRoute: typeof ApiObserverFixturesRoute
   ApiObserverLiveModelRoute: typeof ApiObserverLiveModelRouteWithChildren
   ApiObserverReadyRoute: typeof ApiObserverReadyRoute
   ApiPredictorContextRoute: typeof ApiPredictorContextRoute
@@ -247,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/observer'
       fullPath: '/observer'
       preLoaderRoute: typeof ObserverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/eleven-over': {
+      id: '/eleven-over'
+      path: '/eleven-over'
+      fullPath: '/eleven-over'
+      preLoaderRoute: typeof ElevenOverRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -312,6 +345,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiObserverLiveModelRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/observer/fixtures': {
+      id: '/api/observer/fixtures'
+      path: '/api/observer/fixtures'
+      fullPath: '/api/observer/fixtures'
+      preLoaderRoute: typeof ApiObserverFixturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/observer/ball-state-shadow': {
       id: '/api/observer/ball-state-shadow'
       path: '/api/observer/ball-state-shadow'
@@ -351,10 +391,12 @@ const ApiObserverLiveModelRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ElevenOverRoute: ElevenOverRoute,
   ObserverRoute: ObserverRoute,
   PredictorRoute: PredictorRoute,
   ScannerRoute: ScannerRoute,
   ApiObserverBallStateShadowRoute: ApiObserverBallStateShadowRoute,
+  ApiObserverFixturesRoute: ApiObserverFixturesRoute,
   ApiObserverLiveModelRoute: ApiObserverLiveModelRouteWithChildren,
   ApiObserverReadyRoute: ApiObserverReadyRoute,
   ApiPredictorContextRoute: ApiPredictorContextRoute,

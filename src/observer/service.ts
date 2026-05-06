@@ -3955,7 +3955,7 @@ const buildLiveSideInningsStates = (fixture: ObserverFixtureRecord): LiveInnings
   return {
     activeInnings: 2,
     first: { ...first, status: "frozen" },
-    second: { ...second, status: hasMeaningfulExpectedState(second) ? "live" : "pending" },
+    second: { ...second, status: hasStartedInnings(second) ? "live" : "pending" },
   }
 }
 
@@ -3987,9 +3987,8 @@ const withInningsStatus = (
   innings: 1 | 2,
   activeInnings: number | null,
 ): InningsExpectedState => {
-  const hasScore = state.scoreRuns !== null || state.scoreWickets !== null || state.balls !== null
-  const hasLiveMetrics = hasMeaningfulExpectedState(state)
-  const status = hasLiveMetrics && activeInnings === innings
+  const hasScore = hasStartedInnings(state)
+  const status = hasScore && activeInnings === innings
     ? "live"
     : hasScore && activeInnings !== null && activeInnings > innings
       ? "frozen"
@@ -4014,11 +4013,14 @@ const isCompletedLiveInningsState = (state: InningsExpectedState) =>
   state.scoreWickets !== null && state.scoreWickets >= 10 || state.overs !== null && state.overs >= 19.5
 
 const hasSecondInningsStarted = (state: InningsExpectedState) =>
+  hasStartedInnings(state) ||
+  state.status === "live"
+
+const hasStartedInnings = (state: Pick<LiveExpectedState, "balls" | "overs" | "scoreRuns" | "scoreWickets">) =>
   state.balls !== null && state.balls > 0 ||
   state.overs !== null && state.overs > 0 ||
   state.scoreRuns !== null && state.scoreRuns > 0 ||
-  state.scoreWickets !== null && state.scoreWickets > 0 ||
-  state.status === "live"
+  state.scoreWickets !== null && state.scoreWickets > 0
 
 const buildExpectedStateFromParsed = (parsed: ParsedCricketState): LiveExpectedState => ({
   ...parsed,
