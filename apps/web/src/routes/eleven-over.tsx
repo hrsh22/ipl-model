@@ -258,6 +258,7 @@ type StrategyEvaluation = {
   reasons: string[]
   isRuleQualified: boolean
   hasChaseState: boolean
+  scoreBreakdown: string[]
   dataQualityWarnings: string[]
 }
 
@@ -606,6 +607,19 @@ function buildStrategyEvaluation(fixture: LiveModelFixture): StrategyEvaluation 
     reasons: buildReasons(action, favouriteRole, isRuleQualified, conditions, warnings, checkpoint),
     isRuleQualified,
     hasChaseState: secondInningsAvailable,
+    scoreBreakdown: buildStrengthScoreBreakdown({
+      favourite,
+      favouriteRole,
+      requiredRate,
+      currentRate,
+      wicketsLost,
+      chaseSuccessProbability: second.chaseSuccessProbability,
+      isRuleQualified,
+      hasDataWarnings: warnings.length > 0,
+      checkpoint,
+      score: strengthScore,
+      hasChaseState: secondInningsAvailable,
+    }),
     dataQualityWarnings: warnings,
   }
 }
@@ -743,6 +757,65 @@ function calculateStrengthScore(input: {
   return score
 }
 
+function buildStrengthScoreBreakdown(input: {
+  favourite: FavouriteResult
+  favouriteRole: FavouriteRole | null
+  requiredRate: number | null
+  currentRate: number | null
+  wicketsLost: number | null
+  chaseSuccessProbability: number | null
+  isRuleQualified: boolean
+  hasDataWarnings: boolean
+  checkpoint: CheckpointState
+  score: number
+  hasChaseState: boolean
+}): string[] {
+  if (!input.hasChaseState) {
+    return ['Score waits for the second innings because target, required rate, current rate, wickets, and favourite role are not known yet.']
+  }
+  if (input.favourite.kind === 'unclear') {
+    return ['Score is 0 because there is no clear live favourite.']
+  }
+  if (input.favouriteRole === null) {
+    return ['Score is 0 because the favourite cannot be mapped to chasing or defending.']
+  }
+  if (input.requiredRate === null || input.currentRate === null || input.wicketsLost === null) {
+    return ['Score is 12 because chase metrics are still incomplete.']
+  }
+
+  const marketBonus = clamp(input.favourite.lead * 65, 0, 14)
+  const modelBonus = input.chaseSuccessProbability === null
+    ? 0
+    : input.favouriteRole === 'chasing'
+      ? clamp((input.chaseSuccessProbability - 0.5) * 42, -12, 12)
+      : clamp((0.5 - input.chaseSuccessProbability) * 42, -12, 12)
+  const roleBase = input.favouriteRole === 'chasing' ? 48 : 44
+  const roleParts = input.favouriteRole === 'chasing'
+    ? [
+        `RRR comfort ${formatScoreDelta(clamp((10 - input.requiredRate) * 7, -28, 26))} because RRR is ${formatRate(input.requiredRate)}.`,
+        `Wicket comfort ${formatScoreDelta(clamp((3 - input.wicketsLost) * 8, -28, 22))} because the chaser is ${formatWickets(input.wicketsLost)}.`,
+        `Rate alignment ${formatScoreDelta(clamp((input.currentRate - input.requiredRate) * 6, -30, 26))} because CRR is ${formatRate(input.currentRate)}.`,
+      ]
+    : [
+        `Wicket damage ${formatScoreDelta(clamp((input.wicketsLost - 3) * 9, -26, 30))} because the chaser is ${formatWickets(input.wicketsLost)}.`,
+        `Required-rate pressure ${formatScoreDelta(clamp((input.requiredRate - 12) * 6, -24, 22))} because RRR is ${formatRate(input.requiredRate)}.`,
+        `Rate pressure ${formatScoreDelta(clamp((input.requiredRate - input.currentRate) * 5, -30, 26))} because CRR is ${formatRate(input.currentRate)}.`,
+      ]
+  const capCopy = !input.isRuleQualified && input.checkpoint === 'entry'
+    ? ' Non-qualifying entry-window states are capped at 64.'
+    : input.hasDataWarnings
+      ? ' Data warnings cap the score at 34.'
+      : ''
+
+  return [
+    `Base ${roleBase} for a mapped ${input.favouriteRole} favourite.`,
+    ...roleParts,
+    `Market lead bonus ${formatScoreDelta(marketBonus)} from a ${(input.favourite.lead * 100).toFixed(1)} percentage-point YES lead.`,
+    `Model bonus ${formatScoreDelta(modelBonus)}${input.chaseSuccessProbability === null ? ' because no chase-success probability is available.' : ` from chase-success probability ${formatProbability(input.chaseSuccessProbability)}.`}`,
+    `Final strategy score: ${input.score}/100.${capCopy}`,
+  ]
+}
+
 function scoreChaseComfort(requiredRate: number | null, currentRate: number | null, wicketsLost: number | null): number {
   if (requiredRate === null || currentRate === null || wicketsLost === null) return 0
   return clamp(Math.round(48 + (10 - requiredRate) * 7 + (3 - wicketsLost) * 8 + (currentRate - requiredRate) * 6), 0, 100)
@@ -792,6 +865,11 @@ function StrategyCard({ evaluation }: { evaluation: StrategyEvaluation }) {
       <div className="strategy-alignment-grid">
         <AlignmentMeter label="Chase comfort" value={waitingForChase ? null : evaluation.metrics.chaseComfortScore} />
         <AlignmentMeter label="Defensive pressure" value={waitingForChase ? null : evaluation.metrics.defensivePressureScore} />
+      </div>
+
+      <div className="strategy-reason-list">
+        <strong>Score logic</strong>
+        {evaluation.scoreBreakdown.map((item) => <p key={item}>{item}</p>)}
       </div>
 
       <div className="strategy-condition-grid">
@@ -865,7 +943,7 @@ function NextMatchPanel({
         <State label="Schedule source" value="predictor" tone="live" />
         <State label="Polymarket map" value={mapLabel} tone={mapTone} />
         <State label="Live strategy cards" value={liveCount.toString()} />
-        <State label="Avg chase strength" value={averageStrength === null ? 'pending chase' : `${averageStrength}/100`} />
+        <State label="Avg strategy score" value={averageStrength === null ? 'pending chase' : `${averageStrength}/100`} />
         <State label="Next action" value="wait for chase" />
       </div>
       <div className="strategy-next-brief">
@@ -883,7 +961,7 @@ function StrengthDial({ score, label }: { score: number; label: string }) {
   }
   return (
     <div className="strategy-strength-dial" style={dialStyle}>
-      <span>Strength</span>
+      <span>Strategy score</span>
       <strong>{score}</strong>
       <small>{label}</small>
     </div>
@@ -1143,6 +1221,11 @@ function formatProbability(value: number | null | undefined): string {
 
 function formatBps(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : `${value > 0 ? '+' : ''}${value} bps`
+}
+
+function formatScoreDelta(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+  return `${rounded > 0 ? '+' : ''}${rounded}`
 }
 
 function formatFavouriteRole(role: FavouriteRole | null): string {

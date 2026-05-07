@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url"
 import logger from "../logger.js"
 import { config } from "../config.js"
 import { getVenueContextStats } from "./venue-stats.js"
+import { normalizeTeamName } from "../model-data/aliases.js"
 import {
   getCheckpoint,
   getFixture,
@@ -1163,10 +1164,16 @@ class IplObserverService {
   }
 
   public async getFixtureDetail(fixtureId: string) {
-    const fixture = await getFixture(fixtureId)
+    let fixture = await getFixture(fixtureId)
 
     if (!fixture) {
       return null
+    }
+
+    if (requiresLiveModelCoverage(fixture)) {
+      await this.hydrateOfficialLiveResultsForLiveModel()
+      await this.hydratePolymarketBooksForLiveModel()
+      fixture = await getFixture(fixtureId) ?? fixture
     }
 
     const [odds, signals, liveModelSnapshots, liveModelSignals] = await Promise.all([
@@ -3247,7 +3254,7 @@ class IplObserverService {
   }
 }
 
-const normalizeSelection = (value: string) => value.trim().toLowerCase().replace(/\s+/g, "_")
+const normalizeSelection = (value: string) => normalizeTeamName(value).trim().toLowerCase().replace(/\s+/g, "_")
 
 const normalizeBallStateTeamName = (value: string | null) =>
   (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "")
