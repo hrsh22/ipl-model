@@ -828,8 +828,10 @@ function scoreDefensivePressure(requiredRate: number | null, currentRate: number
 
 function StrategyCard({ evaluation }: { evaluation: StrategyEvaluation }) {
   const fixture = evaluation.fixture.fixture
+  const homeMarketPrice = getSideMarketPrice(evaluation.fixture, 'home')
+  const awayMarketPrice = getSideMarketPrice(evaluation.fixture, 'away')
   const favouriteCopy = evaluation.favourite.kind === 'clear'
-    ? `${evaluation.favourite.team} · ${formatYesPrice(evaluation.favourite.price)}`
+    ? `Polymarket favourite · ${evaluation.favourite.team} ${formatYesPrice(evaluation.favourite.price)}`
     : evaluation.favourite.reason
   const waitingForChase = !evaluation.hasChaseState
   return (
@@ -858,6 +860,8 @@ function StrategyCard({ evaluation }: { evaluation: StrategyEvaluation }) {
         <State label="Required rate" value={waitingForChase ? 'after target' : formatRate(evaluation.metrics.requiredRate)} tone={evaluation.metrics.requiredRate !== null && evaluation.metrics.requiredRate >= 12 ? 'pressure' : 'default'} />
         <State label="Current rate" value={waitingForChase ? 'not started' : formatRate(evaluation.metrics.currentRate)} />
         <State label="Wickets lost" value={waitingForChase ? 'not started' : formatWickets(evaluation.metrics.wicketsLost)} tone={evaluation.metrics.wicketsLost !== null && evaluation.metrics.wicketsLost >= 4 ? 'pressure' : 'default'} />
+        <State label={`${fixture.homeTeam} Polymarket YES`} value={formatYesPrice(homeMarketPrice)} tone={homeMarketPrice === null ? 'pressure' : 'live'} />
+        <State label={`${fixture.awayTeam} Polymarket YES`} value={formatYesPrice(awayMarketPrice)} tone={awayMarketPrice === null ? 'pressure' : 'live'} />
         <State label="Favourite role" value={waitingForChase ? 'after chase starts' : formatFavouriteRole(evaluation.favouriteRole)} />
         <State label="Stake guide" value={waitingForChase ? '0% until chase' : evaluation.suggestedStake} tone={evaluation.action === 'buy' ? 'live' : 'default'} />
       </div>
@@ -883,8 +887,8 @@ function StrategyCard({ evaluation }: { evaluation: StrategyEvaluation }) {
       </div>
 
       <div className="strategy-side-row">
-        <SidePrice side={evaluation.fixture.home} team={fixture.homeTeam} marketPrice={getSideMarketPrice(evaluation.fixture, 'home')} />
-        <SidePrice side={evaluation.fixture.away} team={fixture.awayTeam} marketPrice={getSideMarketPrice(evaluation.fixture, 'away')} />
+        <SidePrice side={evaluation.fixture.home} team={fixture.homeTeam} marketPrice={homeMarketPrice} />
+        <SidePrice side={evaluation.fixture.away} team={fixture.awayTeam} marketPrice={awayMarketPrice} />
       </div>
 
       <div className="strategy-reason-list">
@@ -989,7 +993,7 @@ function SidePrice({ side, team, marketPrice }: { side: LiveModelSide; team: str
     <div className="strategy-side-card">
       <span>{team}</span>
       <strong>{formatYesPrice(marketPrice)}</strong>
-      <small>Model {formatProbability(side.winProbability)} · fair {formatProbability(side.fairProbability)} · edge {formatBps(side.edgeVsMarketBps)}</small>
+      <small>Polymarket YES · model {formatProbability(side.winProbability)} · fair {formatProbability(side.fairProbability)} · edge {formatBps(side.edgeVsMarketBps)}</small>
     </div>
   )
 }
