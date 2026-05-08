@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url"
 import logger from "../logger.js"
 import { config } from "../config.js"
 import { getVenueContextStats } from "./venue-stats.js"
+import { normalizeTeamName } from "../model-data/aliases.js"
 import {
   getCheckpoint,
   getFixture,
@@ -1163,10 +1164,16 @@ class IplObserverService {
   }
 
   public async getFixtureDetail(fixtureId: string) {
-    const fixture = await getFixture(fixtureId)
+    let fixture = await getFixture(fixtureId)
 
     if (!fixture) {
       return null
+    }
+
+    if (requiresLiveModelCoverage(fixture)) {
+      await this.hydrateOfficialLiveResultsForLiveModel()
+      await this.hydratePolymarketBooksForLiveModel()
+      fixture = await getFixture(fixtureId) ?? fixture
     }
 
     const [odds, signals, liveModelSnapshots, liveModelSignals] = await Promise.all([
@@ -3247,7 +3254,7 @@ class IplObserverService {
   }
 }
 
-const normalizeSelection = (value: string) => value.trim().toLowerCase().replace(/\s+/g, "_")
+const normalizeSelection = (value: string) => normalizeTeamName(value).trim().toLowerCase().replace(/\s+/g, "_")
 
 const normalizeBallStateTeamName = (value: string | null) =>
   (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "")
@@ -4186,7 +4193,7 @@ const readLiveSideInningsState = (
   const side = innings === 1 ? inningsSides.first : inningsSides.second
   const oppositeSide = side === "home" ? "away" : "home"
   const score = toJsonRecord(toJsonRecord(scoreRecord?.scores)?.[side])
-  const summary = readSideBattingSummary(scoreRecord, side)
+  const summary = readSideBattingSummary(scoreRecord, side, innings)
   const overs = summary.overs
   const scoreRuns = readNumber(score?.total) ?? summary.runs
   const firstInningsRuns = innings === 2
@@ -4206,6 +4213,17 @@ const readLiveSideInningsState = (
 }
 
 const readLiveInningsSides = (scoreRecord: JsonRecord | null) => {
+  const homePeriods = readSidePeriods(scoreRecord, "home")
+  const awayPeriods = readSidePeriods(scoreRecord, "away")
+
+  if (homePeriods.has("period_1") && awayPeriods.has("period_2")) {
+    return { first: "home" as const, second: "away" as const }
+  }
+
+  if (awayPeriods.has("period_1") && homePeriods.has("period_2")) {
+    return { first: "away" as const, second: "home" as const }
+  }
+
   const homeSummary = readSideBattingSummary(scoreRecord, "home")
   const awaySummary = readSideBattingSummary(scoreRecord, "away")
   const scores = toJsonRecord(scoreRecord?.scores)
@@ -4227,13 +4245,14 @@ const readLiveInningsSides = (scoreRecord: JsonRecord | null) => {
   return null
 }
 
-const readSideBattingSummary = (scoreRecord: JsonRecord | null, side: CricketScoreSide) => {
-  const stats = toJsonRecord(scoreRecord?.stats)
-  const rows = stats ? stats[side] : null
-  const rowRecords = Array.isArray(rows)
-    ? rows.map((row) => toJsonRecord(row)).filter((row): row is JsonRecord => row !== null)
-    : []
-  const preferredRow = rowRecords.find((row) => readText(row.period) === "period_1") ?? rowRecords[0] ?? null
+const readSideBattingSummary = (
+  scoreRecord: JsonRecord | null,
+  side: CricketScoreSide,
+  innings?: 1 | 2 | null,
+) => {
+  const rowRecords = readSideStatRows(scoreRecord, side)
+  const preferredPeriod = innings === 1 || innings === 2 ? `period_${innings}` : "period_1"
+  const preferredRow = rowRecords.find((row) => readText(row.period) === preferredPeriod) ?? rowRecords[0] ?? null
   const battingStats = toJsonRecord(preferredRow?.stats)
   const overs = readText(battingStats?.batting_overs)
 
@@ -4242,6 +4261,20 @@ const readSideBattingSummary = (scoreRecord: JsonRecord | null, side: CricketSco
     wickets: readNumber(battingStats?.batting_wickets),
     overs: overs ? parseCricketOverNotation(overs) : null,
   }
+}
+
+const readSidePeriods = (scoreRecord: JsonRecord | null, side: CricketScoreSide) =>
+  new Set(readSideStatRows(scoreRecord, side).flatMap((row) => {
+    const period = readText(row.period)
+    return period ? [period] : []
+  }))
+
+const readSideStatRows = (scoreRecord: JsonRecord | null, side: CricketScoreSide) => {
+  const stats = toJsonRecord(scoreRecord?.stats)
+  const rows = stats ? stats[side] : null
+  return Array.isArray(rows)
+    ? rows.map((row) => toJsonRecord(row)).filter((row): row is JsonRecord => row !== null)
+    : []
 }
 
 const isCompletedT20Innings = (summary: { overs: number | null; wickets: number | null }) =>
