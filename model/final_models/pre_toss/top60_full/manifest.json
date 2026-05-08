@@ -276,6 +276,6 @@
     "iterations": 100
   },
   "modelPath": "model/final_models/pre_toss/top60_full/catboost_model.cbm",
-  "sourceExperiment": "model/experiments/daily-refresh-runs/20260504T040000Z/artifacts/pre_toss/top60_full_daily",
+  "sourceExperiment": "model/experiments/daily-refresh-runs/20260508T040000Z/artifacts/pre_toss/top60_full_daily",
   "sourceModel": "catboost_tuned"
 }
