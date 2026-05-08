@@ -33,7 +33,7 @@ module.exports = {
       name: 'ipl-model-daily-refresh',
       cwd: appRoot,
       script: 'pnpm',
-      args: 'model:daily-refresh -- --auto-promote-pre-toss --auto-promote-post-toss',
+      args: 'model:daily-refresh',
       interpreter: 'none',
       exec_mode: 'fork',
       watch: false,

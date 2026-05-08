@@ -50,6 +50,7 @@
     "model:fit:final": "python3 model/fit_final_catboost_ensemble.py",
     "model:predict": "python3 model/predict_fixture.py",
     "model:sensitivity:toss": "python3 model/check_toss_sensitivity.py",
+    "model:promote:catboost-single": "python3 model/promote_catboost_single_component.py",
     "model:promote:xgboost": "python3 model/promote_xgboost_experiment.py",
     "model:experiment": "python3 model/run_experiment_suite.py",
     "model:experiment:squad-info": "python3 model/build_squad_info_experiment.py",

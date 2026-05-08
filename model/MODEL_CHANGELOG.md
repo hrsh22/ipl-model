@@ -111,9 +111,49 @@ Copy this block for every material model change:
     - `model/ball_state_live_candidate_selection.json`
     - `model/test_ball_state_match_win_regressions.py`
 
+### 2026-05-08 — promote squad-info match model pair
+
+- Status: promoted
+- Change type: data | feature | training | calibration | inference
+- Hypothesis: the squad-info CatBoost pre/post pair should improve deployed match probability quality while preserving the 2026 holdout isolation and post-toss batting-order equivalence.
+
+### What changed
+
+- Exact files changed: `model/final_models/manifest.json`, `model/final_models/pre_toss/cat_delta_plus_mean_uniform/*`, `model/final_models/post_toss/cat_state_dpm_uniform/*`, `model/final_models/revision_history.jsonl`, `model/promote_catboost_single_component.py`, `ecosystem.config.cjs`, `package.json`, `model/PRODUCTION_MODEL_HISTORY.md`, `model/EXPERIMENTAL_MODEL_HISTORY.md`, `model/MODEL_CHANGELOG.md`, `model/README-squad-info-experiments.md`.
+- Exact data points / features / rules added, removed, or modified: pre-toss production now uses the reviewed CatBoost `delta_plus_mean` squad-info component. Post-toss production now uses the reviewed CatBoost `post_toss_state_delta_plus_mean` component with isotonic calibration. The promoted manifests package copied model/calibrator files and copied training matrices under `model/final_models/**` instead of pointing runtime metadata at workstation-local experiment paths. Repository PM2 daily refresh args no longer include automatic promotion flags.
+- Whether this affects pre_toss, post_toss, or both: both.
+
+### How we tested it
+
+- Experiment/report paths: `model/experiments/squad-info-2026-post-toss/artifacts_sweep/pre_toss/cat_delta_plus_mean_uniform`, `model/experiments/squad-info-2026-post-toss/artifacts_post_improve/post_toss/cat_state_dpm_uniform`, `model/experiments/promotion-readiness/promotion_eligibility_report.json`, staged final models under `/var/folders/31/p7sq6wwx6p9_6hrm6bx2c2940000gn/T/opencode/match-model-promotion-staging/final_models`.
+- Baseline artifact or production reference: previous deployed `model/final_models` pre-toss CatBoost ensemble and post-toss XGBoost state model.
+- Comparison method: current-season 2026 holdout as final test season in an experiment-only manifest; train through 2024, calibrate/validate on 2025, test on 48 completed 2026 rows. Runtime checks used staged and promoted `model/final_models` prediction paths.
+
+### Measured impact
+
+| metric | baseline pre-toss | promoted pre-toss | baseline post-toss | promoted post-toss |
+| -------- | --------: | ---------: | --------: | ---------: |
+| log_loss | 0.6987 | 0.6797 | 0.7039 | 0.6707 |
+| brier | 0.2527 | 0.2433 | 0.2550 | 0.2394 |
+| roc_auc | 0.5300 | 0.6400 | 0.5444 | 0.5487 |
+| accuracy | 0.5365 | 0.6250 | 0.5119 | 0.5625 |
+
+- Live/current-season effect after promotion: fixture-row smoke prediction for Gujarat Titans vs Punjab Kings produced pre-toss team1 probability `0.5675609164599937`. Post-toss sensitivity passed with observed spread `0.2009569377990431`, equivalent-state diffs `0.0`, and probabilities `0.5263157894736842` / `0.7272727272727273` for the two batting-order states.
+- Confidence / caveats: the promotion is based on a 48-match completed-2026 holdout and the pre-agreed joint promotion rule. Automatic daily promotion flags were removed from repo PM2 config to avoid accidental overwrites after this manual promotion.
+
+### Decision
+
+- Outcome: promoted
+- Why: both primary candidates cleared strict eligibility with 2026 held out, staged packaging, runtime smoke checks, and post-toss equivalence checks; both phases improved the deployed benchmark and were promoted together.
+- Deployed model source hash after change: `4d0ac460a23a619c85712153023092e1ebe81b9a5e5d7b4eacb33f8be0fedd92`
+- Supporting evidence:
+    - `model/final_models/revision_history.jsonl`
+    - `model/experiments/promotion-readiness/promotion_eligibility_report.json`
+    - `model/PRODUCTION_MODEL_HISTORY.md`
+
 ### 2026-05-04 — experiment-only squad-info match model workflow
 
-- Status: tested
+- Status: promoted into the 2026-05-08 joint squad-info production pair
 - Change type: data | feature | training | calibration | other
 - Hypothesis: 2026 preseason squad continuity and prior context may improve out-of-sample 2026 match probabilities when evaluated as an isolated experiment rather than deployed directly.
 
@@ -127,25 +167,25 @@ Copy this block for every material model change:
 
 - Experiment/report paths: `model/experiments/squad-info-2026-post-toss/reports/`, `model/experiments/squad-info-2026-post-toss/artifacts_parity/`, `model/experiments/squad-info-2026-post-toss/artifacts_sweep/`, `model/experiments/squad-info-2026-post-toss/artifacts_post_improve/`, `model/experiments/promotion-readiness/`.
 - Baseline artifact or production reference: production `model/final_models/**` unchanged; same-row final-model diagnostics were used as references.
-- Comparison method: current-season 2026 holdout as final test season in an experiment-only manifest; train through 2024, calibrate/validate on 2025, test on 44 completed 2026 rows.
+- Comparison method: current-season 2026 holdout as final test season in an experiment-only manifest; train through 2024, calibrate/validate on 2025, test on completed 2026 rows. The initial post-toss breakthrough used 44 completed rows; the refreshed eligibility report now scores 48 completed rows.
 
 ### Measured impact
 
 | metric | baseline | candidate | delta |
 | -------- | --------: | ---------: | -----: |
-| log_loss | 0.6911 | 0.6712 | -0.0199 |
-| brier | 0.2490 | 0.2395 | -0.0095 |
-| roc_auc | 0.5888 | 0.5506 | -0.0382 |
-| accuracy | 0.5227 | 0.5682 | +0.0455 |
+| log_loss | 0.6911 | 0.6707 | -0.0204 |
+| brier | 0.2490 | 0.2394 | -0.0096 |
+| roc_auc | 0.5888 | 0.5487 | -0.0401 |
+| accuracy | 0.5227 | 0.5625 | +0.0398 |
 
-- Live/current-season effect after promotion: none; this is not promoted.
-- Confidence / caveats: the best post-toss experimental candidate is CatBoost `post_toss_state_delta_plus_mean` with isotonic calibration. It improves log loss and Brier on the 44-match 2026 diagnostic holdout, and a staged final-models bundle passed post-toss batting-order equivalence exactly with `0.0` equivalent-state diffs and `0.2009569378` spread across batting-order states. Broader historical guardrails are still required before any production decision, and pre-toss/post-toss should be promoted only together.
+- Live/current-season effect after promotion: superseded by the 2026-05-08 joint squad-info production promotion above.
+- Confidence / caveats: the best post-toss experimental candidate is CatBoost `post_toss_state_delta_plus_mean` with isotonic calibration. It improves log loss and Brier on the refreshed 48-match 2026 diagnostic holdout, and a staged final-models bundle passed post-toss batting-order equivalence exactly with `0.0` equivalent-state diffs and `0.2009569378` spread across batting-order states. The paired pre-toss candidate is CatBoost `delta_plus_mean` uniform at `0.6250` accuracy, `0.6400` ROC-AUC, `0.6797` log loss, and `0.2433` Brier on the same refreshed holdout. Broader historical guardrails are still required before any production decision, and pre-toss/post-toss should be promoted only together.
 
 ### Decision
 
-- Outcome: not promoted
-- Why: experiment-only results are promising but selected using a narrow current-season diagnostic holdout, and probability-quality gains are mixed with a ROC-AUC regression.
-- Deployed model source hash after change: unchanged.
+- Outcome: promoted as part of the 2026-05-08 joint pre/post squad-info model pair
+- Why: follow-up readiness checks, staged packaging, runtime smoke checks, and post-toss equivalence checks passed; both phases improved the deployed benchmark on the refreshed 48-match completed-2026 holdout.
+- Deployed model source hash after change: `4d0ac460a23a619c85712153023092e1ebe81b9a5e5d7b4eacb33f8be0fedd92`
 - Supporting evidence:
     - `model/experiments/squad-info-2026-post-toss/artifacts_post_improve/post_toss/cat_state_dpm_uniform/fold_metrics.csv`
     - `model/experiments/promotion-readiness/promotion_eligibility_report.json`

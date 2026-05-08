@@ -78,9 +78,11 @@ The checker does not modify `model/final_models/`. It verifies that the breakthr
 
 Post-toss candidates need one extra piece of evidence before they can be called promotion-eligible: a staged `model/check_toss_sensitivity.py` report proving batting-order equivalence and enough toss-state movement. Pass that JSON with `--post-toss-sensitivity-report <path>` once a candidate has been staged into a temporary final-models directory.
 
+The 2026-05-08 production promotion used `model/promote_catboost_single_component.py` after both primary candidates passed the strict audit and staged runtime checks. That script copies the reviewed CatBoost model, optional calibrator, and training matrix into `model/final_models/**` so production manifests no longer depend on workstation-local experiment paths.
+
 ## What “uses 2026 squad info” means here
 
-The experiment does **not** train on 2026 match results. It uses historical labeled rows through 2025 for model fitting/calibration, then scores the 44 completed 2026 rows as `test_season=2026`. The 2026 preseason squad sidecar is used only to build the 2026 test-time feature rows, because those squad facts were available before the IPL started.
+The experiment does **not** train on 2026 match results. It uses historical labeled rows through 2025 for model fitting/calibration, then scores the completed 2026 rows as `test_season=2026` (currently 48 rows in the refreshed holdout). The 2026 preseason squad sidecar is used only to build the 2026 test-time feature rows, because those squad facts were available before the IPL started.
 
 For each 2026 team row, the builder:
 

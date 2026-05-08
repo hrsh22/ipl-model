@@ -6,24 +6,21 @@ This tracks the deployed IPL prediction model: what changed, how the change perf
 
 ### Pre-toss model
 
-The current pre-toss model is an ensemble of two views of the same match:
-
-- **45% full-context model**: uses venue, team identity, team strength, phase performance, player/XI strength, Elo, and matchup context.
-- **55% team-difference model**: focuses on the gap between the two teams rather than absolute team values.
+The current pre-toss model is a single CatBoost `delta_plus_mean` squad-info component. It focuses on team-vs-team gaps while retaining matchup mean context, using preseason squad/XI resource features for the 2026 evaluation boundary.
 
 Current benchmark:
 
 | accuracy | ROC-AUC | log loss | Brier score |
 | ---: | ---: | ---: | ---: |
-| 0.5365 | 0.5300 | 0.6987 | 0.2527 |
+| 0.6250 | 0.6400 | 0.6797 | 0.2433 |
 
 Decision: **accepted and active**.
 
-Why it is active: it is the best stable production-style pre-toss setup so far. It is retrained daily and only promoted if it does not clearly regress on probability quality.
+Why it is active: it beat the previous deployed pre-toss benchmark across accuracy, ROC-AUC, log loss, and Brier on the refreshed 48-match completed-2026 holdout, while preserving the no-2026-training leakage boundary.
 
 ### Post-toss model
 
-The current post-toss model is an XGBoost model that uses the **resulting batting-order state** after the toss.
+The current post-toss model is a CatBoost `post_toss_state_delta_plus_mean` squad-info component with isotonic calibration. It uses the **resulting batting-order state** after the toss, plus team-vs-team deltas and matchup mean context.
 
 The important rule is:
 
@@ -34,26 +31,36 @@ For example:
 - “Punjab win toss and bat” is the same cricket state as “Rajasthan win toss and field.”
 - “Punjab win toss and field” is the same cricket state as “Rajasthan win toss and bat.”
 
-Latest verified behavior for Punjab Kings vs Rajasthan Royals:
+Latest verified behavior for Gujarat Titans vs Punjab Kings in the staged/production promotion fixture shell:
 
-| post-toss state | Punjab win probability |
+| post-toss state | Gujarat win probability |
 | --- | ---: |
-| Punjab bat first | 0.5008 |
-| Rajasthan field first | 0.5008 |
-| Punjab field first | 0.5029 |
-| Rajasthan bat first | 0.5029 |
+| Gujarat bat first | 0.5263 |
+| Punjab field first | 0.5263 |
+| Gujarat field first | 0.7273 |
+| Punjab bat first | 0.7273 |
 
 Current benchmark:
 
 | accuracy | ROC-AUC | log loss | Brier score |
 | ---: | ---: | ---: | ---: |
-| 0.5119 | 0.5444 | 0.7039 | 0.2550 |
+| 0.5625 | 0.5487 | 0.6707 | 0.2394 |
 
 Decision: **accepted and active**.
 
-Why it is active: it is not the strongest metric model we have seen, but it is the first post-toss model that satisfies the required cricket logic: probabilities move when batting order changes, and equivalent toss phrasings match exactly.
+Why it is active: it improves the deployed post-toss benchmark across accuracy, ROC-AUC, log loss, and Brier on the refreshed 48-match completed-2026 holdout. Staged and post-promotion sensitivity checks preserve the required cricket logic: probabilities move when batting order changes, and equivalent toss phrasings match exactly.
 
 ## Timeline of production-relevant changes
+
+### 2026-05-08 — squad-info pre/post match models jointly promoted
+
+Change: promoted the experimental squad-info match-model pair into `model/final_models`: pre-toss now uses CatBoost `delta_plus_mean` (`cat_delta_plus_mean_uniform`) and post-toss now uses CatBoost `post_toss_state_delta_plus_mean` with isotonic calibration (`cat_state_dpm_uniform`). Added `model/promote_catboost_single_component.py` so reviewed single-component CatBoost artifacts can be packaged with self-contained manifests, copied model/calibrator files, copied training matrices, backups, and revision-history entries. The repo PM2 daily refresh config now runs without `--auto-promote-pre-toss` / `--auto-promote-post-toss` so a future PM2 reload does not silently re-enable automatic model replacement.
+
+Impact: on the refreshed 48-match completed-2026 holdout, pre-toss improved from the prior deployed benchmark `0.5365` accuracy / `0.5300` ROC-AUC / `0.6987` log loss / `0.2527` Brier to `0.6250` / `0.6400` / `0.6797` / `0.2433`. Post-toss improved from `0.5119` / `0.5444` / `0.7039` / `0.2550` to `0.5625` / `0.5487` / `0.6707` / `0.2394`. Post-toss sensitivity passed with observed spread `0.2009569377990431` and equivalent-state diffs `0.0` for both batting-order groups.
+
+Decision: **accepted and promoted**.
+
+Reason: both candidates cleared the strict promotion-readiness audit with 2026 held out from training/calibration/validation, staged runtime prediction worked, post-toss equivalence passed, and both phases were promoted together as requested. The final promoted model source hash after the post-toss package refresh is `4d0ac460a23a619c85712153023092e1ebe81b9a5e5d7b4eacb33f8be0fedd92`.
 
 ### 2026-05-01 — post-toss official XI contract tightened
 

@@ -132,7 +132,7 @@ What changed:
 
 - Added and evaluated post-toss `post_toss_state_delta_plus_mean` candidates under `model/experiments/squad-info-2026-post-toss/artifacts_post_improve/`.
 - The best candidate was uniform-history CatBoost with isotonic calibration on the full squad-info post-toss matrix.
-- The run kept the same leakage boundary as the earlier squad-info experiments: train through 2024, calibrate/validate on 2025, and test on 44 completed 2026 rows only.
+- The run kept the same leakage boundary as the earlier squad-info experiments: train through 2024, calibrate/validate on 2025, and test on completed 2026 rows only. The initial breakthrough used 44 completed rows; the refreshed holdout now has 48 completed rows.
 
 Measured 2026 holdout impact:
 
@@ -140,11 +140,12 @@ Measured 2026 holdout impact:
 | --- | ---: | ---: | ---: | ---: |
 | prior post-toss best: modern XGBoost `post_toss_state` linear, half-life `1.0` | `0.5455` | `0.5971` | `0.6853` | `0.2461` |
 | prior pre-toss probability-quality best: CatBoost `delta_plus_mean` uniform | `0.5909` | `0.5950` | `0.6872` | `0.2470` |
-| post-toss CatBoost `post_toss_state_delta_plus_mean` uniform + isotonic | `0.5682` | `0.5506` | `0.6712` | `0.2395` |
+| post-toss CatBoost `post_toss_state_delta_plus_mean` uniform + isotonic, 44-row initial holdout | `0.5682` | `0.5506` | `0.6712` | `0.2395` |
+| post-toss CatBoost `post_toss_state_delta_plus_mean` uniform + isotonic, 48-row refreshed holdout | `0.5625` | `0.5487` | `0.6707` | `0.2394` |
 
 Decision: **experimental post-toss breakthrough / not promoted yet**.
 
-Reason: the new post-toss candidate materially improves probability quality versus both the prior safe post-toss best and the best pre-toss probability-quality candidate on this 44-match 2026 diagnostic holdout. ROC-AUC is lower than the previous modern XGBoost state model, so this is not promotion-ready by itself; it needs broader historical guardrails and calibration checks before any production decision.
+Reason: the new post-toss candidate materially improves probability quality versus both the prior safe post-toss best and the best pre-toss probability-quality candidate on the initial 44-match 2026 diagnostic holdout, and the refreshed 48-match holdout preserves the log-loss/Brier improvement. ROC-AUC is lower than the previous modern XGBoost state model, so this is not promotion-ready by itself; it needs broader historical guardrails and calibration checks before any production decision.
 
 ### 2026-05-04 — match-model promotion-readiness gate for squad-info candidates
 
@@ -166,6 +167,13 @@ Promotion-readiness results:
 | pre-toss weighted `delta_plus_mean` + XGBoost delta | no | `0.6136` | `0.5950` | `0.6875` | `0.2472` | blend-search output is not directly packageable |
 | post-toss CatBoost `post_toss_state_delta_plus_mean` uniform + isotonic | yes | `0.5682` | `0.5506` | `0.6712` | `0.2395` | none |
 
+Refreshed 48-match promotion-readiness results after adding the latest completed 2026 labels:
+
+| candidate | eligible | accuracy | ROC-AUC | log loss | Brier | blocker |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| pre-toss CatBoost `delta_plus_mean` uniform | yes | `0.6250` | `0.6400` | `0.6797` | `0.2433` | none |
+| post-toss CatBoost `post_toss_state_delta_plus_mean` uniform + isotonic | yes | `0.5625` | `0.5487` | `0.6707` | `0.2394` | none |
+
 Post-toss staged sensitivity result:
 
 | check | value |
@@ -176,9 +184,9 @@ Post-toss staged sensitivity result:
 | equivalent states match | `true` |
 | sensitivity gate passed | `true` |
 
-Decision: **promotion-ready evidence package for the primary pre-toss and post-toss candidates / not promoted**.
+Decision: **promoted to production on 2026-05-08 as a joint pre-toss/post-toss pair**.
 
-Reason: both primary candidates now clear the local promotion-readiness audit, but production artifacts must not be changed until an explicit joint pre-toss + post-toss promotion is requested. The higher-accuracy pre-toss blend remains blocked because it is only a blend-search result, not a serialized/packageable production candidate.
+Reason: both primary candidates cleared the local promotion-readiness audit on the refreshed 48-match holdout, staged runtime checks, and post-toss sensitivity/equivalence checks. The user explicitly requested promotion if the deep readiness check passed, so the serialized/packageable primary candidates were promoted together. The higher-accuracy pre-toss blend remains blocked because it is only a blend-search result, not a serialized/packageable production candidate.
 
 ### 2026-05-03 — promoted live chase-success regularization candidate
 
