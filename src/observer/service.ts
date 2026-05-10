@@ -1776,10 +1776,11 @@ class IplObserverService {
     }
 
     const sportsbookId = normalizeBookId(odd)
+    const normalizedSelection = normalizeSelection(odd.selection)
     const bookSelections =
       fixtureState.oddsByBook.get(sportsbookId) ?? new Map<string, LatestOddState>()
 
-    bookSelections.set(odd.normalized_selection, {
+    bookSelections.set(normalizedSelection, {
       odd,
       isLocked,
       observedAt: new Date(),
@@ -1794,7 +1795,7 @@ class IplObserverService {
       marketId: odd.market_id ?? odd.market.toLowerCase().replace(/\s+/g, "_"),
       market: odd.market,
       selection: odd.selection,
-      normalizedSelection: odd.normalized_selection,
+      normalizedSelection,
       priceProbability: normaliseProbability(odd.price),
       isMain: odd.is_main,
       isLive: odd.is_live,
@@ -1823,8 +1824,10 @@ class IplObserverService {
       return
     }
 
-    fixtureState.selectionToToken.set(odd.normalized_selection, tokenId)
-    fixtureState.tokenToSelection.set(tokenId, odd.normalized_selection)
+    const normalizedSelection = normalizeSelection(odd.selection)
+
+    fixtureState.selectionToToken.set(normalizedSelection, tokenId)
+    fixtureState.tokenToSelection.set(tokenId, normalizedSelection)
     this.tokenToFixture.set(tokenId, fixtureState.fixture.id)
     this.trackedTokenIds.add(tokenId)
 
@@ -3257,7 +3260,7 @@ class IplObserverService {
 const normalizeSelection = (value: string) => normalizeTeamName(value).trim().toLowerCase().replace(/\s+/g, "_")
 
 const normalizeBallStateTeamName = (value: string | null) =>
-  (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "")
+  normalizeTeamName(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "")
 
 const getMatchingBallStateOverlay = (
   fixture: ObserverFixtureRecord,

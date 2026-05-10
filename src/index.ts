@@ -16,6 +16,7 @@ import logger from "./logger.js"
 import { loadCricsheetData } from "./ipl/data-loader.js"
 import { generatePredictions, type PredictionRequest } from "./ipl/prediction-service.js"
 import { getAggregatedOdds } from "./ipl/odds-service.js"
+import { normalizeTeamName } from "./model-data/aliases.js"
 import {
   backfillHistoricalPostTossSnapshots,
   buildPredictorSnapshotKey,
@@ -463,7 +464,7 @@ const safeBallStateSourceUrl = (value: string) => {
 }
 
 const normalizeBallStateTeam = (value: string | null) =>
-  (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "").trim()
+  normalizeTeamName(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "").trim()
 
 const isComparableTeamSet = (left: Array<string | null>, right: Array<string | null>) => {
   const leftTeams = left.map(normalizeBallStateTeam).filter(Boolean).sort()

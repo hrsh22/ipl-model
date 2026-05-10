@@ -65,6 +65,46 @@ Copy this block for every material model change:
 
 ## Log
 
+### 2026-05-10 — RCB alias-aware live fixture matching
+
+- Status: promoted
+- Change type: inference
+- Hypothesis: canonicalizing IPL team aliases before live fixture, official schedule, odds-selection, and ball-state matching prevents the Royal Challengers Bangalore/Bengaluru rename from blocking post-toss and observer attachment for RCB fixtures.
+
+### What changed
+
+- Exact files changed: `src/model-data/aliases.ts`, `model/data/metadata/aliases.json`, `model/predict_fixture.py`, `src/observer/service.ts`, `src/index.ts`, `model/MODEL_CHANGELOG.md`, `model/PRODUCTION_MODEL_HISTORY.md`, `model/EXPERIMENTAL_MODEL_HISTORY.md`.
+- Exact data points / features / rules added, removed, or modified: added common IPL abbreviation aliases (`RCB`, `MI`, etc.) to the shared TypeScript alias map; added Raipur `Cricket Stadium` venue aliases and a 2026 neutral venue override for `Shaheed Veer Narayan Singh International Stadium`; made `resolve_iplt20_match()` compare canonical team aliases instead of raw normalized strings; canonicalized observer odds selections and ball-state team comparisons through the shared team alias map.
+- Whether this affects pre_toss, post_toss, or both: both operationally; post-toss is most affected because official toss/XI lookup depends on matching the official IPL schedule row.
+
+### How we tested it
+
+- Experiment/report paths: targeted fixture review for Royal Challengers Bengaluru vs Mumbai Indians fixture `2494`; TypeScript diagnostics/typecheck/build; Python syntax validation.
+- Baseline artifact or production reference: current deployed pre-toss/post-toss artifacts unchanged.
+- Comparison method: manual fixture review and runtime-contract validation.
+
+### Measured impact
+
+| metric   | baseline | candidate | delta |
+| -------- | -------- | --------- | ----- |
+| log_loss | unchanged | unchanged | n/a |
+| brier    | unchanged | unchanged | n/a |
+| roc_auc  | unchanged | unchanged | n/a |
+| accuracy | unchanged | unchanged | n/a |
+
+- Live/current-season effect after promotion: fixture `2494` can match `Royal Challengers Bangalore`, `Royal Challengers Bengaluru`, or `RCB` consistently when resolving official schedule rows, observer odds selections, and ball-state overlays, and Raipur-hosted 2026 rows resolve as neutral instead of unknown/non-neutral.
+- Confidence / caveats: model weights are unchanged; this is an inference-input correctness fix.
+
+### Decision
+
+- Outcome: promoted
+- Why: fixes a production fixture identity edge case without changing trained artifacts or benchmark metrics.
+- Deployed model source hash after change: unchanged model artifacts.
+- Supporting evidence:
+    - `model/final_models/revision_history.jsonl`
+    - `model/data/live/predictor_performance_predictions.jsonl`
+    - `model/data/live/predictor_performance_summary.json`
+
 ### 2026-05-05 — first-innings-only live win-probability target
 
 - Status: promoted

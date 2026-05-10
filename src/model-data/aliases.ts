@@ -2,10 +2,21 @@ const cleanValue = (value: string) => value.trim().replace(/\s+/g, " ")
 const cleanPlayerValue = (value: string) => cleanValue(value).toLowerCase().replace(/[^a-z0-9 ]/g, "").trim()
 
 export const TEAM_ALIAS_MAP: Record<string, string> = {
+  CSK: "Chennai Super Kings",
+  DC: "Delhi Capitals",
   "Delhi Daredevils": "Delhi Capitals",
+  GT: "Gujarat Titans",
   "Kings XI Punjab": "Punjab Kings",
+  KKR: "Kolkata Knight Riders",
+  KXIP: "Punjab Kings",
+  LSG: "Lucknow Super Giants",
+  MI: "Mumbai Indians",
+  PBKS: "Punjab Kings",
+  RCB: "Royal Challengers Bengaluru",
   "Rising Pune Supergiant": "Rising Pune Supergiants",
+  RR: "Rajasthan Royals",
   "Royal Challengers Bangalore": "Royal Challengers Bengaluru",
+  SRH: "Sunrisers Hyderabad",
 }
 
 export const VENUE_ALIAS_MAP: Record<string, string> = {
@@ -47,6 +58,9 @@ export const VENUE_ALIAS_MAP: Record<string, string> = {
   "Maharashtra Cricket Association Stadium, Pune": "Maharashtra Cricket Association Stadium",
   "Subrata Roy Sahara Stadium, Pune": "Subrata Roy Sahara Stadium",
   "JSCA International Stadium Complex, Ranchi": "JSCA International Stadium Complex",
+  Raipur: "Shaheed Veer Narayan Singh International Stadium",
+  "Shaheed Veer Narayan Singh International Cricket Stadium": "Shaheed Veer Narayan Singh International Stadium",
+  "Shaheed Veer Narayan Singh International Cricket Stadium, Raipur": "Shaheed Veer Narayan Singh International Stadium",
   "Shaheed Veer Narayan Singh International Stadium, Raipur": "Shaheed Veer Narayan Singh International Stadium",
   "Wankhede Stadium, Mumbai": "Wankhede Stadium",
   "Brabourne Stadium, Mumbai": "Brabourne Stadium",

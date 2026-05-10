@@ -52,6 +52,16 @@ Why it is active: it improves the deployed post-toss benchmark across accuracy, 
 
 ## Timeline of production-relevant changes
 
+### 2026-05-10 — RCB live fixture alias contract fixed
+
+Change: kept production model weights unchanged, but made live fixture matching alias-aware for the Royal Challengers Bangalore/Bengaluru rename and common IPL abbreviations. Official post-toss schedule resolution now canonicalizes team aliases before comparing schedule rows, and the observer canonicalizes odds selections and ball-state team matching through the shared team alias map. The shared venue aliases also now cover the `Shaheed Veer Narayan Singh International Cricket Stadium` spelling used for Raipur, and 2026 Raipur fixtures are explicitly treated as neutral.
+
+Impact: Royal Challengers Bengaluru vs Mumbai Indians fixture `2494` no longer depends on every upstream source choosing the same RCB spelling. Post-toss auto lookup can match official rows that say `Royal Challengers Bangalore`, while observer odds/live overlays can match `RCB`, `Royal Challengers Bangalore`, or `Royal Challengers Bengaluru` consistently. The fixture now emits neutral venue semantics for Raipur instead of an unknown/non-neutral home state. Model artifacts and benchmark metrics are unchanged.
+
+Decision: **accepted**.
+
+Reason: this is an inference-input correctness fix for a live production fixture edge case. It protects the deployed predictor from missing official toss/XI context due to naming drift without retraining or recalibrating the model.
+
 ### 2026-05-08 — squad-info pre/post match models jointly promoted
 
 Change: promoted the experimental squad-info match-model pair into `model/final_models`: pre-toss now uses CatBoost `delta_plus_mean` (`cat_delta_plus_mean_uniform`) and post-toss now uses CatBoost `post_toss_state_delta_plus_mean` with isotonic calibration (`cat_state_dpm_uniform`). Added `model/promote_catboost_single_component.py` so reviewed single-component CatBoost artifacts can be packaged with self-contained manifests, copied model/calibrator files, copied training matrices, backups, and revision-history entries. The repo PM2 daily refresh config now runs without `--auto-promote-pre-toss` / `--auto-promote-post-toss` so a future PM2 reload does not silently re-enable automatic model replacement.

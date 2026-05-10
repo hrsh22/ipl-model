@@ -35,6 +35,22 @@ Reason: there is not yet a documented training loop, validation split, live fail
 
 ## Experimental timeline
 
+### 2026-05-10 — RCB observer ball-state alias matching
+
+Change / idea: make the experimental live ball-state observer attach overlays using the same canonical team aliases as the fixture/predictor pipeline, so `Royal Challengers Bangalore`, `Royal Challengers Bengaluru`, and `RCB` resolve to the same side.
+
+What changed:
+
+- Observer ball-state fixture matching now canonicalizes team names through the shared alias map before stripping punctuation.
+- The dashboard/API ball-state run matcher in `src/index.ts` uses the same alias-aware normalization.
+- Observer odds selections are stored under canonical selection keys, preventing provider `Bangalore` selections from missing fixture `Bengaluru` lookups.
+
+Measured impact: no model artifact metrics changed; this is runtime attachment correctness for live overlays and opportunity display.
+
+Decision: accepted for runtime use.
+
+Reason: the RCB rename is a known data-source drift case, and matching live overlays by raw alphanumeric text is too brittle for production observer behavior.
+
 ### 2026-05-05 — first-innings observer win-probability target
 
 Change / idea: prepare the experimental live ball-state observer to score a batting-team match-win probability during innings one, so the dashboard can show a model win probability before a chase target exists.

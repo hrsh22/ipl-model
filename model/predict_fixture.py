@@ -338,6 +338,14 @@ def normalize_text(value: str) -> str:
     ).strip()
 
 
+def canonical_team_text(value: str) -> str:
+    normalized = normalize_text(value)
+    for canonical, aliases in TEAM_ALIASES.items():
+        if normalized in {normalize_text(alias) for alias in aliases}:
+            return normalize_text(canonical)
+    return normalized
+
+
 def normalize_player_name_key(value: str) -> str:
     key = normalize_text(strip_player_suffixes(value))
     return PLAYER_NAME_ALIASES.get(key, key)
@@ -924,16 +932,16 @@ def resolve_iplt20_match(fixture: pd.Series) -> dict[str, Any] | None:
     schedule_rows = fetch_iplt20_schedule(season_year)
     fixture_date = str(fixture["match_date"])[:10]
     team_names = {
-        normalize_text(str(fixture["team1"])),
-        normalize_text(str(fixture["team2"])),
+        canonical_team_text(str(fixture["team1"])),
+        canonical_team_text(str(fixture["team2"])),
     }
 
     for row in schedule_rows:
         if str(row.get("MatchDate")) != fixture_date:
             continue
         row_names = {
-            normalize_text(str(row.get("HomeTeamName", ""))),
-            normalize_text(str(row.get("AwayTeamName", ""))),
+            canonical_team_text(str(row.get("HomeTeamName", ""))),
+            canonical_team_text(str(row.get("AwayTeamName", ""))),
         }
         if team_names == row_names:
             return row

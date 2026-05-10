@@ -90,6 +90,11 @@ const PARTIAL_NEUTRAL_OVERRIDES: NeutralVenueOverride[] = [
     venues: ["Sheikh Zayed Stadium", "Dubai International Cricket Stadium", "Sharjah Cricket Stadium"],
     note: "Opening 2014 UAE leg",
   },
+  {
+    season: 2026,
+    venues: ["Shaheed Veer Narayan Singh International Stadium"],
+    note: "Raipur-hosted 2026 fixtures outside both participating teams' home bases",
+  },
 ]
 
 const ALL_ASSIGNMENTS = [...PRIMARY_ASSIGNMENTS, ...SECONDARY_ASSIGNMENTS].map((entry) => ({
