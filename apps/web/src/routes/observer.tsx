@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useReducer, useState } from 'react'
 
 export const Route = createFileRoute('/observer')({
   component: ObserverPage,
@@ -35,6 +35,8 @@ type ExpectedState = {
   scoreRuns: number | null
   scoreWickets: number | null
   overs: number | null
+  balls?: number | null
+  targetRuns?: number | null
   expectedRunsNow: number | null
   expectedWicketsNow: number | null
   runsDelta: number | null
@@ -198,11 +200,94 @@ type ObserverState = {
   data: DashboardData | null
   error: string | null
   status: 'loading' | 'success' | 'error'
-  updatedAt: Date | null
+  updatedAt: string | null
   refreshing: boolean
 }
 
+type ObserverStateAction =
+  | { type: 'refreshing'; initial: boolean }
+  | { type: 'success'; data: DashboardData; refresh: () => Promise<void>; updatedAt: string }
+  | { type: 'error'; message: string }
+
+type ScoreboardActionStatus = 'buy' | 'wait' | 'no-trade' | 'unavailable'
+
+type ScoreboardActionRole = 'chaser' | 'defender'
+
+type ScoreboardAction = {
+  status: ScoreboardActionStatus
+  role: ScoreboardActionRole | null
+  team: string | null
+  headline: string
+  subhead: string
+  price: number | null
+  priceCap: number
+  strength: number | null
+  strengthLabel: string
+  stakeGuidance: string
+  reasons: string[]
+  blockers: string[]
+  stats: {
+    legalBalls: number | null
+    overs: string
+    crr: number | null
+    rrr: number | null
+    runsNeeded: number | null
+    ballsLeft: number | null
+    wicketsLost: number | null
+    target: number | null
+  }
+}
+
+const SCOREBOARD_START_BALL = 66
+const SCOREBOARD_END_BALL = 78
+const SCOREBOARD_PRICE_CAP = 0.95
+const T20_MAX_LEGAL_BALLS = 120
+const SETTLED_MARKET_LOW_PRICE = 0.01
+const SETTLED_MARKET_HIGH_PRICE = 0.99
+const TEAM_ALIAS_MAP: Record<string, string> = {
+  CSK: 'Chennai Super Kings',
+  DC: 'Delhi Capitals',
+  'Delhi Daredevils': 'Delhi Capitals',
+  GT: 'Gujarat Titans',
+  'Kings XI Punjab': 'Punjab Kings',
+  KKR: 'Kolkata Knight Riders',
+  KXIP: 'Punjab Kings',
+  LSG: 'Lucknow Super Giants',
+  MI: 'Mumbai Indians',
+  PBKS: 'Punjab Kings',
+  RCB: 'Royal Challengers Bengaluru',
+  'Rising Pune Supergiant': 'Rising Pune Supergiants',
+  RR: 'Rajasthan Royals',
+  'Royal Challengers Bangalore': 'Royal Challengers Bengaluru',
+  SRH: 'Sunrisers Hyderabad',
+}
+
 let lastStableDashboardData: DashboardData | null = null
+
+const initialObserverState: ObserverState = {
+  data: null,
+  error: null,
+  status: 'loading',
+  updatedAt: null,
+  refreshing: false,
+  refresh: async () => {},
+}
+
+function observerStateReducer(current: ObserverState, action: ObserverStateAction): ObserverState {
+  switch (action.type) {
+    case 'refreshing':
+      return { ...current, refreshing: !action.initial }
+    case 'success':
+      return { data: action.data, error: null, status: 'success', updatedAt: action.updatedAt, refreshing: false, refresh: action.refresh }
+    case 'error':
+      return {
+        ...current,
+        error: action.message,
+        status: current.data ? 'success' : 'error',
+        refreshing: false,
+      }
+  }
+}
 
 function ObserverPage() {
   const state = useObserverDashboard()
@@ -237,7 +322,7 @@ function ObserverPage() {
         <div className="observer-status-card">
           <span className="observer-status-dot" />
           <span>{observerStatusLabel}</span>
-          <strong>{state.updatedAt ? `Last ${state.updatedAt.toLocaleTimeString()}` : 'waiting'}</strong>
+          <strong>{state.updatedAt ? `Last ${state.updatedAt}` : 'waiting'}</strong>
           <small>{state.refreshing ? 'refreshing' : state.status}</small>
         </div>
       </section>
@@ -271,7 +356,7 @@ function ObserverPage() {
           <SectionHeading label="Signal tape" value="latest" />
           <div className="observer-terms-card">
             <strong>Terms</strong>
-            <p><b>Expected now</b> is scored through the trained ball-by-ball model for the current live payload; unavailable model targets render as —.</p>
+            <p><b>Expected now</b> is scored through the trained ball-by-ball model for the current live payload; unavailable model targets render as unavailable.</p>
             <p><b>Fair probability</b> is the Betfair-led reference price, not the deployed predictor.</p>
             <p><b>PM</b> is Polymarket moneyline probability.</p>
           </div>
@@ -287,14 +372,7 @@ function ObserverPage() {
 }
 
 function useObserverDashboard(): ObserverState {
-  const [state, setState] = useState<ObserverState>({
-    data: null,
-    error: null,
-    status: 'loading',
-    updatedAt: null,
-    refreshing: false,
-    refresh: async () => {}
-  })
+  const [state, dispatch] = useReducer(observerStateReducer, initialObserverState)
 
   useEffect(() => {
     let cancelled = false
@@ -303,11 +381,11 @@ function useObserverDashboard(): ObserverState {
 
     const load = async (initial: boolean) => {
       if (stopped) return
-      setState((current) => ({ ...current, refreshing: !initial }))
+      dispatch({ type: 'refreshing', initial })
       try {
         const data = await loadObserverDashboard()
         if (cancelled) return
-        setState({ data, error: null, status: 'success', updatedAt: new Date(), refreshing: false, refresh: async () => { await load(false) } })
+        dispatch({ type: 'success', data, updatedAt: formatEpochTime(Date.now()), refresh: async () => { await load(false) } })
       } catch (error) {
         if (cancelled) return
         const message = error instanceof Error ? error.message : 'Observer dashboard request failed.'
@@ -317,12 +395,7 @@ function useObserverDashboard(): ObserverState {
             window.clearInterval(interval)
           }
         }
-        setState((current) => ({
-          ...current,
-          error: message,
-          status: current.data ? 'success' : 'error',
-          refreshing: false,
-        }))
+        dispatch({ type: 'error', message })
       }
     }
 
@@ -436,6 +509,8 @@ function mergeExpectedState(previous: ExpectedState, next: ExpectedState, preser
     scoreRuns: next.scoreRuns ?? previous.scoreRuns,
     scoreWickets: next.scoreWickets ?? previous.scoreWickets,
     overs: next.overs ?? previous.overs,
+    balls: next.balls ?? previous.balls ?? null,
+    targetRuns: next.targetRuns ?? previous.targetRuns ?? null,
     expectedRunsNow: preserveNulls ? next.expectedRunsNow ?? previous.expectedRunsNow : next.expectedRunsNow,
     expectedWicketsNow: preserveNulls ? next.expectedWicketsNow ?? previous.expectedWicketsNow : next.expectedWicketsNow,
     runsDelta: preserveNulls ? next.runsDelta ?? previous.runsDelta : next.runsDelta,
@@ -502,6 +577,7 @@ function ObserverMetric({ label, value }: { label: string; value: string }) {
 
 function FixtureCard({ fixture }: { fixture: LiveModelFixture }) {
   const inningsStates = fixture.inningsStates ?? toFallbackInningsStates(fixture.expectedState)
+  const scoreboardAction = buildScoreboardAction(fixture, inningsStates)
   return (
     <article className="observer-fixture-card">
       <header>
@@ -511,6 +587,7 @@ function FixtureCard({ fixture }: { fixture: LiveModelFixture }) {
         </div>
         <div className="observer-score-pill">{fixture.fixture.score ?? 'score pending'}</div>
       </header>
+      <ScoreboardActionPanel action={scoreboardAction} />
       <div className="observer-innings-grid">
         <InningsPanel title="First innings" innings={inningsStates.first} />
         <InningsPanel title="Second innings" innings={inningsStates.second} />
@@ -521,6 +598,44 @@ function FixtureCard({ fixture }: { fixture: LiveModelFixture }) {
         <SideProbability side={fixture.away} />
       </div>
     </article>
+  )
+}
+
+function ScoreboardActionPanel({ action }: { action: ScoreboardAction }) {
+  const className = `observer-action-panel ${action.status}`
+  return (
+    <section className={className}>
+      <div className="observer-action-command">
+        <span>{action.status === 'buy' ? 'Scoreboard-side signal' : 'Scoreboard-side desk'}</span>
+        <strong>{action.headline}</strong>
+        <p>{action.subhead}</p>
+      </div>
+      <div className="observer-action-sizing">
+        <span>Suggested bankroll</span>
+        <strong>{action.stakeGuidance}</strong>
+        <small>Display guidance only · no automatic trading change</small>
+      </div>
+      <div className="observer-action-grid">
+        <State label="Window" value={`${formatBallWindow(action.stats.legalBalls)} / 11.0-13.0`} tone={action.status === 'buy' ? 'live' : 'default'} />
+        <State label="Price / cap" value={`${formatPrice(action.price)} / ${formatPrice(action.priceCap)}`} tone={action.status === 'buy' ? 'live' : 'default'} />
+        <State label="Strength" value={action.strength === null ? action.strengthLabel : `${action.strength} · ${action.strengthLabel}`} tone={action.status === 'buy' ? 'live' : 'default'} />
+        <State label="Need / balls" value={formatNeed(action.stats.runsNeeded, action.stats.ballsLeft)} />
+        <State label="CRR" value={formatRate(action.stats.crr)} />
+        <State label="RRR" value={formatRate(action.stats.rrr)} />
+        <State label="Wickets" value={action.stats.wicketsLost === null ? '—' : `${action.stats.wicketsLost} down`} />
+        <State label="Target" value={action.stats.target === null ? '—' : action.stats.target.toString()} />
+      </div>
+      <div className="observer-action-notes">
+        <div>
+          <span>Why</span>
+          <ul>{action.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+        </div>
+        <div>
+          <span>Blockers</span>
+          <ul>{action.blockers.length === 0 ? <li>None: rule gate is clear.</li> : action.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -576,7 +691,7 @@ function HistoryCard({ entry }: { entry: LiveModelHistoryEntry }) {
         <LegacySnapshotPanel snapshot={snapshot} />
       ) : null}
       <div className="observer-history-grid">
-        <State label="Last tracked" value={snapshot ? new Date(snapshot.createdAt).toLocaleString() : '—'} />
+        <State label="Last tracked" value={formatTimestamp(snapshot?.createdAt)} />
         <State label="Signals" value={entry.signalCount.toString()} />
       </div>
       <VenueContextPanel venueContext={entry.venueContext} compact />
@@ -590,7 +705,7 @@ function LegacySnapshotPanel({ snapshot }: { snapshot: LiveModelSnapshot }) {
       <header>
         <div>
           <span>Legacy tracked state</span>
-          <strong>{new Date(snapshot.createdAt).toLocaleString()}</strong>
+          <strong>{formatTimestamp(snapshot.createdAt)}</strong>
         </div>
         <small>innings unavailable in older snapshot</small>
       </header>
@@ -625,7 +740,7 @@ function SnapshotInningsPanel({ title, snapshot, fallbackState }: { title: strin
       <header>
         <div>
           <span>{title}</span>
-          <strong>{new Date(snapshot.createdAt).toLocaleString()}</strong>
+          <strong>{formatTimestamp(snapshot.createdAt)}</strong>
         </div>
         <small>{snapshot.battingTeam ?? 'batting team unavailable'}</small>
       </header>
@@ -725,6 +840,8 @@ function toFallbackInningsStates(state: ExpectedState): InningsStates {
     scoreRuns: null,
     scoreWickets: null,
     overs: null,
+    balls: null,
+    targetRuns: null,
     expectedRunsNow: null,
     expectedWicketsNow: null,
     runsDelta: null,
@@ -738,6 +855,276 @@ function toFallbackInningsStates(state: ExpectedState): InningsStates {
   return { activeInnings: state.innings, first: state.innings === 1 ? fallback : blank(1), second: state.innings === 2 ? fallback : blank(2) }
 }
 
+function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates): ScoreboardAction {
+  const second = states.second
+  const first = states.first
+  const legalBalls = getLegalBalls(second)
+  const scoreRuns = second.scoreRuns
+  const wicketsLost = second.scoreWickets
+  const target = second.targetRuns ?? (first.scoreRuns === null ? null : first.scoreRuns + 1)
+  const runsNeeded = target !== null && scoreRuns !== null ? Math.max(0, target - scoreRuns) : null
+  const ballsLeft = legalBalls === null ? null : Math.max(0, T20_MAX_LEGAL_BALLS - legalBalls)
+  const crr = scoreRuns !== null && legalBalls !== null && legalBalls > 0 ? (scoreRuns * 6) / legalBalls : null
+  const rrr = runsNeeded !== null && ballsLeft !== null && ballsLeft > 0 ? (runsNeeded * 6) / ballsLeft : null
+  const chaser = second.battingTeam
+  const defender = second.bowlingTeam
+  const chaserPrice = getTeamPrice(fixture, chaser)
+  const defenderPrice = getTeamPrice(fixture, defender)
+  const stats = {
+    legalBalls,
+    overs: legalBalls === null ? '—' : formatLegalBalls(legalBalls),
+    crr,
+    rrr,
+    runsNeeded,
+    ballsLeft,
+    wicketsLost,
+    target,
+  }
+
+  const reducedMatchReason = getReducedMatchReason(fixture, states)
+  if (reducedMatchReason) {
+    return makeScoreboardAction({
+      status: 'no-trade',
+      role: null,
+      team: null,
+      headline: 'NO TRADE',
+      subhead: reducedMatchReason,
+      price: null,
+      strength: null,
+      reasons: ['Scoreboard-side entries are disabled when rain, DLS, revised targets, or shortened innings can change the normal 20-over chase geometry.'],
+      blockers: ['Reduced or weather-affected match. Do not enter from this strategy card.'],
+      stats,
+    })
+  }
+
+  const settledMarketReason = getSettledMarketReason(fixture)
+  if (settledMarketReason) {
+    return makeScoreboardAction({
+      status: 'no-trade',
+      role: null,
+      team: null,
+      headline: 'NO TRADE',
+      subhead: settledMarketReason,
+      price: null,
+      strength: null,
+      reasons: ['The market is at a terminal-looking extreme, so the observer should not turn a dead price into a BUY instruction.'],
+      blockers: ['Market appears settled or effectively closed.'],
+      stats,
+    })
+  }
+
+  const dataBlockers = [
+    legalBalls === null ? 'Need legal balls completed in the chase.' : null,
+    scoreRuns === null ? 'Need chasing score.' : null,
+    wicketsLost === null ? 'Need wickets lost.' : null,
+    target === null ? 'Need first-innings target.' : null,
+    chaser === null ? 'Need chasing team.' : null,
+    defender === null ? 'Need defending team.' : null,
+  ].filter((blocker): blocker is string => blocker !== null)
+
+  if (dataBlockers.length > 0) {
+    return makeScoreboardAction({
+      status: 'unavailable',
+      role: null,
+      team: null,
+      headline: 'DATA NEEDED',
+      subhead: 'Cannot produce a trading instruction until score, target, wickets, and teams are available.',
+      price: null,
+      strength: null,
+      reasons: ['Rule waits for the 11.0-13.0 chase window with complete live scoreboard context.'],
+      blockers: dataBlockers,
+      stats,
+    })
+  }
+
+  if (
+    legalBalls === null ||
+    scoreRuns === null ||
+    wicketsLost === null ||
+    target === null ||
+    runsNeeded === null ||
+    ballsLeft === null ||
+    chaser === null ||
+    defender === null
+  ) {
+    return makeScoreboardAction({
+      status: 'unavailable',
+      role: null,
+      team: null,
+      headline: 'DATA NEEDED',
+      subhead: 'Cannot safely narrow the live scoreboard fields for the strategy card yet.',
+      price: null,
+      strength: null,
+      reasons: ['Waiting for complete chase rate, wicket, team, and price fields.'],
+      blockers: ['Live payload is missing one or more required scoreboard-side fields.'],
+      stats,
+    })
+  }
+
+  const terminalReason = terminalChaseReason({ scoreRuns, target, runsNeeded, wicketsLost, legalBalls, ballsLeft })
+  if (terminalReason) {
+    return makeScoreboardAction({
+      status: 'no-trade',
+      role: null,
+      team: null,
+      headline: 'NO TRADE',
+      subhead: terminalReason,
+      price: null,
+      strength: null,
+      reasons: ['The chase is already terminal, so this display-only strategy card must not create a fresh entry instruction.'],
+      blockers: ['Terminal chase state. Hold existing positions only; do not enter from this rule.'],
+      stats,
+    })
+  }
+
+  if (legalBalls < SCOREBOARD_START_BALL) {
+    return makeScoreboardAction({
+      status: 'wait',
+      role: null,
+      team: null,
+      headline: 'WAIT — NOT 11.0 YET',
+      subhead: `Start scanning at 11.0 overs. Current chase: ${formatLegalBalls(legalBalls)} overs.`,
+      price: null,
+      strength: null,
+      reasons: ['Strategy only watches legal balls 66 through 78 in the chase.'],
+      blockers: [`${SCOREBOARD_START_BALL - legalBalls} legal balls until the scan window opens.`],
+      stats,
+    })
+  }
+
+  if (legalBalls > SCOREBOARD_END_BALL) {
+    return makeScoreboardAction({
+      status: 'no-trade',
+      role: null,
+      team: null,
+      headline: 'NO TRADE',
+      subhead: `The 13.0-over scan window has closed at ${formatLegalBalls(legalBalls)} overs.`,
+      price: null,
+      strength: null,
+      reasons: ['No first usable scoreboard-side entry is shown after 13.0 overs.'],
+      blockers: ['Window closed. Do not chase a late entry from this strategy card.'],
+      stats,
+    })
+  }
+
+  if (crr === null || rrr === null) {
+    return makeScoreboardAction({
+      status: 'unavailable',
+      role: null,
+      team: null,
+      headline: 'RATE DATA NEEDED',
+      subhead: 'Cannot calculate CRR and RRR for the active scan window yet.',
+      price: null,
+      strength: null,
+      reasons: ['Scoreboard-side rules require both current run rate and required run rate.'],
+      blockers: ['Live payload is missing enough ball context to calculate rates.'],
+      stats,
+    })
+  }
+
+  const priceBlockers = [
+    chaserPrice === null ? 'Need chaser Polymarket price.' : null,
+    defenderPrice === null ? 'Need defender Polymarket price.' : null,
+  ].filter((blocker): blocker is string => blocker !== null)
+
+  if (priceBlockers.length > 0 || chaserPrice === null || defenderPrice === null) {
+    return makeScoreboardAction({
+      status: 'unavailable',
+      role: null,
+      team: null,
+      headline: 'PRICE DATA NEEDED',
+      subhead: 'Inside the 11.0-13.0 scan window, but PM prices are required before showing BUY or WAIT FOR PRICE.',
+      price: null,
+      strength: null,
+      reasons: ['Scoreboard-side entries require the supported side to be at or below the 95¢ cap.'],
+      blockers: priceBlockers,
+      stats,
+    })
+  }
+
+  const chasingRateOk = rrr <= 11
+  const chasingWicketsOk = wicketsLost <= 3
+  const chasingCrrOk = crr >= rrr
+  const defendingCrrOk = crr < rrr
+  const defendingRrrOk = rrr >= 12
+  const defendingWicketsOk = wicketsLost >= 4
+  const defendingPressureOk = wicketsLost >= 5 || rrr >= 13
+  const chasingScoreboardOk = chasingRateOk && chasingWicketsOk && chasingCrrOk
+  const defendingScoreboardOk = defendingCrrOk && defendingRrrOk && defendingWicketsOk && defendingPressureOk
+
+  if (chasingScoreboardOk) {
+    const strength = calculateChasingStrength(crr, rrr, wicketsLost, chaserPrice)
+    const priceOk = chaserPrice <= SCOREBOARD_PRICE_CAP
+    return makeScoreboardAction({
+      status: priceOk ? 'buy' : 'wait',
+      role: 'chaser',
+      team: chaser,
+      headline: priceOk ? `BUY CHASER — ${chaser}` : `WAIT FOR CHASER PRICE — ${chaser}`,
+      subhead: priceOk ? 'Scoreboard supports the chase and price is inside the 95¢ cap.' : 'Scoreboard supports the chase, but price is too expensive for this rule.',
+      price: chaserPrice,
+      strength,
+      reasons: [
+        `RRR ${formatRate(rrr)} is at or below 11.0.`,
+        `${wicketsLost} wickets lost is within the ≤3 wicket gate.`,
+        `CRR ${formatRate(crr)} is at or above RRR ${formatRate(rrr)}.`,
+      ],
+      blockers: priceOk ? [] : [`Chaser price ${formatPrice(chaserPrice)} is above the ${formatPrice(SCOREBOARD_PRICE_CAP)} cap.`],
+      stats,
+    })
+  }
+
+  if (defendingScoreboardOk) {
+    const strength = calculateDefendingStrength(crr, rrr, wicketsLost, defenderPrice)
+    const priceOk = defenderPrice <= SCOREBOARD_PRICE_CAP
+    return makeScoreboardAction({
+      status: priceOk ? 'buy' : 'wait',
+      role: 'defender',
+      team: defender,
+      headline: priceOk ? `BUY DEFENDER — ${defender}` : `WAIT FOR DEFENDER PRICE — ${defender}`,
+      subhead: priceOk ? 'Scoreboard says the chase is under pressure and defender price is inside the 95¢ cap.' : 'Scoreboard supports the defender, but price is too expensive for this rule.',
+      price: defenderPrice,
+      strength,
+      reasons: [
+        `CRR ${formatRate(crr)} is below RRR ${formatRate(rrr)}.`,
+        `RRR ${formatRate(rrr)} is at or above 12.0.`,
+        `${wicketsLost} wickets lost with ${wicketsLost >= 5 ? 'five-plus wickets down' : 'RRR at least 13.0'} pressure confirmation.`,
+      ],
+      blockers: priceOk ? [] : [`Defender price ${formatPrice(defenderPrice)} is above the ${formatPrice(SCOREBOARD_PRICE_CAP)} cap.`],
+      stats,
+    })
+  }
+
+  return makeScoreboardAction({
+    status: 'wait',
+    role: null,
+    team: null,
+    headline: 'DON’T BUY YET',
+    subhead: 'Inside the scan window, but neither scoreboard-side entry rule is complete.',
+    price: null,
+    strength: null,
+    reasons: ['Continue watching each legal ball and odds update until 13.0 overs.'],
+    blockers: [
+      chasingRateOk ? null : `Chaser gate blocked: RRR ${formatRate(rrr)} must be ≤ 11.0.`,
+      chasingWicketsOk ? null : `Chaser gate blocked: wickets ${wicketsLost} must be ≤ 3.`,
+      chasingCrrOk ? null : `Chaser gate blocked: CRR ${formatRate(crr)} must be ≥ RRR ${formatRate(rrr)}.`,
+      defendingCrrOk ? null : `Defender gate blocked: CRR ${formatRate(crr)} must be below RRR ${formatRate(rrr)}.`,
+      defendingRrrOk ? null : `Defender gate blocked: RRR ${formatRate(rrr)} must be ≥ 12.0.`,
+      defendingWicketsOk ? null : `Defender gate blocked: wickets ${wicketsLost} must be ≥ 4.`,
+      defendingPressureOk ? null : 'Defender gate blocked: need 5+ wickets down or RRR ≥ 13.0.',
+    ].filter((blocker): blocker is string => blocker !== null),
+    stats,
+  })
+}
+
+function makeScoreboardAction(input: Omit<ScoreboardAction, 'priceCap' | 'strengthLabel' | 'stakeGuidance'>): ScoreboardAction {
+  return {
+    ...input,
+    priceCap: SCOREBOARD_PRICE_CAP,
+    strengthLabel: strengthLabel(input.strength),
+    stakeGuidance: stakeGuidance(input.status, input.price),
+  }
+}
+
 function formatInningsStatus(status: InningsExpectedState['status']): string {
   switch (status) {
     case 'live': return 'live'
@@ -745,6 +1132,152 @@ function formatInningsStatus(status: InningsExpectedState['status']): string {
     case 'pending': return 'pending'
     case 'unavailable': return 'not started'
   }
+}
+
+function getLegalBalls(state: ExpectedState): number | null {
+  if (state.balls !== null && state.balls !== undefined) return state.balls
+  return state.overs === null ? null : oversToLegalBalls(state.overs)
+}
+
+function oversToLegalBalls(overs: number): number {
+  const completedOvers = Math.floor(overs)
+  const balls = Math.round((overs - completedOvers) * 10)
+  return completedOvers * 6 + Math.max(0, Math.min(5, balls))
+}
+
+function getTeamPrice(fixture: LiveModelFixture, team: string | null): number | null {
+  if (!team) return null
+  const normalizedTeam = normalizeTeamName(team)
+  const side = [fixture.home, fixture.away].find((candidate) => normalizeTeamName(candidate.team) === normalizedTeam)
+  return side?.marketProbability ?? null
+}
+
+function normalizeTeamName(team: string): string {
+  const cleaned = team.trim().replace(/\s+/g, ' ')
+  const aliasTarget = TEAM_ALIAS_MAP[cleaned] ?? Object.entries(TEAM_ALIAS_MAP).find(([alias]) => alias.toLowerCase() === cleaned.toLowerCase())?.[1]
+  return (aliasTarget ?? cleaned).toLowerCase().replace(/[^a-z0-9]+/g, '').trim()
+}
+
+function terminalChaseReason(state: {
+  scoreRuns: number
+  target: number
+  runsNeeded: number
+  wicketsLost: number
+  legalBalls: number
+  ballsLeft: number
+}): string | null {
+  if (state.scoreRuns >= state.target || state.runsNeeded <= 0) {
+    return `Chase complete: target ${state.target} has already been reached.`
+  }
+  if (state.wicketsLost >= 10) {
+    return 'Chase complete: batting side is all out.'
+  }
+  if (state.legalBalls >= T20_MAX_LEGAL_BALLS || state.ballsLeft <= 0) {
+    return 'Chase complete: no legal balls remain.'
+  }
+  return null
+}
+
+function getReducedMatchReason(fixture: LiveModelFixture, states: InningsStates): string | null {
+  const statusText = [fixture.fixture.status, fixture.fixture.period, fixture.fixture.score]
+    .filter((value): value is string => Boolean(value))
+    .join(' ')
+    .toLowerCase()
+  const weatherAffectedTokens = ['reduced', 'shortened', 'rain', 'dls', 'd/l', 'duckworth', 'revised target', 'revised', 'abandoned', 'no result']
+  const token = weatherAffectedTokens.find((candidate) => statusText.includes(candidate))
+  if (token) {
+    return `Reduced or weather-affected match detected from fixture text (${token}).`
+  }
+
+  const first = states.first
+  const second = states.second
+  const firstInningsComplete = first.status === 'frozen' || states.activeInnings === 2 || second.status === 'live' || second.status === 'frozen'
+  const targetMismatch = second.targetRuns !== null && first.scoreRuns !== null && second.targetRuns !== first.scoreRuns + 1
+  if (firstInningsComplete && targetMismatch) {
+    return `Revised target detected: chase target ${second.targetRuns} does not match first innings ${first.scoreRuns} + 1.`
+  }
+
+  const firstBalls = first.balls ?? null
+  const firstInningsShortByBalls = firstBalls !== null && firstBalls < T20_MAX_LEGAL_BALLS
+  const firstInningsShortByOvers = firstBalls === null && first.overs !== null && first.overs < 19.5
+  const firstInningsAllOut = first.scoreWickets !== null && first.scoreWickets >= 10
+  if (firstInningsComplete && !firstInningsAllOut && (firstInningsShortByBalls || firstInningsShortByOvers)) {
+    return 'First innings ended before the normal 20-over allocation without being all out.'
+  }
+
+  return null
+}
+
+function getSettledMarketReason(fixture: LiveModelFixture): string | null {
+  const pricedSides = [fixture.home, fixture.away].filter((side): side is LiveModelSide & { marketProbability: number } => side.marketProbability !== null)
+  const deadSide = pricedSides.find((side) => side.marketProbability <= SETTLED_MARKET_LOW_PRICE)
+  if (deadSide) {
+    return `Market appears settled or dead: ${deadSide.team} is priced at ${formatPrice(deadSide.marketProbability)}.`
+  }
+
+  const lockedSide = pricedSides.find((side) => side.marketProbability >= SETTLED_MARKET_HIGH_PRICE)
+  if (lockedSide) {
+    return `Market appears settled or locked: ${lockedSide.team} is priced at ${formatPrice(lockedSide.marketProbability)}.`
+  }
+
+  return null
+}
+
+function calculateChasingStrength(crr: number, rrr: number, wicketsLost: number, price: number): number {
+  const rateEdge = crr - rrr
+  const wicketEdge = 3 - wicketsLost
+  const rrrCushion = 11 - rrr
+  const priceBonus = Math.max(0, SCOREBOARD_PRICE_CAP - price) * 20
+  return clamp(Math.round(50 + 7 * rateEdge + 6 * wicketEdge + 3 * rrrCushion + priceBonus), 0, 100)
+}
+
+function calculateDefendingStrength(crr: number, rrr: number, wicketsLost: number, price: number): number {
+  const rateEdge = rrr - crr
+  const wicketEdge = wicketsLost - 4
+  const rrrPressure = rrr - 12
+  const priceBonus = Math.max(0, SCOREBOARD_PRICE_CAP - price) * 20
+  return clamp(Math.round(50 + 7 * rateEdge + 6 * wicketEdge + 3 * rrrPressure + priceBonus), 0, 100)
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function strengthLabel(strength: number | null): string {
+  if (strength === null) return 'Not scored'
+  if (strength >= 85) return 'Very strong'
+  if (strength >= 70) return 'Strong'
+  if (strength >= 60) return 'Acceptable'
+  return 'Weak'
+}
+
+function stakeGuidance(status: ScoreboardActionStatus, price: number | null): string {
+  if (status !== 'buy' || price === null) return '0% — do not enter'
+  if (price <= 0.85) return '20-30% bankroll'
+  if (price <= 0.9) return '15-20% bankroll'
+  if (price <= SCOREBOARD_PRICE_CAP) return '5-10% bankroll'
+  return '0% — price above cap'
+}
+
+function formatBallWindow(legalBalls: number | null): string {
+  return legalBalls === null ? '—' : `${formatLegalBalls(legalBalls)} ov`
+}
+
+function formatLegalBalls(legalBalls: number): string {
+  return `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`
+}
+
+function formatRate(value: number | null): string {
+  return value === null ? '—' : value.toFixed(2)
+}
+
+function formatPrice(value: number | null): string {
+  return value === null ? '—' : `${Math.round(value * 100)}¢`
+}
+
+function formatNeed(runsNeeded: number | null, ballsLeft: number | null): string {
+  if (runsNeeded === null || ballsLeft === null) return '—'
+  return `${runsNeeded} off ${ballsLeft}`
 }
 
 function formatProbability(value: number | null | undefined): string {
@@ -783,6 +1316,28 @@ function formatRuns(value: number | null): string {
   return value === null ? '—' : `${Math.round(value)} runs`
 }
 
+function formatEpochTime(timestampMs: number): string {
+  const totalMinutes = Math.floor(timestampMs / 60_000)
+  const hours = Math.floor(totalMinutes / 60) % 24
+  const minutes = totalMinutes % 60
+  return `${padTimePart(hours)}:${padTimePart(minutes)} UTC`
+}
+
+function padTimePart(value: number): string {
+  return value.toString().padStart(2, '0')
+}
+
+function formatTimestamp(value: string | null | undefined, mode: 'dateTime' | 'time' = 'dateTime'): string {
+  if (!value) return mode === 'time' ? 'Never' : '—'
+  const trimmed = value.trim()
+  const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(trimmed)
+  if (!match) return trimmed
+  const [, year, month, day, hour, minute] = match
+  if (!year || !month || !day || !hour || !minute) return trimmed
+  const suffix = trimmed.endsWith('Z') ? ' UTC' : ''
+  return mode === 'time' ? `${hour}:${minute}${suffix}` : `${year}-${month}-${day} ${hour}:${minute}${suffix}`
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -792,37 +1347,38 @@ function isFatalObserverConfigurationError(message: string): boolean {
 }
 
 export function TradingSafetyPanel({ tradingStatus, refresh }: { tradingStatus: TradingStatusData | null, refresh: () => void }) {
-  const [toggling, setToggling] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [toggling, setToggling] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   if (!tradingStatus) {
-    return <div className="observer-metric-card"><span>Trading Safety</span><strong>Loading...</strong></div>;
+    return <div className="observer-metric-card"><span>Trading Safety</span><strong>Loading…</strong></div>
   }
 
-  const { mode, liveEligibility, runtimeFlag, recipeValidation, exposureSummary, reconciliationStatus, latestIntents, latestEvents } = tradingStatus;
+  const { mode, liveEligibility, runtimeFlag, recipeValidation, exposureSummary, reconciliationStatus, latestIntents, latestEvents } = tradingStatus
 
   const toggleFlag = async () => {
-    setToggling(true);
-    setError(null);
+    setToggling(true)
+    setError(null)
     try {
       const res = await fetch('/api/observer/trading/controls/live', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: !runtimeFlag.enabled, reason: 'Operator dashboard toggle' })
-      });
+      })
       if (!res.ok) {
-        throw new Error('Toggle failed');
+        throw new Error('Toggle failed')
       }
-      refresh();
+      refresh()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setToggling(false);
+      setToggling(false)
     }
-  };
+  }
 
-  const isLive = mode === 'live';
-  const isBlocked = mode === 'blocked';
+  const isLive = mode === 'live'
+  const isBlocked = mode === 'blocked'
+  const toggleClassName = `trading-toggle-button ${runtimeFlag.enabled ? 'enabled' : 'disabled'}${toggling ? ' is-toggling' : ''}`
 
   return (
     <section className="trading-safety-panel">
@@ -833,7 +1389,7 @@ export function TradingSafetyPanel({ tradingStatus, refresh }: { tradingStatus: 
       
       {error && <div className="observer-error-strip">{error}</div>}
 
-      <div className="observer-metric-grid" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+      <div className="observer-metric-grid trading-safety-metric-grid">
         <article className={`observer-metric-card ${isLive ? 'is-live' : ''}`}>
           <span>Trading Mode</span>
           <strong>{mode}</strong>
@@ -848,23 +1404,14 @@ export function TradingSafetyPanel({ tradingStatus, refresh }: { tradingStatus: 
         
         <article className="observer-metric-card">
           <span>DB Runtime Flag</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+          <div className="trading-flag-control">
             <strong>{runtimeFlag.enabled ? 'ENABLED' : 'DISABLED'}</strong>
             <button 
               onClick={toggleFlag} 
               disabled={toggling}
-              style={{
-                background: runtimeFlag.enabled ? 'var(--color-danger)' : 'var(--color-success)',
-                color: 'white',
-                border: 'none',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                cursor: toggling ? 'wait' : 'pointer',
-                fontWeight: 'bold',
-                fontSize: '0.8rem'
-              }}
+              className={toggleClassName}
             >
-              {toggling ? '...' : runtimeFlag.enabled ? 'DISABLE' : 'ENABLE'}
+              {toggling ? '…' : runtimeFlag.enabled ? 'DISABLE' : 'ENABLE'}
             </button>
           </div>
         </article>
@@ -884,20 +1431,20 @@ export function TradingSafetyPanel({ tradingStatus, refresh }: { tradingStatus: 
         <article className="observer-metric-card">
           <span>Reconciliation</span>
           <strong>{reconciliationStatus.present ? 'ACTIVE' : 'INACTIVE'}</strong>
-          <small>{reconciliationStatus.lastReconciledAt ? new Date(reconciliationStatus.lastReconciledAt).toLocaleTimeString() : 'Never'}</small>
+          <small>{formatTimestamp(reconciliationStatus.lastReconciledAt, 'time')}</small>
         </article>
       </div>
 
       {liveEligibility.blockerReasons?.length > 0 && (
-        <div style={{ background: 'var(--color-danger-muted, #fee2e2)', borderLeft: '4px solid var(--color-danger, #ef4444)', padding: '1rem', marginBottom: '1rem' }}>
-          <strong style={{ color: 'var(--color-danger, #b91c1c)' }}>Blockers ({liveEligibility.blockerReasons.length}):</strong>
-          <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.5rem', color: 'var(--color-danger, #b91c1c)' }}>
-            {liveEligibility.blockerReasons.map((reason: string, i: number) => <li key={reason}>{reason}</li>)}
+        <div className="trading-blockers">
+          <strong>Blockers ({liveEligibility.blockerReasons.length}):</strong>
+          <ul>
+            {liveEligibility.blockerReasons.map((reason: string) => <li key={reason}>{reason}</li>)}
           </ul>
         </div>
       )}
       
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+      <div className="trading-safety-details-grid">
         <div className="observer-history-card">
           <header>
             <div>
@@ -906,14 +1453,14 @@ export function TradingSafetyPanel({ tradingStatus, refresh }: { tradingStatus: 
             <div className="observer-history-score">{latestIntents?.length ?? 0} intents</div>
           </header>
           <div className="observer-state-grid">
-             {latestIntents?.slice(0, 3).map((intent: TradingStatusData["latestIntents"][0]) => (
-                <div key={intent.id} className="observer-state-card" style={{gridColumn: '1 / -1'}}>
-                   <span>{intent.intentKey}</span>
-                   <strong>{intent.status}</strong>
-                   <small>{intent.side} - {new Date(intent.createdAt).toLocaleTimeString()}</small>
-                </div>
-             ))}
-             {!latestIntents?.length && <p className="observer-muted" style={{gridColumn: '1 / -1'}}>No intents</p>}
+              {latestIntents?.slice(0, 3).map((intent: TradingStatusData["latestIntents"][0]) => (
+                <div key={intent.id} className="observer-state-card observer-state-card-full">
+                    <span>{intent.intentKey}</span>
+                    <strong>{intent.status}</strong>
+                    <small>{intent.side} · {formatTimestamp(intent.createdAt, 'time')}</small>
+                 </div>
+              ))}
+              {!latestIntents?.length && <p className="observer-muted observer-state-card-full">No intents</p>}
           </div>
         </div>
         
@@ -925,17 +1472,17 @@ export function TradingSafetyPanel({ tradingStatus, refresh }: { tradingStatus: 
             <div className="observer-history-score">{latestEvents?.length ?? 0} events</div>
           </header>
           <div className="observer-state-grid">
-             {latestEvents?.slice(0, 3).map((ev: TradingStatusData["latestEvents"][0]) => (
-                <div key={ev.id} className="observer-state-card" style={{gridColumn: '1 / -1'}}>
-                   <span>Intent #{ev.intentId}</span>
-                   <strong>{ev.eventType}</strong>
-                   <small>{new Date(ev.eventTime).toLocaleTimeString()}</small>
-                </div>
-             ))}
-             {!latestEvents?.length && <p className="observer-muted" style={{gridColumn: '1 / -1'}}>No events</p>}
+              {latestEvents?.slice(0, 3).map((ev: TradingStatusData["latestEvents"][0]) => (
+                <div key={ev.id} className="observer-state-card observer-state-card-full">
+                    <span>Intent #{ev.intentId}</span>
+                    <strong>{ev.eventType}</strong>
+                    <small>{formatTimestamp(ev.eventTime, 'time')}</small>
+                 </div>
+              ))}
+              {!latestEvents?.length && <p className="observer-muted observer-state-card-full">No events</p>}
           </div>
         </div>
       </div>
     </section>
-  );
+  )
 }
