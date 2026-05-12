@@ -126,7 +126,67 @@ type LiveModelHistoryEntry = {
   signalCount: number
 }
 
+
+type TradingStatusData = {
+  status: 'ok'
+  generatedAt: string
+  mode: 'live' | 'dry-run' | 'blocked'
+  liveReady: boolean
+  liveEligibility: {
+    mode: 'live' | 'dry-run' | 'blocked'
+    liveReady: boolean
+    liveEnvGateEnabled: boolean
+    runtimeDbFlagEnabled: boolean
+    polymarketCredentialsPresent: {
+      privateKey: boolean
+      builderCode: boolean
+      allPresent: boolean
+    }
+    blockerReasons: string[]
+  }
+  runtimeFlag: {
+    flagKey: string
+    enabled: boolean
+    present: boolean
+    reason: string | null
+    updatedBy: string | null
+    details: Record<string, unknown> | null
+    createdAt: string | null
+    updatedAt: string | null
+  }
+  recipeValidation: {
+    status: 'valid' | 'invalid' | 'missing'
+    recipeKey?: string | null
+    errors?: string[]
+    [key: string]: unknown
+  }
+  latestIntents: { id: number; intentKey: string; status: string; side: string; createdAt: string; [key: string]: unknown }[]
+  latestEvents: { id: number; intentId: number; eventType: string; eventTime: string; [key: string]: unknown }[]
+  exposureSummary: {
+    ledgerEntryCount: number
+    daySubmittedNotionalUsd: number
+    dayPendingOrdersUsd: number
+    totalOpenExposureUsd: number
+    totalFilledExposureUsd: number
+    byFixture: {
+      fixtureId: string
+      openExposureUsd: number
+      filledExposureUsd: number
+      pendingOrdersUsd: number
+    }[]
+  }
+  reconciliationStatus: {
+    checkpointKey: string
+    present: boolean
+    lastCursorPresent: boolean
+    lastReconciledAt: string | null
+    details: Record<string, unknown> | null
+    updatedAt: string | null
+  }
+}
+
 type DashboardData = {
+  tradingStatus: TradingStatusData | null
   ready: Record<string, unknown>
   fixtures: LiveModelFixture[]
   signals: LiveModelSignal[]
@@ -134,6 +194,7 @@ type DashboardData = {
 }
 
 type ObserverState = {
+  refresh: () => Promise<void>
   data: DashboardData | null
   error: string | null
   status: 'loading' | 'success' | 'error'
@@ -190,6 +251,7 @@ function ObserverPage() {
       </section>
 
       <section className="observer-content-grid">
+        {data?.tradingStatus && <TradingSafetyPanel tradingStatus={data.tradingStatus} refresh={state.refresh} />}
         <div className="observer-fixture-stack">
           <SectionHeading label="Live model board" value={`${fixtures.length} fixtures`} />
           {fixtures.length === 0 ? <ObserverEmptyState /> : fixtures.map((fixture) => <FixtureCard key={fixture.fixture.id} fixture={fixture} />)}
@@ -231,6 +293,7 @@ function useObserverDashboard(): ObserverState {
     status: 'loading',
     updatedAt: null,
     refreshing: false,
+    refresh: async () => {}
   })
 
   useEffect(() => {
@@ -244,7 +307,7 @@ function useObserverDashboard(): ObserverState {
       try {
         const data = await loadObserverDashboard()
         if (cancelled) return
-        setState({ data, error: null, status: 'success', updatedAt: new Date(), refreshing: false })
+        setState({ data, error: null, status: 'success', updatedAt: new Date(), refreshing: false, refresh: async () => { await load(false) } })
       } catch (error) {
         if (cancelled) return
         const message = error instanceof Error ? error.message : 'Observer dashboard request failed.'
@@ -278,11 +341,12 @@ function useObserverDashboard(): ObserverState {
 }
 
 async function loadObserverDashboard(): Promise<DashboardData> {
-  const responses = await Promise.all([
+    const responses = await Promise.all([
     fetch('/api/observer/ready'),
     fetch('/api/observer/live-model'),
     fetch('/api/observer/live-model/signals?limit=8'),
     fetch('/api/observer/live-model/history?limit=12'),
+    fetch('/api/observer/trading/status'),
   ])
 
   const failed = responses.find((response) => !response.ok)
@@ -290,11 +354,12 @@ async function loadObserverDashboard(): Promise<DashboardData> {
     throw new Error(await responseMessage(failed))
   }
 
-  const [ready, fixtures, signals, history] = await Promise.all([
+    const [ready, fixtures, signals, history, tradingStatusResponse] = await Promise.all([
     responses[0].json() as Promise<Record<string, unknown>>,
     responses[1].json() as Promise<LiveModelFixture[]>,
     responses[2].json() as Promise<LiveModelSignal[]>,
     responses[3].json() as Promise<LiveModelHistoryEntry[]>,
+    (responses[4].json().catch(() => null)) as Promise<TradingStatusData | null>,
   ])
 
   const dashboard = mergeWithStableDashboardData({
@@ -302,6 +367,7 @@ async function loadObserverDashboard(): Promise<DashboardData> {
     fixtures,
     signals,
     history,
+    tradingStatus: tradingStatusResponse,
   })
   lastStableDashboardData = dashboard
   return dashboard
@@ -723,4 +789,153 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isFatalObserverConfigurationError(message: string): boolean {
   return message.includes('IPL_TRADER_API_ORIGIN must be set')
+}
+
+export function TradingSafetyPanel({ tradingStatus, refresh }: { tradingStatus: TradingStatusData | null, refresh: () => void }) {
+  const [toggling, setToggling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!tradingStatus) {
+    return <div className="observer-metric-card"><span>Trading Safety</span><strong>Loading...</strong></div>;
+  }
+
+  const { mode, liveEligibility, runtimeFlag, recipeValidation, exposureSummary, reconciliationStatus, latestIntents, latestEvents } = tradingStatus;
+
+  const toggleFlag = async () => {
+    setToggling(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/observer/trading/controls/live', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !runtimeFlag.enabled, reason: 'Operator dashboard toggle' })
+      });
+      if (!res.ok) {
+        throw new Error('Toggle failed');
+      }
+      refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const isLive = mode === 'live';
+  const isBlocked = mode === 'blocked';
+
+  return (
+    <section className="trading-safety-panel">
+      <div className="observer-section-heading">
+        <span>Trading Safety Console</span>
+        <strong>{mode.toUpperCase()}</strong>
+      </div>
+      
+      {error && <div className="observer-error-strip">{error}</div>}
+
+      <div className="observer-metric-grid" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+        <article className={`observer-metric-card ${isLive ? 'is-live' : ''}`}>
+          <span>Trading Mode</span>
+          <strong>{mode}</strong>
+          <small>{isBlocked ? 'Blocked' : (isLive ? 'Active' : 'Dry Run')}</small>
+        </article>
+        
+        <article className="observer-metric-card">
+          <span>Env Gate / Creds</span>
+          <strong>{liveEligibility.liveEnvGateEnabled ? 'OPEN' : 'CLOSED'}</strong>
+          <small>Creds: {liveEligibility.polymarketCredentialsPresent.allPresent ? 'OK' : 'MISSING'}</small>
+        </article>
+        
+        <article className="observer-metric-card">
+          <span>DB Runtime Flag</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+            <strong>{runtimeFlag.enabled ? 'ENABLED' : 'DISABLED'}</strong>
+            <button 
+              onClick={toggleFlag} 
+              disabled={toggling}
+              style={{
+                background: runtimeFlag.enabled ? 'var(--color-danger)' : 'var(--color-success)',
+                color: 'white',
+                border: 'none',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                cursor: toggling ? 'wait' : 'pointer',
+                fontWeight: 'bold',
+                fontSize: '0.8rem'
+              }}
+            >
+              {toggling ? '...' : runtimeFlag.enabled ? 'DISABLE' : 'ENABLE'}
+            </button>
+          </div>
+        </article>
+        
+        <article className="observer-metric-card">
+          <span>Recipe & Caps</span>
+          <strong>{recipeValidation.status.toUpperCase()}</strong>
+          <small>Valid: {recipeValidation.status === 'valid' ? 'Yes' : 'No'}</small>
+        </article>
+        
+        <article className="observer-metric-card">
+          <span>Exposure / Risk</span>
+          <strong>${exposureSummary?.totalOpenExposureUsd ?? 0} OPEN</strong>
+          <small>Limit checks active</small>
+        </article>
+        
+        <article className="observer-metric-card">
+          <span>Reconciliation</span>
+          <strong>{reconciliationStatus.present ? 'ACTIVE' : 'INACTIVE'}</strong>
+          <small>{reconciliationStatus.lastReconciledAt ? new Date(reconciliationStatus.lastReconciledAt).toLocaleTimeString() : 'Never'}</small>
+        </article>
+      </div>
+
+      {liveEligibility.blockerReasons?.length > 0 && (
+        <div style={{ background: 'var(--color-danger-muted, #fee2e2)', borderLeft: '4px solid var(--color-danger, #ef4444)', padding: '1rem', marginBottom: '1rem' }}>
+          <strong style={{ color: 'var(--color-danger, #b91c1c)' }}>Blockers ({liveEligibility.blockerReasons.length}):</strong>
+          <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.5rem', color: 'var(--color-danger, #b91c1c)' }}>
+            {liveEligibility.blockerReasons.map((reason: string, i: number) => <li key={reason}>{reason}</li>)}
+          </ul>
+        </div>
+      )}
+      
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+        <div className="observer-history-card">
+          <header>
+            <div>
+              <h3>Recent Intents</h3>
+            </div>
+            <div className="observer-history-score">{latestIntents?.length ?? 0} intents</div>
+          </header>
+          <div className="observer-state-grid">
+             {latestIntents?.slice(0, 3).map((intent: TradingStatusData["latestIntents"][0]) => (
+                <div key={intent.id} className="observer-state-card" style={{gridColumn: '1 / -1'}}>
+                   <span>{intent.intentKey}</span>
+                   <strong>{intent.status}</strong>
+                   <small>{intent.side} - {new Date(intent.createdAt).toLocaleTimeString()}</small>
+                </div>
+             ))}
+             {!latestIntents?.length && <p className="observer-muted" style={{gridColumn: '1 / -1'}}>No intents</p>}
+          </div>
+        </div>
+        
+        <div className="observer-history-card">
+          <header>
+            <div>
+              <h3>Recent Events</h3>
+            </div>
+            <div className="observer-history-score">{latestEvents?.length ?? 0} events</div>
+          </header>
+          <div className="observer-state-grid">
+             {latestEvents?.slice(0, 3).map((ev: TradingStatusData["latestEvents"][0]) => (
+                <div key={ev.id} className="observer-state-card" style={{gridColumn: '1 / -1'}}>
+                   <span>Intent #{ev.intentId}</span>
+                   <strong>{ev.eventType}</strong>
+                   <small>{new Date(ev.eventTime).toLocaleTimeString()}</small>
+                </div>
+             ))}
+             {!latestEvents?.length && <p className="observer-muted" style={{gridColumn: '1 / -1'}}>No events</p>}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }

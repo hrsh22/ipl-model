@@ -15,6 +15,13 @@
       "when": 1777045362714,
       "tag": "0001_slimy_prodigy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778491820853,
+      "tag": "0002_mute_forgotten_one",
+      "breakpoints": true
     }
   ]
 }

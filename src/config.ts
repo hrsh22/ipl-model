@@ -1,5 +1,7 @@
 import "dotenv/config"
 
+import { POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_HOST } from "./trading/config.js"
+
 const requireEnv = (name: string) => {
   const value = process.env[name]
 
@@ -29,47 +31,47 @@ const parsePort = (value: string) => {
   return port
 }
 
-const parseOptionalPositiveIntegerEnv = (
-  value: string | undefined,
-  fallback: number,
-) => {
-  if (!value?.trim()) {
-    return fallback
-  }
-
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error("Expected a positive integer environment value")
-  }
-
-  return parsed
-}
-
-const opticOddsEnabled = parseBooleanEnv(process.env.OPTICODDS_ENABLED)
 const defaultPredictorBackgroundIntervalMs = 60 * 60 * 1000
-const opticOddsApiKey = opticOddsEnabled
-  ? requireEnv("OPTICODDS_API_KEY")
-  : optionalEnv("OPTICODDS_API_KEY")
+const tradingLiveEnabled = parseBooleanEnv(process.env.TRADING_LIVE_ENABLED)
+const defaultTradingMatchStateMaxAgeMs = 30_000
+const defaultTradingBookMaxAgeMs = 15_000
+const defaultTradingExecutorIntervalMs = 5_000
+const defaultTradingExecutorLeaseMs = 30_000
+const polymarketPrivateKeyPresent = optionalEnv("POLYMARKET_PRIVATE_KEY") !== null
+const polymarketBuilderCodePresent = optionalEnv("POLY_BUILDER_CODE") !== null
 
 export const config = {
   port: parsePort(requireEnv("PORT")),
   logLevel: requireEnv("LOG_LEVEL"),
   databaseUrl: requireEnv("DATABASE_URL"),
-  opticOddsEnabled,
-  opticOddsApiKey,
   observerApiToken: optionalEnv("OBSERVER_API_TOKEN"),
-  predictorLiveDataMaxAgeMs: parseOptionalPositiveIntegerEnv(
-    process.env.PREDICTOR_LIVE_DATA_MAX_AGE_MS,
-    defaultPredictorBackgroundIntervalMs,
-  ),
-  predictorMaintenanceIntervalMs: parseOptionalPositiveIntegerEnv(
-    process.env.PREDICTOR_MAINTENANCE_INTERVAL_MS,
-    defaultPredictorBackgroundIntervalMs,
-  ),
-  experimentalBallStateShadowRefreshEnabled: parseBooleanEnv(
-    process.env.EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED,
-  ),
-  experimentalBallStateRemoteFetchEnabled: parseBooleanEnv(
-    process.env.EXPERIMENTAL_BALL_STATE_REMOTE_FETCH_ENABLED,
-  ),
+  predictorLiveDataMaxAgeMs: defaultPredictorBackgroundIntervalMs,
+  predictorMaintenanceIntervalMs: defaultPredictorBackgroundIntervalMs,
+  experimentalBallStateShadowRefreshEnabled: false,
+  experimentalBallStateRemoteFetchEnabled: false,
+  trading: {
+    liveEnabled: tradingLiveEnabled,
+    polymarketCredentials: {
+      privateKeyPresent: polymarketPrivateKeyPresent,
+      builderCodePresent: polymarketBuilderCodePresent,
+      allPresent:
+        polymarketPrivateKeyPresent &&
+        polymarketBuilderCodePresent,
+    },
+    staleWindows: {
+      matchStateMaxAgeMs: defaultTradingMatchStateMaxAgeMs,
+      bookMaxAgeMs: defaultTradingBookMaxAgeMs,
+    },
+    dailyBoundaryTimezone: "Asia/Kolkata",
+    executor: {
+      enabled: true,
+      intervalMs: defaultTradingExecutorIntervalMs,
+      leaseMs: defaultTradingExecutorLeaseMs,
+      workerId: "polymarket-runtime-executor",
+    },
+    polymarketClob: {
+      host: POLYMARKET_CLOB_HOST,
+      chainId: POLYMARKET_CHAIN_ID,
+    },
+  },
 }

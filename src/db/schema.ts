@@ -1,12 +1,14 @@
 import {
   boolean,
   doublePrecision,
+  index,
   integer,
   jsonb,
   pgTable,
+  serial,
   text,
   timestamp,
-  serial,
+  uniqueIndex,
 } from "drizzle-orm/pg-core"
 
 const timestampColumns = {
@@ -136,6 +138,134 @@ export const observerLiveModelSignals = pgTable("observer_live_model_signals", {
 export const observerCheckpoints = pgTable("observer_checkpoints", {
   streamKey: text("stream_key").primaryKey(),
   lastEntryId: text("last_entry_id").notNull(),
+  updatedAt: timestamp("updated_at", timestampColumns).defaultNow().notNull(),
+})
+
+// Trading persistence tables
+export const tradingRuntimeFlags = pgTable("trading_runtime_flags", {
+  flagKey: text("flag_key").primaryKey(),
+  enabled: boolean("enabled").notNull(),
+  reason: text("reason"),
+  updatedBy: text("updated_by"),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at", timestampColumns).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", timestampColumns).defaultNow().notNull(),
+})
+
+export const tradingRecipes = pgTable("trading_recipes", {
+  recipeKey: text("recipe_key").primaryKey(),
+  strategyKey: text("strategy_key").notNull(),
+  recipeVersion: text("recipe_version").notNull(),
+  windowKey: text("window_key").notNull(),
+  fixtureId: text("fixture_id")
+    .notNull()
+    .references(() => observerFixtures.id),
+  marketId: text("market_id").notNull(),
+  conditionId: text("condition_id").notNull(),
+  tokenId: text("token_id").notNull(),
+  side: text("side").notNull(),
+  orderStyle: text("order_style").notNull(),
+  maxPrice: doublePrecision("max_price").notNull(),
+  size: doublePrecision("size").notNull(),
+  expiryTime: timestamp("expiry_time", timestampColumns).notNull(),
+  context: jsonb("context"),
+  createdAt: timestamp("created_at", timestampColumns).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", timestampColumns).defaultNow().notNull(),
+})
+
+export const tradingTradeIntents = pgTable(
+  "trading_trade_intents",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    intentKey: text("intent_key").notNull(),
+    recipeKey: text("recipe_key")
+      .notNull()
+      .references(() => tradingRecipes.recipeKey),
+    strategyKey: text("strategy_key").notNull(),
+    recipeVersion: text("recipe_version").notNull(),
+    windowKey: text("window_key").notNull(),
+    fixtureId: text("fixture_id")
+      .notNull()
+      .references(() => observerFixtures.id),
+    marketId: text("market_id").notNull(),
+    conditionId: text("condition_id").notNull(),
+    tokenId: text("token_id").notNull(),
+    side: text("side").notNull(),
+    status: text("status").notNull(),
+    claimCount: integer("claim_count").default(0).notNull(),
+    claimedBy: text("claimed_by"),
+    claimedAt: timestamp("claimed_at", timestampColumns),
+    claimExpiresAt: timestamp("claim_expires_at", timestampColumns),
+    lastErrorCode: text("last_error_code"),
+    lastErrorMessage: text("last_error_message"),
+    context: jsonb("context"),
+    createdAt: timestamp("created_at", timestampColumns).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", timestampColumns).defaultNow().notNull(),
+  },
+  (table) => ({
+    intentKeyIdx: uniqueIndex("trading_trade_intents_intent_key_idx").on(table.intentKey),
+    claimQueueIdx: index("trading_trade_intents_claim_queue_idx").on(
+      table.status,
+      table.claimExpiresAt,
+      table.createdAt,
+    ),
+  }),
+)
+
+export const tradingExecutionEvents = pgTable(
+  "trading_execution_events",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    intentId: integer("intent_id")
+      .notNull()
+      .references(() => tradingTradeIntents.id),
+    eventType: text("event_type").notNull(),
+    eventTime: timestamp("event_time", timestampColumns).notNull(),
+    processedAt: timestamp("processed_at", timestampColumns).notNull(),
+    executorId: text("executor_id"),
+    details: jsonb("details").notNull(),
+    createdAt: timestamp("created_at", timestampColumns).defaultNow().notNull(),
+  },
+  (table) => ({
+    intentEventIdx: index("trading_execution_events_intent_event_idx").on(
+      table.intentId,
+      table.eventTime,
+    ),
+  }),
+)
+
+export const tradingExposureLedger = pgTable(
+  "trading_exposure_ledger",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    intentId: integer("intent_id").references(() => tradingTradeIntents.id),
+    fixtureId: text("fixture_id")
+      .notNull()
+      .references(() => observerFixtures.id),
+    marketId: text("market_id").notNull(),
+    tokenId: text("token_id").notNull(),
+    side: text("side").notNull(),
+    entryType: text("entry_type").notNull(),
+    quantity: doublePrecision("quantity"),
+    notionalUsd: doublePrecision("notional_usd").notNull(),
+    eventTime: timestamp("event_time", timestampColumns).notNull(),
+    processedAt: timestamp("processed_at", timestampColumns).notNull(),
+    details: jsonb("details").notNull(),
+    createdAt: timestamp("created_at", timestampColumns).defaultNow().notNull(),
+  },
+  (table) => ({
+    fixtureLedgerIdx: index("trading_exposure_ledger_fixture_idx").on(
+      table.fixtureId,
+      table.eventTime,
+    ),
+  }),
+)
+
+export const tradingReconciliationCheckpoints = pgTable("trading_reconciliation_checkpoints", {
+  checkpointKey: text("checkpoint_key").primaryKey(),
+  lastCursor: text("last_cursor"),
+  lastReconciledAt: timestamp("last_reconciled_at", timestampColumns),
+  details: jsonb("details"),
   updatedAt: timestamp("updated_at", timestampColumns).defaultNow().notNull(),
 })
 
