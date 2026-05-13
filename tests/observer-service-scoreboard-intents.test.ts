@@ -167,6 +167,13 @@ describe('observer service scoreboard-side intent wiring', () => {
       }),
       inningsStates: expect.objectContaining({
         activeInnings: 2,
+        first: expect.objectContaining({
+          innings: 1,
+          status: 'frozen',
+          expectedRunsNow: 180,
+          runsDelta: 0,
+          projectedScore: 180,
+        }),
         second: expect.objectContaining({
           innings: 2,
           status: 'live',
@@ -186,6 +193,13 @@ describe('observer service scoreboard-side intent wiring', () => {
       }),
       sourceEvent: 'ball-state-runtime',
     }))
+    expect(insertLiveModelSnapshotMock).toHaveBeenCalledWith(expect.objectContaining({
+      innings: 1,
+      scoreRuns: 180,
+      expectedRunsNow: 180,
+      runsDelta: 0,
+      projectedScore: 180,
+    }))
   })
 
   test('continues evaluating scoreboard-side intents after live-model persistence is disabled', async () => {
@@ -197,7 +211,7 @@ describe('observer service scoreboard-side intent wiring', () => {
 
     expect(service.liveModelPersistenceDisabledReason).toContain('observer_live_model_snapshots')
     expect(createObserverTradeIntentMock).toHaveBeenCalledTimes(2)
-    expect(insertLiveModelSnapshotMock).toHaveBeenCalledTimes(1)
+    expect(insertLiveModelSnapshotMock).toHaveBeenCalledTimes(2)
     expect(insertLiveModelSignalMock).not.toHaveBeenCalled()
   })
 })

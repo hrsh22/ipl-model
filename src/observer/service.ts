@@ -819,9 +819,7 @@ class IplObserverService {
   }
 
   public async getLiveModelHistory(limit = 20) {
-    const fixtures = (await listFixtures(Math.max(limit * 6, 60))).filter(
-      (fixture) => !fixture.isLive,
-    )
+    const fixtures = await listFixtures(Math.max(limit * 6, 60))
     const historyEntries = await Promise.all(
       fixtures.map(async (fixture) => {
         const [snapshots, signals] = await Promise.all([
@@ -833,7 +831,7 @@ class IplObserverService {
         const inningsSnapshots = buildLatestSnapshotsByInnings(meaningfulSnapshots)
         const inningsStates = buildLiveInningsExpectedStates(fixture)
         const hasFixtureInningsState =
-          hasMeaningfulExpectedState(inningsStates.first) || hasMeaningfulExpectedState(inningsStates.second)
+          hasHistoricalInningsState(inningsStates.first) || hasHistoricalInningsState(inningsStates.second)
 
         if (!latestSnapshot && !hasFixtureInningsState) {
           return null
@@ -1930,8 +1928,8 @@ class IplObserverService {
         }
       : publicFixture
     const summary = this.buildFixtureSummary(fixtureState, LIVE_MODEL_DISPLAY_ODDS_STALENESS_MS)
-    const inningsStates = buildLiveInningsExpectedStates(fixtureState.fixture, matchingOverlay)
-    const expectedState = getActiveExpectedState(inningsStates)
+    const rawInningsStates = buildLiveInningsExpectedStates(fixtureState.fixture, matchingOverlay)
+    const expectedState = getActiveExpectedState(rawInningsStates)
     const selections = summary?.selections ?? []
     const homeSelection = normalizeSelection(fixtureState.fixture.homeTeam)
     const awaySelection = normalizeSelection(fixtureState.fixture.awayTeam)
@@ -1950,6 +1948,8 @@ class IplObserverService {
     const away = selectionViews.find((selection) => selection.selection === awaySelection)
     const homeWinProbability = getTeamLiveWinProbability(fixtureState.fixture.homeTeam, expectedState)
     const awayWinProbability = getTeamLiveWinProbability(fixtureState.fixture.awayTeam, expectedState)
+
+    const inningsStates = enrichFrozenInningsStates(rawInningsStates, expectedState)
 
     return {
       fixture,
@@ -3031,6 +3031,16 @@ const hasMeaningfulExpectedState = (expectedState: LiveExpectedState) =>
   expectedState.runsDelta !== null &&
   expectedState.projectedScore !== null
 
+const hasHistoricalInningsState = (expectedState: LiveExpectedState) =>
+  expectedState.scoreRuns !== null ||
+  expectedState.scoreWickets !== null ||
+  expectedState.balls !== null ||
+  expectedState.expectedRunsNow !== null ||
+  expectedState.expectedWicketsNow !== null ||
+  expectedState.runsDelta !== null ||
+  expectedState.wicketsDelta !== null ||
+  expectedState.projectedScore !== null
+
 const hasMeaningfulSignalState = (expectedState: LiveExpectedState) =>
   expectedState.scoreRuns !== null &&
   expectedState.scoreWickets !== null &&
@@ -3179,6 +3189,69 @@ const applyBallStateOverlayToInningsState = (
     chaseSuccessProbability: terminalProbability ?? (innings === 2 ? ballStateOverlay.predictions.chaseSuccessProbability : null),
     status: "live",
   }
+}
+
+const enrichFrozenInningsStates = (
+  states: LiveInningsExpectedStates,
+  activeExpectedState: LiveExpectedState,
+): LiveInningsExpectedStates => ({
+  ...states,
+  first: enrichFrozenInningsState(states.first, activeExpectedState),
+  second: enrichFrozenInningsState(states.second, activeExpectedState),
+})
+
+const enrichFrozenInningsState = (
+  state: InningsExpectedState,
+  activeExpectedState: LiveExpectedState,
+): InningsExpectedState => {
+  if (state.status !== "frozen" || state.scoreRuns === null) {
+    return state
+  }
+
+  const expectedRunsNow = state.expectedRunsNow ?? state.scoreRuns
+  const expectedWicketsNow = state.expectedWicketsNow ?? state.scoreWickets
+  const projectedScore = state.projectedScore ?? state.scoreRuns
+  const expectedRunRate = state.expectedRunRate ?? deriveRunRate(state.scoreRuns, state.overs)
+  const battingTeamWinProbability = state.battingTeamWinProbability
+    ?? getTeamWinProbabilityFromExpectedState(state.battingTeam, activeExpectedState)
+
+  return {
+    ...state,
+    expectedRunsNow,
+    expectedWicketsNow,
+    runsDelta: state.runsDelta ?? deriveDelta(state.scoreRuns, expectedRunsNow),
+    wicketsDelta: state.wicketsDelta ?? deriveDelta(state.scoreWickets, expectedWicketsNow),
+    projectedScore,
+    expectedRunRate,
+    battingTeamWinProbability,
+  }
+}
+
+const deriveRunRate = (scoreRuns: number | null, overs: number | null) => {
+  if (scoreRuns === null || overs === null || overs <= 0) {
+    return null
+  }
+
+  return roundMetric(scoreRuns / overs)
+}
+
+const deriveDelta = (actual: number | null, expected: number | null) => {
+  if (actual === null || expected === null) {
+    return null
+  }
+
+  return roundMetric(actual - expected)
+}
+
+const getTeamWinProbabilityFromExpectedState = (
+  team: string | null,
+  expectedState: LiveExpectedState,
+) => {
+  if (!team) {
+    return null
+  }
+
+  return getTeamLiveWinProbability(team, expectedState)
 }
 
 const terminalChaseSuccessProbability = (
