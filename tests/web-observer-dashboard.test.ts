@@ -134,6 +134,30 @@ describe('observer dashboard helpers', () => {
     expect(fetch).not.toHaveBeenCalledWith('/api/observer/trading/status')
   })
 
+  test('loads persisted fixture history returned by the observer API', async () => {
+    const historyEntry = {
+      fixture: liveModelFixture.fixture,
+      venueContext: null,
+      latestSnapshot: null,
+      inningsSnapshots: { first: null, second: null },
+      inningsStates: liveModelFixture.inningsStates,
+      recentSignals: [],
+      signalCount: 0,
+    }
+
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url === '/api/observer/ready') return jsonResponse({ ready: true })
+      if (url === '/api/observer/live-model') return jsonResponse([])
+      if (url === '/api/observer/live-model/signals?limit=8') return jsonResponse([])
+      if (url === '/api/observer/live-model/history?limit=12') return jsonResponse([historyEntry])
+      return jsonResponse({ error: 'unexpected fetch' }, 404)
+    }))
+
+    await expect(loadObserverDashboard()).resolves.toMatchObject({
+      history: [expect.objectContaining({ fixture: expect.objectContaining({ id: 'fixture-1' }) })],
+    })
+  })
+
   test('keeps 11-over dashboard data when trading status is unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url === '/api/observer/ready') return jsonResponse({ ready: true })

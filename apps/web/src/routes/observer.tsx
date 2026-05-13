@@ -222,11 +222,11 @@ function ObserverPage() {
           <SectionHeading label="Live model board" value={`${fixtures.length} fixtures`} />
           {fixtures.length === 0 ? <ObserverEmptyState /> : fixtures.map((fixture) => <FixtureCard key={fixture.fixture.id} fixture={fixture} />)}
 
-          <SectionHeading label="Historical tracking" value={`${history.length} matches`} />
+          <SectionHeading label="Persisted fixture tracking" value={`${history.length} matches`} />
           {history.length === 0 ? (
             <div className="observer-empty-state">
-              <strong>No persisted match history yet</strong>
-              <p>Run migrations and keep the observer running during matches to collect snapshots.</p>
+              <strong>No scored fixture history available yet</strong>
+              <p>The observer has not persisted a fixture with innings score context or live-model snapshots yet. Venue history can still appear on live cards when the stadium is known.</p>
             </div>
           ) : (
             history.map((entry) => <HistoryCard entry={entry} key={entry.fixture.id} />)
