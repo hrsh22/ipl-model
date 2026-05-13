@@ -829,7 +829,8 @@ class IplObserverService {
         const meaningfulSnapshots = snapshots.filter(isMeaningfulLiveModelSnapshot)
         const latestSnapshot = meaningfulSnapshots[0] ?? null
         const inningsSnapshots = buildLatestSnapshotsByInnings(meaningfulSnapshots)
-        const inningsStates = buildLiveInningsExpectedStates(fixture)
+        const rawInningsStates = buildLiveInningsExpectedStates(fixture)
+        const inningsStates = enrichFrozenInningsStates(rawInningsStates, getActiveExpectedState(rawInningsStates))
         const hasFixtureInningsState =
           hasHistoricalInningsState(inningsStates.first) || hasHistoricalInningsState(inningsStates.second)
 
