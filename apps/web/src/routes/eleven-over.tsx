@@ -1395,6 +1395,12 @@ function TradingSafetyPanel({ tradingStatus }: { tradingStatus: TradingStatusDat
   const { mode, liveEligibility, runtimeFlag, recipeValidation, exposureSummary, reconciliationStatus, latestIntents, latestEvents } = tradingStatus
   const isLive = mode === 'live'
   const isBlocked = mode === 'blocked'
+  const tradeSetupPending = isLive && recipeValidation.status === 'missing'
+  const tradeSetupLabel = recipeValidation.status === 'valid'
+    ? 'READY'
+    : recipeValidation.status === 'invalid'
+      ? 'CHECK SETUP'
+      : 'WAITING'
 
   return (
     <section className="strategy-trading-panel">
@@ -1408,7 +1414,7 @@ function TradingSafetyPanel({ tradingStatus }: { tradingStatus: TradingStatusDat
           <strong>{runtimeFlag.enabled ? 'ENABLED' : 'DISABLED'}</strong>
           <button onClick={() => setError('Live mode is environment-controlled. Change TRADING_LIVE_ENABLED and restart the backend.')} className="trading-toggle-button disabled">ENV ONLY</button>
         </article>
-        <StrategyMetric label="Recipe" value={recipeValidation.status.toUpperCase()} tone={recipeValidation.status === 'valid' ? 'buy' : 'skip'} />
+        <StrategyMetric label="Trade setup" value={tradeSetupLabel} tone={recipeValidation.status === 'valid' ? 'buy' : 'default'} />
         <StrategyMetric label="Open exposure" value={`$${exposureSummary?.totalOpenExposureUsd ?? 0}`} />
         <StrategyMetric label="Reconciliation" value={reconciliationStatus.present ? 'ACTIVE' : 'INACTIVE'} tone={reconciliationStatus.present ? 'buy' : 'default'} />
       </div>
@@ -1427,14 +1433,22 @@ function TradingSafetyPanel({ tradingStatus }: { tradingStatus: TradingStatusDat
         </div>
       ) : null}
 
+      {tradeSetupPending ? (
+        <div className="strategy-recipe-pending-card">
+          <strong>Live trading is armed. No trade can trigger in the first innings.</strong>
+          <p>This tab is for an 11th-over chase entry. While the first innings or first over is happening, it should only watch. It can create a trade setup only in the second innings, after 11 completed overs of the chase.</p>
+          <p>Orders stay at zero until the chase reaches balls 66-78, the score/target/wickets are fresh, Polymarket tokens are mapped, price is inside the cap, and the rule says BUY.</p>
+        </div>
+      ) : null}
+
       <div className="strategy-trading-details-grid">
         <div className="strategy-rule-card">
-          <strong>Recent intents</strong>
-          {latestIntents.length === 0 ? <p>No intents</p> : latestIntents.slice(0, 3).map((intent) => <p key={intent.id}>{intent.status} · {intent.side} · {formatTradingTimestamp(intent.createdAt)}</p>)}
+          <strong>Planned trades</strong>
+          {latestIntents.length === 0 ? <p>None yet. Waiting for a qualifying second-innings 11-over BUY signal.</p> : latestIntents.slice(0, 3).map((intent) => <p key={intent.id}>{intent.status} · {intent.side} · {formatTradingTimestamp(intent.createdAt)}</p>)}
         </div>
         <div className="strategy-rule-card">
-          <strong>Recent events</strong>
-          {latestEvents.length === 0 ? <p>No events</p> : latestEvents.slice(0, 3).map((event) => <p key={event.id}>Intent #{event.intentId} · {event.eventType} · {formatTradingTimestamp(event.eventTime)}</p>)}
+          <strong>Order activity</strong>
+          {latestEvents.length === 0 ? <p>None yet. No order has been submitted because no qualifying trade exists.</p> : latestEvents.slice(0, 3).map((event) => <p key={event.id}>Intent #{event.intentId} · {event.eventType} · {formatTradingTimestamp(event.eventTime)}</p>)}
         </div>
       </div>
     </section>
