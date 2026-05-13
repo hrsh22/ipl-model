@@ -197,6 +197,7 @@ type TradingStatusData = {
       allPresent: boolean
     }
     blockerReasons: string[]
+    blockerDetails?: { code: string; errors: string[] }[]
   }
   runtimeFlag: {
     flagKey: string
@@ -377,6 +378,10 @@ function ElevenOverStrategyPage() {
     () => findNextScheduleFixture(state.data?.scheduleFixtures ?? [], state.data?.defaultMarket ?? null),
     [state.data?.scheduleFixtures, state.data?.defaultMarket],
   )
+  const liveFixture = useMemo(
+    () => fixtures.find((fixture) => fixture.fixture.isLive) ?? null,
+    [fixtures],
+  )
   const mappedObserverFixture = useMemo(
     () => nextFixture ? findMappedObserverFixture(nextFixture, state.data?.observerFixtures ?? [], state.data?.defaultMarket ?? null) : null,
     [nextFixture, state.data?.observerFixtures, state.data?.defaultMarket],
@@ -425,11 +430,11 @@ function ElevenOverStrategyPage() {
         <StrategyMetric label="Qualifying now" value={buyCount.toString()} tone={buyCount > 0 ? 'buy' : 'default'} />
         <StrategyMetric label="Pre-11 watch" value={watchCount.toString()} />
         <StrategyMetric label="Checkpoint skips" value={checkpointSkips.toString()} tone={checkpointSkips > 0 ? 'skip' : 'default'} />
-        <StrategyMetric label="Next match" value={nextFixture?.match_date ? formatTimeUntilStart(nextFixture.match_date) : '—'} />
+        <StrategyMetric label={liveFixture ? 'Live match' : 'Next match'} value={liveFixture ? 'live now' : nextFixture?.match_date ? formatTimeUntilStart(nextFixture.match_date) : '—'} tone={liveFixture ? 'buy' : 'default'} />
         <StrategyMetric label="Avg absolute edge" value={aggregateEdge === null ? '—' : `${Math.round(aggregateEdge)} bps`} />
       </section>
 
-      <NextMatchPanel fixture={nextFixture} observerFixture={mappedObserverFixture} defaultMarket={state.data?.defaultMarket ?? null} liveCount={evaluations.length} averageStrength={averageStrength} />
+      <NextMatchPanel fixture={nextFixture} liveFixture={liveFixture} observerFixture={mappedObserverFixture} defaultMarket={state.data?.defaultMarket ?? null} liveCount={evaluations.length} averageStrength={averageStrength} />
 
       <TradingSafetyPanel tradingStatus={tradingStatus} />
 
@@ -1411,7 +1416,14 @@ function TradingSafetyPanel({ tradingStatus }: { tradingStatus: TradingStatusDat
       {liveEligibility.blockerReasons.length > 0 ? (
         <div className="trading-blockers">
           <strong>Blockers ({liveEligibility.blockerReasons.length})</strong>
-          <ul>{liveEligibility.blockerReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+          <ul>
+            {(liveEligibility.blockerDetails ?? liveEligibility.blockerReasons.map((reason) => ({ code: reason, errors: [] }))).map((reason) => (
+              <li key={reason.code}>
+                {reason.code}
+                {reason.errors.length > 0 ? <small>: {reason.errors.join('; ')}</small> : null}
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
@@ -1431,17 +1443,42 @@ function TradingSafetyPanel({ tradingStatus }: { tradingStatus: TradingStatusDat
 
 function NextMatchPanel({
   fixture,
+  liveFixture,
   observerFixture,
   defaultMarket,
   liveCount,
   averageStrength,
 }: {
   fixture: PredictorFixture | null
+  liveFixture: LiveModelFixture | null
   observerFixture: ObserverFixture | null
   defaultMarket: DefaultMarket | null
   liveCount: number
   averageStrength: number | null
 }) {
+  if (liveFixture) {
+    return (
+      <section className="strategy-next-panel">
+        <div className="strategy-next-main">
+          <p className="strategy-overline">Live monitored match · in play</p>
+          <h2>{liveFixture.fixture.homeTeam} <span>vs</span> {liveFixture.fixture.awayTeam}</h2>
+          <p>{liveFixture.fixture.venueName ?? 'Venue pending'} · {liveFixture.fixture.status}</p>
+        </div>
+        <div className="strategy-next-grid">
+          <State label="Score" value={liveFixture.fixture.score ?? 'score pending'} tone="live" />
+          <State label="Period" value={liveFixture.fixture.period ?? 'live'} tone="live" />
+          <State label="Live strategy cards" value={liveCount.toString()} />
+          <State label="Avg strategy score" value={averageStrength === null ? 'pending chase' : `${averageStrength}/100`} />
+          <State label="Next action" value="watch live chase" />
+        </div>
+        <div className="strategy-next-brief">
+          <p>The match is already live, so this panel is using the observer live-model feed instead of the predictor schedule countdown.</p>
+          <p>Entry window: 66-72 completed balls for the 11-over favourite rule; the scoreboard-side panel tracks 66-78 completed balls.</p>
+        </div>
+      </section>
+    )
+  }
+
   if (!fixture) {
     return (
       <section className="strategy-next-panel strategy-next-empty">

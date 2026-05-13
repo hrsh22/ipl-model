@@ -289,7 +289,11 @@ const buildVenueReadinessSummary = (config: TradingApiConfig): TradingStatusRead
   }
 
   if (!config.polymarketCredentials.allPresent) {
-    reasons.push({ code: "POLYMARKET_CREDENTIALS_MISSING" })
+    const missingCredentials = [
+      config.polymarketCredentials.privateKeyPresent ? null : "POLYMARKET_PRIVATE_KEY missing from running backend environment",
+      config.polymarketCredentials.builderCodePresent ? null : "POLY_BUILDER_CODE missing from running backend environment",
+    ].filter((error): error is string => error !== null)
+    reasons.push({ code: "POLYMARKET_CREDENTIALS_MISSING", errors: missingCredentials })
   }
 
   if (runtimeReadinessFailureReasons.length > 0) {
@@ -316,6 +320,10 @@ const summarizeReadiness = (readiness: TradingStatusReadinessSummary, config: Tr
     allPresent: config.polymarketCredentials.allPresent,
   },
   blockerReasons: readiness.liveReady ? [] : readiness.reasons.map(summarizeReadinessBlockerReason),
+  blockerDetails: readiness.reasons.map((reason) => ({
+    code: summarizeReadinessBlockerReason(reason),
+    errors: reason.errors ?? [],
+  })),
 })
 
 const summarizeActiveStrategy = (readiness: TradingStatusReadinessSummary, config: TradingApiConfig) => {

@@ -241,14 +241,53 @@ describe('trading API routes', () => {
     )
     const status = body as {
       liveReady: boolean
-      liveEligibility: { blockerReasons: unknown[] }
+      liveEligibility: { blockerReasons: unknown[]; blockerDetails: Array<{ code: string; errors: string[] }> }
     }
 
     expect(response.status).toBe(200)
     expect(status.liveReady).toBe(false)
     expect(status.liveEligibility.blockerReasons).toEqual(['ENV_LIVE_GATE_DISABLED'])
+    expect(status.liveEligibility.blockerDetails).toEqual([{ code: 'ENV_LIVE_GATE_DISABLED', errors: [] }])
     expect(status.liveEligibility.blockerReasons.every((reason) => typeof reason === 'string')).toBe(true)
     expect(status.liveEligibility.blockerReasons.some((reason) => typeof reason === 'object')).toBe(false)
+  })
+
+  test('reports non-secret credential names when credential env is missing in the running backend', async () => {
+    const store = new InMemoryTradingApiStore()
+
+    const { response, body } = await requestJson(
+      createApp(store, {
+        ...tradingApiConfig,
+        polymarketCredentials: {
+          ...tradingApiConfig.polymarketCredentials,
+          builderCodePresent: false,
+          allPresent: false,
+        },
+      }),
+      '/trading/status',
+      { headers: { authorization: `Bearer ${AUTH_TOKEN}` } },
+    )
+    const status = body as {
+      liveEligibility: {
+        blockerReasons: string[]
+        blockerDetails: Array<{ code: string; errors: string[] }>
+        polymarketCredentialsPresent: { privateKey: boolean; builderCode: boolean; allPresent: boolean }
+      }
+    }
+
+    expect(response.status).toBe(200)
+    expect(status.liveEligibility.polymarketCredentialsPresent).toMatchObject({
+      privateKey: true,
+      builderCode: false,
+      allPresent: false,
+    })
+    expect(status.liveEligibility.blockerReasons).toEqual(['POLYMARKET_CREDENTIALS_MISSING'])
+    expect(status.liveEligibility.blockerDetails).toEqual([
+      {
+        code: 'POLYMARKET_CREDENTIALS_MISSING',
+        errors: ['POLY_BUILDER_CODE missing from running backend environment'],
+      },
+    ])
   })
 
   test('reports live venue readiness when only the lazily seeded recipe is missing', async () => {
@@ -260,7 +299,7 @@ describe('trading API routes', () => {
     const status = body as {
       mode: string
       liveReady: boolean
-      liveEligibility: { liveReady: boolean; blockerReasons: string[] }
+      liveEligibility: { liveReady: boolean; blockerReasons: string[]; blockerDetails: Array<{ code: string; errors: string[] }> }
       activeStrategy: { executionMode: string; dryRun: boolean; liveReady: boolean; readinessBlockers: string[] }
       recipeValidation: { status: string; errors: string[] }
     }
@@ -270,6 +309,7 @@ describe('trading API routes', () => {
     expect(status.liveReady).toBe(true)
     expect(status.liveEligibility.liveReady).toBe(true)
     expect(status.liveEligibility.blockerReasons).toEqual([])
+    expect(status.liveEligibility.blockerDetails).toEqual([])
     expect(status.activeStrategy).toMatchObject({
       executionMode: 'live',
       dryRun: false,
@@ -292,7 +332,7 @@ describe('trading API routes', () => {
     const status = body as {
       mode: string
       liveReady: boolean
-      liveEligibility: { liveReady: boolean; blockerReasons: string[] }
+      liveEligibility: { liveReady: boolean; blockerReasons: string[]; blockerDetails: Array<{ code: string; errors: string[] }> }
     }
 
     expect(response.status).toBe(200)
@@ -300,6 +340,9 @@ describe('trading API routes', () => {
     expect(status.liveReady).toBe(false)
     expect(status.liveEligibility.liveReady).toBe(false)
     expect(status.liveEligibility.blockerReasons).toEqual(['POLYMARKET_CREDENTIALS_MISSING'])
+    expect(status.liveEligibility.blockerDetails).toEqual([
+      { code: 'POLYMARKET_CREDENTIALS_MISSING', errors: ['POLYMARKET_PRIVATE_KEY_INVALID'] },
+    ])
   })
 
   test('reports the active scoreboard-side strategy and dry-run readiness blockers', async () => {
