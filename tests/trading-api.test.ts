@@ -8,7 +8,6 @@ import {
   createTradingRouter,
   setTradingRuntimeReadinessFailureReasons,
   TRADING_RECONCILIATION_CHECKPOINT_KEY,
-  TRADING_RUNTIME_LIVE_FLAG_KEY,
   type TradingApiConfig,
   type TradingApiStore,
 } from '../src/trading/api.js'
@@ -19,8 +18,6 @@ import type {
   TradingIntentRecord,
   TradingRecipeRecord,
   TradingReconciliationCheckpointRecord,
-  TradingRuntimeFlagRecord,
-  TradingRuntimeFlagUpsertInput,
 } from '../src/trading/repository.js'
 
 const FIXED_NOW = new Date('2026-05-11T10:00:00.000Z')
@@ -111,46 +108,24 @@ const buildExposureEntry = (overrides: Partial<TradingExposureLedgerRecord> = {}
 })
 
 class InMemoryTradingApiStore implements TradingApiStore {
-  runtimeFlag: TradingRuntimeFlagRecord | null
   recipes: TradingRecipeRecord[]
   intents: TradingIntentRecord[]
   events: TradingExecutionEventRecord[]
   exposures: TradingExposureLedgerRecord[]
   reconciliationCheckpoint: TradingReconciliationCheckpointRecord | null
-  upserts: TradingRuntimeFlagUpsertInput[] = []
 
   constructor(input: {
-    runtimeFlag?: TradingRuntimeFlagRecord | null
     recipes?: TradingRecipeRecord[]
     intents?: TradingIntentRecord[]
     events?: TradingExecutionEventRecord[]
     exposures?: TradingExposureLedgerRecord[]
     reconciliationCheckpoint?: TradingReconciliationCheckpointRecord | null
   } = {}) {
-    this.runtimeFlag = input.runtimeFlag ?? null
     this.recipes = input.recipes ?? [buildRecipe()]
     this.intents = input.intents ?? []
     this.events = input.events ?? []
     this.exposures = input.exposures ?? []
     this.reconciliationCheckpoint = input.reconciliationCheckpoint ?? null
-  }
-
-  async getRuntimeFlag(flagKey: string) {
-    return this.runtimeFlag?.flagKey === flagKey ? this.runtimeFlag : null
-  }
-
-  async upsertRuntimeFlag(input: TradingRuntimeFlagUpsertInput) {
-    this.upserts.push(input)
-    const createdAt = this.runtimeFlag?.createdAt ?? FIXED_NOW
-    this.runtimeFlag = {
-      flagKey: input.flagKey,
-      enabled: input.enabled,
-      reason: input.reason ?? null,
-      updatedBy: input.updatedBy ?? null,
-      details: input.details ?? null,
-      createdAt,
-      updatedAt: FIXED_NOW,
-    }
   }
 
   async listRecipes(limit = 20) {
@@ -187,16 +162,6 @@ class InMemoryTradingApiStore implements TradingApiStore {
       : null
   }
 }
-
-const buildRuntimeFlag = (overrides: Partial<TradingRuntimeFlagRecord> = {}): TradingRuntimeFlagRecord => ({
-  flagKey: overrides.flagKey ?? TRADING_RUNTIME_LIVE_FLAG_KEY,
-  enabled: overrides.enabled ?? true,
-  reason: overrides.reason ?? 'verified test flag',
-  updatedBy: overrides.updatedBy ?? 'test',
-  details: overrides.details ?? {},
-  createdAt: overrides.createdAt ?? FIXED_NOW,
-  updatedAt: overrides.updatedAt ?? FIXED_NOW,
-})
 
 const buildCheckpoint = (overrides: Partial<TradingReconciliationCheckpointRecord> = {}): TradingReconciliationCheckpointRecord => ({
   checkpointKey: overrides.checkpointKey ?? TRADING_RECONCILIATION_CHECKPOINT_KEY,
@@ -263,7 +228,6 @@ describe('trading API routes', () => {
 
   test('returns string-only live eligibility blocker reasons when trading is blocked', async () => {
     const store = new InMemoryTradingApiStore({
-      runtimeFlag: buildRuntimeFlag({ enabled: false }),
       recipes: [buildRecipe({ marketId: '' })],
     })
 
@@ -277,17 +241,14 @@ describe('trading API routes', () => {
 
     expect(response.status).toBe(200)
     expect(status.liveReady).toBe(false)
-    expect(status.liveEligibility.blockerReasons).toEqual([
-      'DB_RUNTIME_LIVE_GATE_DISABLED',
-      'RECIPE_INVALID',
-    ])
+    expect(status.liveEligibility.blockerReasons).toEqual(['RECIPE_INVALID'])
     expect(status.liveEligibility.blockerReasons.every((reason) => typeof reason === 'string')).toBe(true)
     expect(status.liveEligibility.blockerReasons.some((reason) => typeof reason === 'object')).toBe(false)
   })
 
   test('reports dry-run when runtime live-client construction failed after config readiness passed', async () => {
     setTradingRuntimeReadinessFailureReasons(['POLYMARKET_PRIVATE_KEY_INVALID'])
-    const store = new InMemoryTradingApiStore({ runtimeFlag: buildRuntimeFlag({ enabled: true }) })
+    const store = new InMemoryTradingApiStore()
 
     const { response, body } = await requestJson(createApp(store), '/trading/status', {
       headers: { authorization: `Bearer ${AUTH_TOKEN}` },
@@ -306,9 +267,9 @@ describe('trading API routes', () => {
   })
 
   test('reports the active scoreboard-side strategy and dry-run readiness blockers', async () => {
-    const store = new InMemoryTradingApiStore({ runtimeFlag: buildRuntimeFlag({ enabled: false }) })
+    const store = new InMemoryTradingApiStore()
 
-    const { response, body } = await requestJson(createApp(store), '/trading/status', {
+    const { response, body } = await requestJson(createApp(store, { ...tradingApiConfig, liveTradingEnabled: false }), '/trading/status', {
       headers: { authorization: `Bearer ${AUTH_TOKEN}` },
     })
     const status = body as {
@@ -334,11 +295,11 @@ describe('trading API routes', () => {
       dryRun: true,
       liveReady: false,
     })
-    expect(status.activeStrategy.readinessBlockers).toContain('DB_RUNTIME_LIVE_GATE_DISABLED')
+    expect(status.activeStrategy.readinessBlockers).toContain('ENV_LIVE_GATE_DISABLED')
   })
 
   test('reports explicit volume95 scoreboard-side strategy settings when configured', async () => {
-    const store = new InMemoryTradingApiStore({ runtimeFlag: buildRuntimeFlag({ enabled: false }) })
+    const store = new InMemoryTradingApiStore()
 
     const { response, body } = await requestJson(
       createApp(store, {
@@ -370,7 +331,6 @@ describe('trading API routes', () => {
 
   test('summarizes daily exposure using the configured trading timezone boundary', async () => {
     const store = new InMemoryTradingApiStore({
-      runtimeFlag: buildRuntimeFlag({ enabled: false }),
       exposures: [
         buildExposureEntry({
           entryType: 'submitted_notional',
@@ -431,13 +391,6 @@ describe('trading API routes', () => {
 
   test('redacts secrets and raw signed order material from status responses', async () => {
     const store = new InMemoryTradingApiStore({
-      runtimeFlag: buildRuntimeFlag({
-        details: {
-          authorization: 'Bearer runtime-token-secret',
-          note: 'runtime-token-secret must not reappear',
-          rawOrderAuth: 'raw-order-auth-secret',
-        },
-      }),
       intents: [
         buildIntent({
           context: {
@@ -466,8 +419,6 @@ describe('trading API routes', () => {
 
     expect(response.status).toBe(200)
     expect(serialized).toContain('[REDACTED]')
-    expect(serialized).not.toContain('runtime-token-secret')
-    expect(serialized).not.toContain('raw-order-auth-secret')
     expect(serialized).not.toContain('private-key-secret')
     expect(serialized).not.toContain('signed-order-body-secret')
     expect(serialized).not.toContain('signature-secret')
@@ -475,8 +426,8 @@ describe('trading API routes', () => {
     expect(serialized).not.toContain('funded-account-secret')
   })
 
-  test('updates the persistent live flag only for authenticated requests and records audit metadata', async () => {
-    const store = new InMemoryTradingApiStore({ runtimeFlag: buildRuntimeFlag({ enabled: false }) })
+  test('rejects live control mutations because live mode is environment controlled', async () => {
+    const store = new InMemoryTradingApiStore()
     const app = createApp(store)
     const unauthenticated = await requestJson(app, '/trading/controls/live', {
       method: 'PUT',
@@ -485,7 +436,6 @@ describe('trading API routes', () => {
     })
 
     expect(unauthenticated.response.status).toBe(401)
-    expect(store.runtimeFlag?.enabled).toBe(false)
 
     const authenticated = await requestJson(app, '/trading/controls/live', {
       method: 'PUT',
@@ -496,29 +446,18 @@ describe('trading API routes', () => {
       body: JSON.stringify({ enabled: true, reason: 'enable for rehearsal' }),
     })
     const body = authenticated.body as {
-      runtimeFlag: { enabled: boolean; reason: string | null; updatedBy: string | null }
-      liveEligibility: { runtimeDbFlagEnabled: boolean }
+      error: string
+      requestedEnabled: boolean
+      runtimeFlag: { flagKey: string; enabled: boolean; updatedBy: string | null }
+      liveEligibility: { runtimeControlMode: string }
     }
 
-    expect(authenticated.response.status).toBe(200)
+    expect(authenticated.response.status).toBe(409)
+    expect(body.error).toContain('TRADING_LIVE_ENABLED')
+    expect(body.requestedEnabled).toBe(true)
+    expect(body.runtimeFlag.flagKey).toBe('TRADING_LIVE_ENABLED')
     expect(body.runtimeFlag.enabled).toBe(true)
-    expect(body.runtimeFlag.reason).toBe('enable for rehearsal')
-    expect(body.runtimeFlag.updatedBy).toBe('trading-api')
-    expect(body.liveEligibility.runtimeDbFlagEnabled).toBe(true)
-    expect(store.upserts).toHaveLength(1)
-    expect(store.upserts[0]).toMatchObject({
-      flagKey: TRADING_RUNTIME_LIVE_FLAG_KEY,
-      enabled: true,
-      reason: 'enable for rehearsal',
-      updatedBy: 'trading-api',
-      details: {
-        audit: {
-          action: 'trading-live-flag-update',
-          previousEnabled: false,
-          nextEnabled: true,
-          source: 'trading-api',
-        },
-      },
-    })
+    expect(body.runtimeFlag.updatedBy).toBe('environment')
+    expect(body.liveEligibility.runtimeControlMode).toBe('environment-only')
   })
 })

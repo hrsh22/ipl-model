@@ -21,13 +21,12 @@ Before dry-run or live evaluation for a fixture/mode, seed both-token recipes: o
 
 ## Safety contract
 
-The live gates are intentionally redundant. Live trading requires all of the following at the same time:
+Live trading is controlled by deployment environment plus runtime readiness checks. It requires all of the following at the same time:
 
 1. Environment gate `TRADING_LIVE_ENABLED=true`.
-2. DB runtime flag `live-trading-enabled` set to enabled.
-3. Polymarket credentials present: `POLYMARKET_PRIVATE_KEY` for signing and `POLY_BUILDER_CODE` for V2 builder attribution. The TypeScript CLOB V2 SDK creates or derives its internal L2 API credentials from the private key.
-4. A valid trading recipe for the exact intent identity, seeded for both home BUY and away BUY tokens for the active fixture/mode.
-5. Fresh match/book state and sufficient pUSD balance. The executor sizes each eligible order from current Polymarket pUSD balance using the selected recipe allocation: `0.20` for `value90` or `0.10` for explicitly selected `volume95`.
+2. Polymarket credentials present: `POLYMARKET_PRIVATE_KEY` for signing and `POLY_BUILDER_CODE` for V2 builder attribution. The TypeScript CLOB V2 SDK creates or derives its internal L2 API credentials from the private key.
+3. A valid trading recipe for the exact intent identity, seeded for both home BUY and away BUY tokens for the active fixture/mode.
+4. Fresh match/book state and sufficient pUSD balance. The executor sizes each eligible order from current Polymarket pUSD balance using the selected recipe allocation: `0.20` for `value90` or `0.10` for explicitly selected `volume95`.
 
 If any gate is missing, the trading adapter stays in dry-run and readiness returns dry-run blockers. Do not bypass this by creating a live client manually.
 
@@ -62,17 +61,17 @@ Rotate keys when a credential may have leaked, when an operator leaves the rotat
 
 Rotation steps:
 
-1. Disarm live trading by setting `live-trading-enabled=false`.
-2. Redeploy or reload with `TRADING_LIVE_ENABLED=false` if the incident may involve active submission risk.
+1. Disarm live trading by setting `TRADING_LIVE_ENABLED=false` and restarting the backend.
+2. Keep the deployment env false if the incident may involve active submission risk.
 3. Revoke old Polymarket CLOB credentials and private key access at the source.
 4. Issue a new `POLYMARKET_PRIVATE_KEY` and confirm the approved `POLY_BUILDER_CODE` remains scoped to this app.
 5. Restart the service so `POLYMARKET_PRIVATE_KEY` and `POLY_BUILDER_CODE` are read from the new secret set.
 6. Confirm `/trading/status` shows credential presence only, not values.
-7. Run in dry-run first, then re-enable `TRADING_LIVE_ENABLED=true` and `live-trading-enabled=true` only after reconciliation is clean.
+7. Run in dry-run first, then re-enable `TRADING_LIVE_ENABLED=true` only after reconciliation is clean.
 
-## Persistent flag operation
+## Environment live-switch operation
 
-The persistent DB flag is `live-trading-enabled`. Operators control it with the authenticated trading controls route.
+There is no DB live switch. Operators control live submission with the deployment environment variable `TRADING_LIVE_ENABLED`; changing it requires a backend restart. The `/trading/controls/live` route reports that live mode is environment-controlled and does not mutate Postgres.
 
 Daily start:
 
@@ -83,18 +82,18 @@ Daily start:
 5. Confirm recipe validation is `valid` for the active `scoreboard-side-11-13` recipe pair: home BUY token and away BUY token for the fixture/mode.
 6. Confirm the selected mode is intended: default `value90` with cap `<=0.90` and allocation `0.20`, or explicitly selected `volume95` with cap `<=0.95` and allocation `0.10`.
 7. Confirm Polymarket pUSD balance is available; the executor uses the recipe allocation context against current balance for each eligible trade.
-8. Set `live-trading-enabled=true` with a reason that names the match window only after an approved live rollout decision.
+8. Restart the backend after setting `TRADING_LIVE_ENABLED=true` only after an approved live rollout decision.
 9. Recheck `/trading/status` and confirm live readiness before allowing the executor to submit.
 
 Daily stop:
 
-1. Set `live-trading-enabled=false` with the reason.
+1. Set `TRADING_LIVE_ENABLED=false` and restart the backend.
 2. Confirm `/trading/status` returns dry-run mode or live readiness false.
 3. Review `/trading/intents`, `/trading/events`, `/trading/exposure`, and `/trading/reconciliation/status`.
 
 ## Disarm triggers
 
-Immediately set `live-trading-enabled=false` for any of these conditions:
+Immediately set `TRADING_LIVE_ENABLED=false` and restart the backend for any of these conditions:
 
 1. Bad fixture, team, market, condition, or token mapping.
 2. Unexpected duplicate intent or duplicate order indication.
@@ -110,20 +109,20 @@ For severe credential or mapping risk, also set `TRADING_LIVE_ENABLED=false` at 
 
 Use this sequence for the first dry-run rollout, for any future promotion after code or model changes, and before any separate live trading decision. Do not claim live readiness from this checklist alone.
 
-1. Start with `TRADING_LIVE_ENABLED=false` and runtime DB flag `live-trading-enabled=false`.
+1. Start with `TRADING_LIVE_ENABLED=false`.
 2. Run dry-run through the `scoreboard-side-11-13` 11.0 to 13.0 chase window and confirm the dry-run adapter path records would-submit state without live `createOrder` calls.
 3. Confirm fixture-level one-shot behavior: at most one active-mode intent per fixture/market/side, even if supported side flips token.
 4. Confirm both-token recipe seeding for the fixture/mode: home BUY token and away BUY token are present before observer evaluation.
 5. Confirm the recipe identity matches the Polymarket market, condition, token, side, max price, allocation, and expiry. Order size is derived at execution time from current pUSD balance.
-6. Confirm `/trading/status` shows credential presence only and remains dry-run unless both existing live gates are deliberately enabled.
+6. Confirm `/trading/status` shows credential presence only and remains dry-run unless `TRADING_LIVE_ENABLED=true` is deliberately enabled.
 7. Confirm `/trading/reconciliation/status` can write and read the `polymarket:user-updates` checkpoint.
-8. If a later live rollout is separately approved, set `TRADING_LIVE_ENABLED=true` for the deployment and then set `live-trading-enabled=true` only during the approved match window.
+8. If a later live rollout is separately approved, set `TRADING_LIVE_ENABLED=true` for the deployment and restart only during the approved match window.
 9. Watch `/trading/events` for `detected`, `eligible`, `approved`, `submitted`, and then a venue-derived state.
 10. If anything is unclear, disarm first, then reconcile.
 
 ## Rollback and disabling
 
-Rollback for this strategy means disabling `scoreboard-side-11-13` observer intent creation or setting the active scoreboard-side mode to a non-trading/disabled state if such a state is available. Keep `TRADING_LIVE_ENABLED=false` where possible and keep runtime DB flag `live-trading-enabled=false` until the issue is understood.
+Rollback for this strategy means disabling `scoreboard-side-11-13` observer intent creation or setting the active scoreboard-side mode to a non-trading/disabled state if such a state is available. Keep `TRADING_LIVE_ENABLED=false` until the issue is understood.
 
 After disabling, inspect `/trading/intents`, `/trading/events`, `/trading/exposure`, and `/trading/reconciliation/status` for any affected fixture/market/side. Do not claim that restoring a legacy `eleven-over` runtime path is a rollback option; use the current dry-run controls, fixture-level duplicate protection, and reconciliation process instead.
 
@@ -143,7 +142,7 @@ Symptoms: recipe token does not match the scoreboard-supported home/away side, m
 
 Actions:
 
-1. Set `live-trading-enabled=false`.
+1. Set `TRADING_LIVE_ENABLED=false` and restart the backend.
 2. Stop treating new `scoreboard-side-11-13` signals as tradable until the recipe or mapping is corrected.
 3. Check `/trading/intents` and `/trading/events` for affected fixture, market, condition, token, and side.
 4. Reconcile any submitted order before deciding on manual venue action.
@@ -166,7 +165,7 @@ Symptoms: submit timeout, network error, rate limit, duplicate order response, o
 
 Actions:
 
-1. Set `live-trading-enabled=false`.
+1. Set `TRADING_LIVE_ENABLED=false` and restart the backend.
 2. Do not retry submit.
 3. Use user updates if connected, otherwise REST fallback, to search by known order id, duplicate order id, `clientOrderId`, market id, and token id.
 4. Update incident notes with order state, trade state, exposure ledger state, and whether the intent remains pending reconciliation.
@@ -190,8 +189,8 @@ Symptoms: credential pasted in an unsafe place, unexpected auth failure, vendor 
 
 Actions:
 
-1. Set `live-trading-enabled=false` immediately.
-2. Set `TRADING_LIVE_ENABLED=false` and restart in dry-run if submit risk remains.
+1. Set `TRADING_LIVE_ENABLED=false` immediately and restart in dry-run if submit risk remains.
+2. Confirm `/trading/status` reports dry-run mode before continuing.
 3. Revoke and rotate `POLYMARKET_PRIVATE_KEY`; review and replace `POLY_BUILDER_CODE` only if the builder profile/code itself is compromised or no longer scoped to this app.
 4. Review recent `/trading/events`, `/trading/exposure`, venue orders, and venue trades.
 5. Remove leaked material from unsafe systems where possible, then record only redacted references in the incident notes.

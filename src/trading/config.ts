@@ -33,7 +33,6 @@ export type ValidationResult<T> =
 
 export type TradingReadinessReasonCode =
   | "ENV_LIVE_GATE_DISABLED"
-  | "DB_RUNTIME_LIVE_GATE_DISABLED"
   | "POLYMARKET_CREDENTIALS_MISSING"
   | "RECIPE_MISSING"
   | "RECIPE_INVALID"
@@ -141,7 +140,6 @@ export const validateTradingRecipe = (
 
 export interface TradingLiveReadinessInput {
   liveTradingEnabled: boolean
-  runtimeTradingEnabled: boolean
   credentialsPresent: boolean
   recipe: ValidationResult<ValidatedTradingRecipe> | ValidatedTradingRecipe | null
 }
@@ -154,10 +152,6 @@ export const assessTradingLiveReadiness = (
 
   if (!input.liveTradingEnabled) {
     reasons.push({ code: "ENV_LIVE_GATE_DISABLED" })
-  }
-
-  if (!input.runtimeTradingEnabled) {
-    reasons.push({ code: "DB_RUNTIME_LIVE_GATE_DISABLED" })
   }
 
   if (!input.credentialsPresent) {

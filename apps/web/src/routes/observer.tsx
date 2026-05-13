@@ -138,7 +138,8 @@ type TradingStatusData = {
     mode: 'live' | 'dry-run' | 'blocked'
     liveReady: boolean
     liveEnvGateEnabled: boolean
-    runtimeDbFlagEnabled: boolean
+    runtimeEnvGateEnabled: boolean
+    runtimeControlMode: string
     polymarketCredentialsPresent: {
       privateKey: boolean
       builderCode: boolean
@@ -164,6 +165,12 @@ type TradingStatusData = {
   }
   latestIntents: { id: number; intentKey: string; status: string; side: string; createdAt: string; [key: string]: unknown }[]
   latestEvents: { id: number; intentId: number; eventType: string; eventTime: string; [key: string]: unknown }[]
+  activeStrategy: {
+    strategyKey: string
+    mode: string
+    priceCap: number
+    allocationFraction: number
+  }
   exposureSummary: {
     ledgerEntryCount: number
     daySubmittedNotionalUsd: number
@@ -240,7 +247,7 @@ type ScoreboardAction = {
 
 const SCOREBOARD_START_BALL = 66
 const SCOREBOARD_END_BALL = 78
-const SCOREBOARD_PRICE_CAP = 0.95
+const DEFAULT_SCOREBOARD_PRICE_CAP = 0.9
 const T20_MAX_LEGAL_BALLS = 120
 const SETTLED_MARKET_LOW_PRICE = 0.01
 const SETTLED_MARKET_HIGH_PRICE = 0.99
@@ -296,6 +303,7 @@ function ObserverPage() {
   const signals = data?.signals ?? []
   const history = data?.history ?? []
   const ready = data?.ready ?? null
+  const scoreboardPriceCap = data?.tradingStatus?.activeStrategy.priceCap ?? DEFAULT_SCOREBOARD_PRICE_CAP
   const observerStatusLabel = ready?.ready === true
     ? ready.degraded === true
       ? 'Observer usable · official fixtures'
@@ -339,7 +347,7 @@ function ObserverPage() {
         {data?.tradingStatus && <TradingSafetyPanel tradingStatus={data.tradingStatus} refresh={state.refresh} />}
         <div className="observer-fixture-stack">
           <SectionHeading label="Live model board" value={`${fixtures.length} fixtures`} />
-          {fixtures.length === 0 ? <ObserverEmptyState /> : fixtures.map((fixture) => <FixtureCard key={fixture.fixture.id} fixture={fixture} />)}
+          {fixtures.length === 0 ? <ObserverEmptyState /> : fixtures.map((fixture) => <FixtureCard key={fixture.fixture.id} fixture={fixture} priceCap={scoreboardPriceCap} />)}
 
           <SectionHeading label="Historical tracking" value={`${history.length} matches`} />
           {history.length === 0 ? (
@@ -413,8 +421,8 @@ function useObserverDashboard(): ObserverState {
   return state
 }
 
-async function loadObserverDashboard(): Promise<DashboardData> {
-    const responses = await Promise.all([
+export async function loadObserverDashboard(): Promise<DashboardData> {
+  const responses = await Promise.all([
     fetch('/api/observer/ready'),
     fetch('/api/observer/live-model'),
     fetch('/api/observer/live-model/signals?limit=8'),
@@ -422,17 +430,18 @@ async function loadObserverDashboard(): Promise<DashboardData> {
     fetch('/api/observer/trading/status'),
   ])
 
-  const failed = responses.find((response) => !response.ok)
+  const coreResponses = responses.slice(0, 4)
+  const failed = coreResponses.find((response) => !response.ok)
   if (failed) {
     throw new Error(await responseMessage(failed))
   }
 
-    const [ready, fixtures, signals, history, tradingStatusResponse] = await Promise.all([
+  const [ready, fixtures, signals, history, tradingStatusResponse] = await Promise.all([
     responses[0].json() as Promise<Record<string, unknown>>,
     responses[1].json() as Promise<LiveModelFixture[]>,
     responses[2].json() as Promise<LiveModelSignal[]>,
     responses[3].json() as Promise<LiveModelHistoryEntry[]>,
-    (responses[4].json().catch(() => null)) as Promise<TradingStatusData | null>,
+    responses[4].ok ? (responses[4].json().catch(() => null)) as Promise<TradingStatusData | null> : Promise.resolve(null),
   ])
 
   const dashboard = mergeWithStableDashboardData({
@@ -575,9 +584,9 @@ function ObserverMetric({ label, value }: { label: string; value: string }) {
   )
 }
 
-function FixtureCard({ fixture }: { fixture: LiveModelFixture }) {
+function FixtureCard({ fixture, priceCap }: { fixture: LiveModelFixture; priceCap: number }) {
   const inningsStates = fixture.inningsStates ?? toFallbackInningsStates(fixture.expectedState)
-  const scoreboardAction = buildScoreboardAction(fixture, inningsStates)
+  const scoreboardAction = buildScoreboardAction(fixture, inningsStates, priceCap)
   return (
     <article className="observer-fixture-card">
       <header>
@@ -855,7 +864,7 @@ function toFallbackInningsStates(state: ExpectedState): InningsStates {
   return { activeInnings: state.innings, first: state.innings === 1 ? fallback : blank(1), second: state.innings === 2 ? fallback : blank(2) }
 }
 
-function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates): ScoreboardAction {
+export function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates, priceCap = DEFAULT_SCOREBOARD_PRICE_CAP): ScoreboardAction {
   const second = states.second
   const first = states.first
   const legalBalls = getLegalBalls(second)
@@ -894,7 +903,7 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
       reasons: ['Scoreboard-side entries are disabled when rain, DLS, revised targets, or shortened innings can change the normal 20-over chase geometry.'],
       blockers: ['Reduced or weather-affected match. Do not enter from this strategy card.'],
       stats,
-    })
+    }, priceCap)
   }
 
   const settledMarketReason = getSettledMarketReason(fixture)
@@ -910,7 +919,7 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
       reasons: ['The market is at a terminal-looking extreme, so the observer should not turn a dead price into a BUY instruction.'],
       blockers: ['Market appears settled or effectively closed.'],
       stats,
-    })
+    }, priceCap)
   }
 
   const dataBlockers = [
@@ -934,7 +943,7 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
       reasons: ['Rule waits for the 11.0-13.0 chase window with complete live scoreboard context.'],
       blockers: dataBlockers,
       stats,
-    })
+    }, priceCap)
   }
 
   if (
@@ -958,7 +967,7 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
       reasons: ['Waiting for complete chase rate, wicket, team, and price fields.'],
       blockers: ['Live payload is missing one or more required scoreboard-side fields.'],
       stats,
-    })
+    }, priceCap)
   }
 
   const terminalReason = terminalChaseReason({ scoreRuns, target, runsNeeded, wicketsLost, legalBalls, ballsLeft })
@@ -974,7 +983,7 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
       reasons: ['The chase is already terminal, so this display-only strategy card must not create a fresh entry instruction.'],
       blockers: ['Terminal chase state. Hold existing positions only; do not enter from this rule.'],
       stats,
-    })
+    }, priceCap)
   }
 
   if (legalBalls < SCOREBOARD_START_BALL) {
@@ -989,7 +998,7 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
       reasons: ['Strategy only watches legal balls 66 through 78 in the chase.'],
       blockers: [`${SCOREBOARD_START_BALL - legalBalls} legal balls until the scan window opens.`],
       stats,
-    })
+    }, priceCap)
   }
 
   if (legalBalls > SCOREBOARD_END_BALL) {
@@ -1004,7 +1013,7 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
       reasons: ['No first usable scoreboard-side entry is shown after 13.0 overs.'],
       blockers: ['Window closed. Do not chase a late entry from this strategy card.'],
       stats,
-    })
+    }, priceCap)
   }
 
   if (crr === null || rrr === null) {
@@ -1019,7 +1028,7 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
       reasons: ['Scoreboard-side rules require both current run rate and required run rate.'],
       blockers: ['Live payload is missing enough ball context to calculate rates.'],
       stats,
-    })
+    }, priceCap)
   }
 
   const priceBlockers = [
@@ -1036,10 +1045,10 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
       subhead: 'Inside the 11.0-13.0 scan window, but PM prices are required before showing BUY or WAIT FOR PRICE.',
       price: null,
       strength: null,
-      reasons: ['Scoreboard-side entries require the supported side to be at or below the 95¢ cap.'],
+      reasons: [`Scoreboard-side entries require the supported side to be at or below the ${formatPrice(priceCap)} cap.`],
       blockers: priceBlockers,
       stats,
-    })
+    }, priceCap)
   }
 
   const chasingRateOk = rrr <= 11
@@ -1053,14 +1062,14 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
   const defendingScoreboardOk = defendingCrrOk && defendingRrrOk && defendingWicketsOk && defendingPressureOk
 
   if (chasingScoreboardOk) {
-    const strength = calculateChasingStrength(crr, rrr, wicketsLost, chaserPrice)
-    const priceOk = chaserPrice <= SCOREBOARD_PRICE_CAP
+    const strength = calculateChasingStrength(crr, rrr, wicketsLost, chaserPrice, priceCap)
+    const priceOk = chaserPrice <= priceCap
     return makeScoreboardAction({
       status: priceOk ? 'buy' : 'wait',
       role: 'chaser',
       team: chaser,
       headline: priceOk ? `BUY CHASER — ${chaser}` : `WAIT FOR CHASER PRICE — ${chaser}`,
-      subhead: priceOk ? 'Scoreboard supports the chase and price is inside the 95¢ cap.' : 'Scoreboard supports the chase, but price is too expensive for this rule.',
+      subhead: priceOk ? `Scoreboard supports the chase and price is inside the ${formatPrice(priceCap)} cap.` : 'Scoreboard supports the chase, but price is too expensive for this rule.',
       price: chaserPrice,
       strength,
       reasons: [
@@ -1068,20 +1077,20 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
         `${wicketsLost} wickets lost is within the ≤3 wicket gate.`,
         `CRR ${formatRate(crr)} is at or above RRR ${formatRate(rrr)}.`,
       ],
-      blockers: priceOk ? [] : [`Chaser price ${formatPrice(chaserPrice)} is above the ${formatPrice(SCOREBOARD_PRICE_CAP)} cap.`],
+      blockers: priceOk ? [] : [`Chaser price ${formatPrice(chaserPrice)} is above the ${formatPrice(priceCap)} cap.`],
       stats,
-    })
+    }, priceCap)
   }
 
   if (defendingScoreboardOk) {
-    const strength = calculateDefendingStrength(crr, rrr, wicketsLost, defenderPrice)
-    const priceOk = defenderPrice <= SCOREBOARD_PRICE_CAP
+    const strength = calculateDefendingStrength(crr, rrr, wicketsLost, defenderPrice, priceCap)
+    const priceOk = defenderPrice <= priceCap
     return makeScoreboardAction({
       status: priceOk ? 'buy' : 'wait',
       role: 'defender',
       team: defender,
       headline: priceOk ? `BUY DEFENDER — ${defender}` : `WAIT FOR DEFENDER PRICE — ${defender}`,
-      subhead: priceOk ? 'Scoreboard says the chase is under pressure and defender price is inside the 95¢ cap.' : 'Scoreboard supports the defender, but price is too expensive for this rule.',
+      subhead: priceOk ? `Scoreboard says the chase is under pressure and defender price is inside the ${formatPrice(priceCap)} cap.` : 'Scoreboard supports the defender, but price is too expensive for this rule.',
       price: defenderPrice,
       strength,
       reasons: [
@@ -1089,9 +1098,9 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
         `RRR ${formatRate(rrr)} is at or above 12.0.`,
         `${wicketsLost} wickets lost with ${wicketsLost >= 5 ? 'five-plus wickets down' : 'RRR at least 13.0'} pressure confirmation.`,
       ],
-      blockers: priceOk ? [] : [`Defender price ${formatPrice(defenderPrice)} is above the ${formatPrice(SCOREBOARD_PRICE_CAP)} cap.`],
+      blockers: priceOk ? [] : [`Defender price ${formatPrice(defenderPrice)} is above the ${formatPrice(priceCap)} cap.`],
       stats,
-    })
+    }, priceCap)
   }
 
   return makeScoreboardAction({
@@ -1113,15 +1122,15 @@ function buildScoreboardAction(fixture: LiveModelFixture, states: InningsStates)
       defendingPressureOk ? null : 'Defender gate blocked: need 5+ wickets down or RRR ≥ 13.0.',
     ].filter((blocker): blocker is string => blocker !== null),
     stats,
-  })
+  }, priceCap)
 }
 
-function makeScoreboardAction(input: Omit<ScoreboardAction, 'priceCap' | 'strengthLabel' | 'stakeGuidance'>): ScoreboardAction {
+function makeScoreboardAction(input: Omit<ScoreboardAction, 'priceCap' | 'strengthLabel' | 'stakeGuidance'>, priceCap = DEFAULT_SCOREBOARD_PRICE_CAP): ScoreboardAction {
   return {
     ...input,
-    priceCap: SCOREBOARD_PRICE_CAP,
+    priceCap,
     strengthLabel: strengthLabel(input.strength),
-    stakeGuidance: stakeGuidance(input.status, input.price),
+    stakeGuidance: stakeGuidance(input.status, input.price, priceCap),
   }
 }
 
@@ -1223,19 +1232,19 @@ function getSettledMarketReason(fixture: LiveModelFixture): string | null {
   return null
 }
 
-function calculateChasingStrength(crr: number, rrr: number, wicketsLost: number, price: number): number {
+function calculateChasingStrength(crr: number, rrr: number, wicketsLost: number, price: number, priceCap: number): number {
   const rateEdge = crr - rrr
   const wicketEdge = 3 - wicketsLost
   const rrrCushion = 11 - rrr
-  const priceBonus = Math.max(0, SCOREBOARD_PRICE_CAP - price) * 20
+  const priceBonus = Math.max(0, priceCap - price) * 20
   return clamp(Math.round(50 + 7 * rateEdge + 6 * wicketEdge + 3 * rrrCushion + priceBonus), 0, 100)
 }
 
-function calculateDefendingStrength(crr: number, rrr: number, wicketsLost: number, price: number): number {
+function calculateDefendingStrength(crr: number, rrr: number, wicketsLost: number, price: number, priceCap: number): number {
   const rateEdge = rrr - crr
   const wicketEdge = wicketsLost - 4
   const rrrPressure = rrr - 12
-  const priceBonus = Math.max(0, SCOREBOARD_PRICE_CAP - price) * 20
+  const priceBonus = Math.max(0, priceCap - price) * 20
   return clamp(Math.round(50 + 7 * rateEdge + 6 * wicketEdge + 3 * rrrPressure + priceBonus), 0, 100)
 }
 
@@ -1251,11 +1260,11 @@ function strengthLabel(strength: number | null): string {
   return 'Weak'
 }
 
-function stakeGuidance(status: ScoreboardActionStatus, price: number | null): string {
+function stakeGuidance(status: ScoreboardActionStatus, price: number | null, priceCap: number): string {
   if (status !== 'buy' || price === null) return '0% — do not enter'
   if (price <= 0.85) return '20-30% bankroll'
   if (price <= 0.9) return '15-20% bankroll'
-  if (price <= SCOREBOARD_PRICE_CAP) return '5-10% bankroll'
+  if (price <= priceCap) return '5-10% bankroll'
   return '0% — price above cap'
 }
 
@@ -1347,7 +1356,6 @@ function isFatalObserverConfigurationError(message: string): boolean {
 }
 
 export function TradingSafetyPanel({ tradingStatus, refresh }: { tradingStatus: TradingStatusData | null, refresh: () => void }) {
-  const [toggling, setToggling] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (!tradingStatus) {
@@ -1356,29 +1364,8 @@ export function TradingSafetyPanel({ tradingStatus, refresh }: { tradingStatus: 
 
   const { mode, liveEligibility, runtimeFlag, recipeValidation, exposureSummary, reconciliationStatus, latestIntents, latestEvents } = tradingStatus
 
-  const toggleFlag = async () => {
-    setToggling(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/observer/trading/controls/live', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !runtimeFlag.enabled, reason: 'Operator dashboard toggle' })
-      })
-      if (!res.ok) {
-        throw new Error('Toggle failed')
-      }
-      refresh()
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setToggling(false)
-    }
-  }
-
   const isLive = mode === 'live'
   const isBlocked = mode === 'blocked'
-  const toggleClassName = `trading-toggle-button ${runtimeFlag.enabled ? 'enabled' : 'disabled'}${toggling ? ' is-toggling' : ''}`
 
   return (
     <section className="trading-safety-panel">
@@ -1403,17 +1390,12 @@ export function TradingSafetyPanel({ tradingStatus, refresh }: { tradingStatus: 
         </article>
         
         <article className="observer-metric-card">
-          <span>DB Runtime Flag</span>
+          <span>Env Live Switch</span>
           <div className="trading-flag-control">
             <strong>{runtimeFlag.enabled ? 'ENABLED' : 'DISABLED'}</strong>
-            <button 
-              onClick={toggleFlag} 
-              disabled={toggling}
-              className={toggleClassName}
-            >
-              {toggling ? '…' : runtimeFlag.enabled ? 'DISABLE' : 'ENABLE'}
-            </button>
+            <button onClick={() => { setError('Live mode is environment-controlled. Change TRADING_LIVE_ENABLED and restart the backend.') }} className="trading-toggle-button disabled">ENV ONLY</button>
           </div>
+          <small>{liveEligibility.runtimeControlMode === 'environment-only' ? 'Change TRADING_LIVE_ENABLED and restart.' : 'Runtime control mode unknown.'}</small>
         </article>
         
         <article className="observer-metric-card">

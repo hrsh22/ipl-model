@@ -20,11 +20,8 @@ import type {
   TradingIntentRecord,
   TradingRecipeRecord,
   TradingReconciliationCheckpointRecord,
-  TradingRuntimeFlagRecord,
-  TradingRuntimeFlagUpsertInput,
 } from "./repository.js"
 
-export const TRADING_RUNTIME_LIVE_FLAG_KEY = "live-trading-enabled"
 export const TRADING_RECONCILIATION_CHECKPOINT_KEY = "polymarket:user-updates"
 
 const REDACTED = "[REDACTED]"
@@ -53,8 +50,6 @@ export interface TradingApiConfig {
 }
 
 export interface TradingApiStore {
-  getRuntimeFlag(flagKey: string): Promise<TradingRuntimeFlagRecord | null>
-  upsertRuntimeFlag(input: TradingRuntimeFlagUpsertInput): Promise<void>
   listRecipes(limit?: number): Promise<TradingRecipeRecord[]>
   listIntents(params?: { limit?: number; status?: TradeIntentStatus }): Promise<TradingIntentRecord[]>
   getIntentById(intentId: number): Promise<TradingIntentRecord | null>
@@ -76,8 +71,6 @@ export const setTradingRuntimeReadinessFailureReasons = (reasons: readonly strin
 }
 
 type JsonRecord = Record<string, unknown>
-
-const nowIso = () => new Date().toISOString()
 
 const parseLimitQuery = (value: unknown, fallback: number, max: number) => {
   const firstValue = Array.isArray(value) ? value[0] : value
@@ -254,15 +247,21 @@ const validateLatestRecipe = (recipe: TradingRecipeRecord | null) => {
   return validateTradingRecipe(recipeToValidationInput(recipe))
 }
 
-const summarizeRuntimeFlag = (flag: TradingRuntimeFlagRecord | null) => ({
-  flagKey: TRADING_RUNTIME_LIVE_FLAG_KEY,
-  enabled: flag?.enabled ?? false,
-  present: flag !== null,
-  reason: flag?.reason ?? null,
-  updatedBy: flag?.updatedBy ?? null,
-  details: flag ? sanitizeDetails(flag.details) : null,
-  createdAt: flag ? toIso(flag.createdAt) : null,
-  updatedAt: flag ? toIso(flag.updatedAt) : null,
+const summarizeEnvironmentLiveGate = (config: TradingApiConfig) => ({
+  flagKey: "TRADING_LIVE_ENABLED",
+  enabled: config.liveTradingEnabled,
+  present: true,
+  reason: "Live trading is controlled by the TRADING_LIVE_ENABLED deployment environment variable.",
+  updatedBy: "environment",
+  details: {
+    controlMode: "environment-only",
+    audit: {
+      action: "trading-live-env-gate-read",
+      source: "environment",
+    },
+  },
+  createdAt: null,
+  updatedAt: null,
 })
 
 const summarizeReadinessBlockerReason = (reason: unknown) => {
@@ -280,11 +279,12 @@ const summarizeReadinessBlockerReason = (reason: unknown) => {
   return "READINESS_BLOCKED"
 }
 
-const summarizeReadiness = (readiness: TradingReadinessResult, config: TradingApiConfig, runtimeFlagEnabled: boolean) => ({
+const summarizeReadiness = (readiness: TradingReadinessResult, config: TradingApiConfig) => ({
   mode: readiness.mode,
   liveReady: readiness.liveReady,
   liveEnvGateEnabled: config.liveTradingEnabled,
-  runtimeDbFlagEnabled: runtimeFlagEnabled,
+  runtimeEnvGateEnabled: config.liveTradingEnabled,
+  runtimeControlMode: "environment-only",
   polymarketCredentialsPresent: {
     privateKey: config.polymarketCredentials.privateKeyPresent,
     builderCode: config.polymarketCredentials.builderCodePresent,
@@ -484,8 +484,7 @@ export const buildTradingStatusResponse = async (input: {
   config: TradingApiConfig
   now?: Date
 }) => {
-  const [runtimeFlag, recipes, latestIntents, latestEvents, exposureEntries, reconciliationCheckpoint] = await Promise.all([
-    input.store.getRuntimeFlag(TRADING_RUNTIME_LIVE_FLAG_KEY),
+  const [recipes, latestIntents, latestEvents, exposureEntries, reconciliationCheckpoint] = await Promise.all([
     input.store.listRecipes(1),
     input.store.listIntents({ limit: 10 }),
     input.store.listEvents({ limit: 20 }),
@@ -494,10 +493,8 @@ export const buildTradingStatusResponse = async (input: {
   ])
   const latestRecipe = recipes[0] ?? null
   const recipeValidation = validateLatestRecipe(latestRecipe)
-  const runtimeTradingEnabled = runtimeFlag?.enabled ?? false
   const readiness = assessTradingLiveReadiness({
     liveTradingEnabled: input.config.liveTradingEnabled,
-    runtimeTradingEnabled,
     credentialsPresent: input.config.polymarketCredentials.allPresent,
     recipe: recipeValidation,
   })
@@ -515,8 +512,8 @@ export const buildTradingStatusResponse = async (input: {
     mode: effectiveReadiness.mode,
     liveReady: effectiveReadiness.liveReady,
     activeStrategy: summarizeActiveStrategy(effectiveReadiness, input.config),
-    liveEligibility: summarizeReadiness(effectiveReadiness, input.config, runtimeTradingEnabled),
-    runtimeFlag: summarizeRuntimeFlag(runtimeFlag),
+    liveEligibility: summarizeReadiness(effectiveReadiness, input.config),
+    runtimeFlag: summarizeEnvironmentLiveGate(input.config),
     recipeValidation: summarizeRecipeValidation(latestRecipe),
     latestIntents: latestIntents.map(summarizeIntent),
     latestEvents: latestEvents.map(summarizeEvent),
@@ -526,14 +523,6 @@ export const buildTradingStatusResponse = async (input: {
 }
 
 export const createDatabaseTradingApiStore = (): TradingApiStore => ({
-  getRuntimeFlag: async (flagKey) => {
-    const repository = await import("./repository.js")
-    return repository.getTradingRuntimeFlag(flagKey)
-  },
-  upsertRuntimeFlag: async (input) => {
-    const repository = await import("./repository.js")
-    await repository.upsertTradingRuntimeFlag(input)
-  },
   listRecipes: async (limit) => {
     const repository = await import("./repository.js")
     return repository.listTradingRecipes(limit)
@@ -598,27 +587,11 @@ export const createTradingRouter = ({ requireAuth, store, config }: CreateTradin
       return { error: "enabled must be a boolean" }
     }
 
-    const reasonValue = typeof body?.reason === "string" ? body.reason.trim() : ""
-    const previousFlag = await store.getRuntimeFlag(TRADING_RUNTIME_LIVE_FLAG_KEY)
-    const requestedAt = nowIso()
-    await store.upsertRuntimeFlag({
-      flagKey: TRADING_RUNTIME_LIVE_FLAG_KEY,
-      enabled,
-      reason: reasonValue || null,
-      updatedBy: "trading-api",
-      details: {
-        audit: {
-          action: "trading-live-flag-update",
-          previousEnabled: previousFlag?.enabled ?? false,
-          nextEnabled: enabled,
-          requestedAt,
-          source: "trading-api",
-        },
-      },
-    })
-
     const status = await buildTradingStatusResponse({ store, config })
+    res.status(409)
     return {
+      error: "Live trading is controlled by TRADING_LIVE_ENABLED; update the deployment environment and restart the service.",
+      requestedEnabled: enabled,
       runtimeFlag: status.runtimeFlag,
       liveEligibility: status.liveEligibility,
       recipeValidation: status.recipeValidation,

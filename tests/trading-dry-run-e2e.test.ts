@@ -601,11 +601,6 @@ describe('trading dry-run end-to-end safety scenario', () => {
         expectedCode: 'ENV_LIVE_GATE_DISABLED',
       },
       {
-        name: 'runtime database flag disabled',
-        context: { readiness: { liveReady: false, mode: 'dry-run', reasons: [{ code: 'DB_RUNTIME_LIVE_GATE_DISABLED' }] } },
-        expectedCode: 'DB_RUNTIME_LIVE_GATE_DISABLED',
-      },
-      {
         name: 'auth credentials missing',
         context: { readiness: { liveReady: false, mode: 'dry-run', reasons: [{ code: 'POLYMARKET_CREDENTIALS_MISSING' }] } },
         expectedCode: 'POLYMARKET_CREDENTIALS_MISSING',

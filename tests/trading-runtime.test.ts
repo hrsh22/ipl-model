@@ -183,7 +183,6 @@ describe('trading runtime executor loop', () => {
       adapter,
       store,
       now: () => FIXED_NOW,
-      getRuntimeTradingEnabled: async () => true,
       buildEvaluationContext: async () => ({
         readiness: { liveReady: true, mode: 'live', recipe: validatedRecipe.value, reasons: [] } satisfies TradingReadinessResult,
         marketStatus: 'open',

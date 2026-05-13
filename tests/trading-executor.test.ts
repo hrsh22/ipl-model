@@ -447,11 +447,6 @@ describe('trading executor dry-run policy engine', () => {
       { name: 'stale match state', context: { matchStateAgeMs: 45_000 }, expectedCode: 'STALE_MATCH_STATE' },
       { name: 'stale book', context: { bookAgeMs: 20_000 }, expectedCode: 'STALE_BOOK' },
       {
-        name: 'disabled db flag',
-        context: { readiness: { liveReady: false, mode: 'dry-run', reasons: [{ code: 'DB_RUNTIME_LIVE_GATE_DISABLED' }] } },
-        expectedCode: 'DB_RUNTIME_LIVE_GATE_DISABLED',
-      },
-      {
         name: 'missing env gate',
         context: { readiness: { liveReady: false, mode: 'dry-run', reasons: [{ code: 'ENV_LIVE_GATE_DISABLED' }] } },
         expectedCode: 'ENV_LIVE_GATE_DISABLED',

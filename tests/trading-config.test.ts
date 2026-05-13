@@ -203,25 +203,14 @@ describe('trading live readiness', () => {
       'env gate is disabled',
       {
         liveTradingEnabled: false,
-        runtimeTradingEnabled: true,
         credentialsPresent: true,
       },
       'ENV_LIVE_GATE_DISABLED',
     ],
     [
-      'runtime DB gate is disabled',
-      {
-        liveTradingEnabled: true,
-        runtimeTradingEnabled: false,
-        credentialsPresent: true,
-      },
-      'DB_RUNTIME_LIVE_GATE_DISABLED',
-    ],
-    [
       'credentials are missing',
       {
         liveTradingEnabled: true,
-        runtimeTradingEnabled: true,
         credentialsPresent: false,
       },
       'POLYMARKET_CREDENTIALS_MISSING',
@@ -232,7 +221,6 @@ describe('trading live readiness', () => {
 
     const readiness = assessTradingLiveReadiness({
       liveTradingEnabled: readinessOverride.liveTradingEnabled ?? true,
-      runtimeTradingEnabled: readinessOverride.runtimeTradingEnabled ?? true,
       credentialsPresent: readinessOverride.credentialsPresent ?? true,
       recipe,
     })
@@ -252,7 +240,6 @@ describe('trading live readiness', () => {
 
     const readiness = assessTradingLiveReadiness({
       liveTradingEnabled: true,
-      runtimeTradingEnabled: true,
       credentialsPresent: true,
       recipe,
     })
@@ -274,7 +261,6 @@ describe('trading live readiness', () => {
 
     const readiness = assessTradingLiveReadiness({
       liveTradingEnabled: true,
-      runtimeTradingEnabled: true,
       credentialsPresent: true,
       recipe,
     })
@@ -307,7 +293,6 @@ describe('trading live readiness', () => {
 
     const readiness = assessTradingLiveReadiness({
       liveTradingEnabled: true,
-      runtimeTradingEnabled: true,
       credentialsPresent: true,
       recipe: validatedRecipe,
     })

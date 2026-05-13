@@ -13,9 +13,8 @@ import {
   createPolymarketClobV2LiveClient,
   type PolymarketTradingAdapter,
 } from "./polymarket-adapter.js"
-import { setTradingRuntimeReadinessFailureReasons, TRADING_RUNTIME_LIVE_FLAG_KEY } from "./api.js"
+import { setTradingRuntimeReadinessFailureReasons } from "./api.js"
 import {
-  getTradingRuntimeFlag,
   listTradingRecipes,
   type TradingIntentRecord,
   type TradingRecipeRecord,
@@ -32,7 +31,6 @@ export interface TradingRuntimeServiceOptions {
   dailyBoundaryTimezone: string
   adapter?: PolymarketTradingAdapter
   store?: TradingExecutorStore
-  getRuntimeTradingEnabled?: () => Promise<boolean>
   buildEvaluationContext?: ConstructorParameters<typeof TradingExecutor>[0]["buildEvaluationContext"]
   now?: () => Date
 }
@@ -108,7 +106,6 @@ export const buildRuntimeEvaluationContext = async (input: {
   intent: TradingIntentRecord
   recipe: TradingRecipeRecord | null
   now: Date
-  runtimeTradingEnabled: boolean
   maxMatchStateAgeMs: number
   maxBookAgeMs: number
   dailyBoundaryTimezone: string
@@ -120,7 +117,6 @@ export const buildRuntimeEvaluationContext = async (input: {
   const recipeValidation = validateTradingRecipe(recipeToValidationInput(input.recipe))
   const readiness = assessTradingLiveReadiness({
     liveTradingEnabled: config.trading.liveEnabled,
-    runtimeTradingEnabled: input.runtimeTradingEnabled,
     credentialsPresent: config.trading.polymarketCredentials.allPresent,
     recipe: recipeValidation,
   })
@@ -139,16 +135,11 @@ export const buildRuntimeEvaluationContext = async (input: {
 }
 
 const buildStartupReadiness = async () => {
-  const [runtimeFlag, recipes] = await Promise.all([
-    getTradingRuntimeFlag(TRADING_RUNTIME_LIVE_FLAG_KEY),
-    listTradingRecipes(1),
-  ])
+  const recipes = await listTradingRecipes(1)
   const recipeValidation = validateTradingRecipe(recipeToValidationInput(recipes[0] ?? null))
   return {
-    runtimeTradingEnabled: runtimeFlag?.enabled ?? false,
     readiness: assessTradingLiveReadiness({
       liveTradingEnabled: config.trading.liveEnabled,
-      runtimeTradingEnabled: runtimeFlag?.enabled ?? false,
       credentialsPresent: config.trading.polymarketCredentials.allPresent,
       recipe: recipeValidation,
     }),
@@ -199,9 +190,6 @@ export const createTradingRuntimeService = async (
   let running = false
 
   const processOnce = async () => {
-    const runtimeTradingEnabled = options.getRuntimeTradingEnabled
-      ? await options.getRuntimeTradingEnabled()
-      : (await getTradingRuntimeFlag(TRADING_RUNTIME_LIVE_FLAG_KEY))?.enabled ?? false
     const executor = new TradingExecutor({
       workerId: options.workerId,
       leaseMs: options.leaseMs,
@@ -213,7 +201,6 @@ export const createTradingRuntimeService = async (
           intent,
           recipe,
           now: evaluationNow,
-          runtimeTradingEnabled,
           maxMatchStateAgeMs: options.maxMatchStateAgeMs,
           maxBookAgeMs: options.maxBookAgeMs,
           dailyBoundaryTimezone: options.dailyBoundaryTimezone,

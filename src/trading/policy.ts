@@ -20,7 +20,6 @@ export type TradePolicyBlockerCode =
   | "RECIPE_MISSING"
   | "RECIPE_INVALID"
   | "ENV_LIVE_GATE_DISABLED"
-  | "DB_RUNTIME_LIVE_GATE_DISABLED"
   | "POLYMARKET_CREDENTIALS_MISSING"
   | "STALE_MATCH_STATE"
   | "STALE_BOOK"
@@ -249,12 +248,6 @@ const mapReadinessBlockers = (readiness: TradingReadinessResult): TradePolicyBlo
         return {
           code: reason.code,
           message: "Trading env gate is disabled",
-          details: {},
-        }
-      case "DB_RUNTIME_LIVE_GATE_DISABLED":
-        return {
-          code: reason.code,
-          message: "Trading runtime DB flag is disabled",
           details: {},
         }
       case "POLYMARKET_CREDENTIALS_MISSING":
