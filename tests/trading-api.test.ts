@@ -33,6 +33,9 @@ const tradingApiConfig: TradingApiConfig = {
   polymarketCredentials: {
     privateKeyPresent: true,
     builderCodePresent: true,
+    signatureType: 3,
+    funderAddressRequired: true,
+    funderAddressPresent: true,
     allPresent: true,
   },
 }

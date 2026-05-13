@@ -153,6 +153,9 @@ export const buildRuntimeAdapter = async (): Promise<PolymarketTradingAdapter> =
         chainId: config.trading.polymarketClob.chainId,
         privateKey: process.env.POLYMARKET_PRIVATE_KEY,
         builderCode: process.env.POLY_BUILDER_CODE,
+        signatureType: config.trading.polymarketClob.signatureType,
+        funderAddress: config.trading.polymarketClob.funderAddress,
+        expectedSignerAddress: config.trading.polymarketClob.expectedSignerAddress,
       })
     : null
 

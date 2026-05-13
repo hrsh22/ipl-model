@@ -1,4 +1,4 @@
-import { AssetType, Chain, ClobClient, OrderType, Side } from "@polymarket/clob-client-v2"
+import { AssetType, Chain, ClobClient, OrderType, Side, SignatureTypeV2 } from "@polymarket/clob-client-v2"
 import type { ApiKeyCreds, MarketDetails, OpenOrder, Trade } from "@polymarket/clob-client-v2"
 import { createWalletClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
@@ -158,6 +158,9 @@ export interface PolymarketClobV2LiveClientInput {
   chainId: number
   privateKey: string | null | undefined
   builderCode: string | null | undefined
+  signatureType?: SignatureTypeV2 | number | null
+  funderAddress?: string | null | undefined
+  expectedSignerAddress?: string | null | undefined
   deriveApiCredentials?: (client: Pick<ClobClient, "createOrDeriveApiKey">) => Promise<ApiKeyCreds>
 }
 
@@ -787,12 +790,21 @@ export const createPolymarketClobV2LiveClient = async (
   const host = normalizeString(input.host)
   const privateKey = normalizeString(input.privateKey)
   const builderCode = normalizeString(input.builderCode)
+  const signatureType = input.signatureType ?? SignatureTypeV2.EOA
+  const funderAddress = normalizeString(input.funderAddress)
+  const expectedSignerAddress = normalizeString(input.expectedSignerAddress)
   const reasons: string[] = []
 
   if (!host) reasons.push("POLYMARKET_CLOB_HOST_MISSING")
   if (input.chainId !== Chain.POLYGON && input.chainId !== Chain.AMOY) reasons.push("POLYMARKET_CHAIN_ID_INVALID")
   if (!privateKey) reasons.push("POLYMARKET_PRIVATE_KEY_MISSING")
   if (!builderCode) reasons.push("POLYMARKET_BUILDER_CODE_MISSING")
+  if (![SignatureTypeV2.EOA, SignatureTypeV2.POLY_PROXY, SignatureTypeV2.POLY_GNOSIS_SAFE, SignatureTypeV2.POLY_1271].includes(signatureType as SignatureTypeV2)) {
+    reasons.push("POLYMARKET_SIGNATURE_TYPE_INVALID")
+  }
+  if (signatureType !== SignatureTypeV2.EOA && !funderAddress) {
+    reasons.push("POLYMARKET_FUNDER_ADDRESS_MISSING")
+  }
 
   if (reasons.length > 0) {
     return { ok: false, reasons }
@@ -803,6 +815,10 @@ export const createPolymarketClobV2LiveClient = async (
     account = privateKeyToAccount(privateKey as `0x${string}`)
   } catch {
     return { ok: false, reasons: ["POLYMARKET_PRIVATE_KEY_INVALID"] }
+  }
+
+  if (expectedSignerAddress && account.address.toLowerCase() !== expectedSignerAddress.toLowerCase()) {
+    return { ok: false, reasons: ["POLYMARKET_SIGNER_ADDRESS_MISMATCH"] }
   }
 
   const signer = createWalletClient({ account, transport: http(DEFAULT_POLYGON_RPC_URL) })
@@ -827,6 +843,8 @@ export const createPolymarketClobV2LiveClient = async (
         chain: input.chainId,
         signer,
         creds,
+        signatureType: signatureType as SignatureTypeV2,
+        ...(funderAddress ? { funderAddress } : {}),
         throwOnError: true,
       }),
       builderCode,

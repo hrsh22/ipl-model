@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
+import { privateKeyToAccount } from 'viem/accounts'
 
 import {
   MockPolymarketTradingAdapter,
@@ -15,6 +16,7 @@ import { validateTradingRecipe } from '../src/trading/config.js'
 
 const FAKE_PRIVATE_KEY = '0xFAKE_PRIVATE_KEY_TEST_VALUE'
 const VALID_TEST_PRIVATE_KEY = `0x${'1'.repeat(64)}`
+const VALID_TEST_SIGNER_ADDRESS = privateKeyToAccount(VALID_TEST_PRIVATE_KEY as `0x${string}`).address
 const FAKE_BUILDER_CODE = `0x${'2'.repeat(64)}`
 const FAKE_API_KEY = 'FAKE_API_KEY_TEST_VALUE'
 const FAKE_SECRET = 'FAKE_SECRET_TEST_VALUE'
@@ -205,6 +207,82 @@ describe('polymarket adapter boundary', () => {
 
     expect(result.ok).toBe(true)
     expect(deriveApiCredentials).toHaveBeenCalledTimes(1)
+  })
+
+  test('package-backed CLOB V2 live client requires funder for deposit wallet mode', async () => {
+    const result = await createPolymarketClobV2LiveClient({
+      host: 'https://clob.polymarket.com',
+      chainId: 137,
+      privateKey: VALID_TEST_PRIVATE_KEY,
+      builderCode: FAKE_BUILDER_CODE,
+      signatureType: 3,
+    })
+
+    expect(result).toEqual({ ok: false, reasons: ['POLYMARKET_FUNDER_ADDRESS_MISSING'] })
+  })
+
+  test('package-backed CLOB V2 live client passes signature type and funder into SDK clients', async () => {
+    const deriveApiCredentials = vi.fn(async () => ({
+      key: FAKE_API_KEY,
+      secret: FAKE_SECRET,
+      passphrase: FAKE_PASSPHRASE,
+    }))
+
+    const result = await createPolymarketClobV2LiveClient({
+      host: 'https://clob.polymarket.com',
+      chainId: 137,
+      privateKey: VALID_TEST_PRIVATE_KEY,
+      builderCode: FAKE_BUILDER_CODE,
+      signatureType: 3,
+      funderAddress: '0x1234567890123456789012345678901234567890',
+      deriveApiCredentials,
+    })
+
+    expect(result.ok).toBe(true)
+  })
+
+  test('package-backed CLOB V2 live client accepts the expected signer address case-insensitively', async () => {
+    const deriveApiCredentials = vi.fn(async () => ({
+      key: FAKE_API_KEY,
+      secret: FAKE_SECRET,
+      passphrase: FAKE_PASSPHRASE,
+    }))
+
+    const result = await createPolymarketClobV2LiveClient({
+      host: 'https://clob.polymarket.com',
+      chainId: 137,
+      privateKey: VALID_TEST_PRIVATE_KEY,
+      builderCode: FAKE_BUILDER_CODE,
+      signatureType: 3,
+      funderAddress: '0x1234567890123456789012345678901234567890',
+      expectedSignerAddress: VALID_TEST_SIGNER_ADDRESS.toUpperCase(),
+      deriveApiCredentials,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(deriveApiCredentials).toHaveBeenCalledTimes(1)
+  })
+
+  test('package-backed CLOB V2 live client rejects a mismatched expected signer address', async () => {
+    const deriveApiCredentials = vi.fn(async () => ({
+      key: FAKE_API_KEY,
+      secret: FAKE_SECRET,
+      passphrase: FAKE_PASSPHRASE,
+    }))
+
+    const result = await createPolymarketClobV2LiveClient({
+      host: 'https://clob.polymarket.com',
+      chainId: 137,
+      privateKey: VALID_TEST_PRIVATE_KEY,
+      builderCode: FAKE_BUILDER_CODE,
+      signatureType: 3,
+      funderAddress: '0x1234567890123456789012345678901234567890',
+      expectedSignerAddress: '0x0000000000000000000000000000000000000001',
+      deriveApiCredentials,
+    })
+
+    expect(result).toEqual({ ok: false, reasons: ['POLYMARKET_SIGNER_ADDRESS_MISMATCH'] })
+    expect(deriveApiCredentials).not.toHaveBeenCalled()
   })
 
   test('package-backed CLOB V2 live client rejects missing builder code', async () => {

@@ -6,7 +6,7 @@ export async function proxyBackendJson(path: string, init: RequestInit = {}): Pr
     return missingBackendOriginResponse()
   }
   const url = new URL(path, origin)
-  const response = await fetchBackend(url, init)
+  const response = await fetchBackend(url, path, init)
 
   if (!response) {
     return backendUnavailableResponse(url)
@@ -44,18 +44,33 @@ function backendOrigin(): string | null {
   return configuredOrigin && configuredOrigin.length > 0 ? configuredOrigin : null
 }
 
-async function fetchBackend(url: URL, init: RequestInit): Promise<Response | null> {
+async function fetchBackend(url: URL, path: string, init: RequestInit): Promise<Response | null> {
+  const authorization = backendAuthorization(path)
   try {
     return await fetch(url, {
       ...init,
       headers: {
         accept: 'application/json',
         ...init.headers,
+        ...(authorization ? { authorization } : {}),
       },
     })
   } catch {
     return null
   }
+}
+
+function backendAuthorization(path: string): string | null {
+  if (!requiresObserverAuthorization(path)) {
+    return null
+  }
+
+  const token = process.env.OBSERVER_API_TOKEN?.trim()
+  return token && token.length > 0 ? `Bearer ${token}` : null
+}
+
+function requiresObserverAuthorization(path: string): boolean {
+  return path === '/observer' || path.startsWith('/observer/') || path === '/trading' || path.startsWith('/trading/')
 }
 
 function backendUnavailableResponse(url: URL): Response {

@@ -14,6 +14,8 @@ const REQUIRED_BASE_ENV = {
 } as const
 const VALID_PRIVATE_KEY = `0x${'1'.repeat(64)}`
 const VALID_BUILDER_CODE = `0x${'2'.repeat(64)}`
+const POLYMARKET_FUNDER_ADDRESS = '0xBF1D3CEC2Ba0DC94Db211c9099F8b20132278aB4'
+const POLYMARKET_EXPECTED_SIGNER_ADDRESS = '0x5B581d7f0d8cbee002470095d072059DA7A984c2'
 
 const TRADING_ENV_KEYS = [
   'TRADING_LIVE_ENABLED',
@@ -73,6 +75,9 @@ describe('trading config env defaults', () => {
       polymarketCredentials: {
         privateKeyPresent: false,
         builderCodePresent: false,
+        signatureType: 3,
+        funderAddressRequired: true,
+        funderAddressPresent: true,
         allPresent: false,
       },
       staleWindows: {
@@ -89,6 +94,9 @@ describe('trading config env defaults', () => {
       polymarketClob: {
         host: 'https://clob.polymarket.com',
         chainId: 137,
+        signatureType: 3,
+        funderAddress: POLYMARKET_FUNDER_ADDRESS,
+        expectedSignerAddress: POLYMARKET_EXPECTED_SIGNER_ADDRESS,
       },
       scoreboardSideStrategy: {
         mode: 'value90',
@@ -147,7 +155,15 @@ describe('trading config env defaults', () => {
     expect(config.trading.polymarketCredentials).toMatchObject({
       privateKeyPresent: true,
       builderCodePresent: true,
+      signatureType: 3,
+      funderAddressRequired: true,
+      funderAddressPresent: true,
       allPresent: true,
+    })
+    expect(config.trading.polymarketClob).toMatchObject({
+      signatureType: 3,
+      funderAddress: POLYMARKET_FUNDER_ADDRESS,
+      expectedSignerAddress: POLYMARKET_EXPECTED_SIGNER_ADDRESS,
     })
   })
 

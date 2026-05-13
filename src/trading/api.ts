@@ -40,6 +40,9 @@ export interface TradingApiConfig {
   polymarketCredentials: {
     privateKeyPresent: boolean
     builderCodePresent: boolean
+    signatureType: number
+    funderAddressRequired: boolean
+    funderAddressPresent: boolean
     allPresent: boolean
   }
   scoreboardSideStrategy?: {
@@ -288,6 +291,9 @@ const summarizeReadiness = (readiness: TradingReadinessResult, config: TradingAp
   polymarketCredentialsPresent: {
     privateKey: config.polymarketCredentials.privateKeyPresent,
     builderCode: config.polymarketCredentials.builderCodePresent,
+    signatureType: config.polymarketCredentials.signatureType,
+    funderAddressRequired: config.polymarketCredentials.funderAddressRequired,
+    funderAddress: config.polymarketCredentials.funderAddressPresent,
     allPresent: config.polymarketCredentials.allPresent,
   },
   blockerReasons: readiness.liveReady ? [] : readiness.reasons.map(summarizeReadinessBlockerReason),

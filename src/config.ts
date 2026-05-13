@@ -7,6 +7,10 @@ import {
 } from "./ipl/scoreboard-side-strategy.js"
 import { POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_HOST } from "./trading/config.js"
 
+const POLYMARKET_FUNDER_ADDRESS = "0xBF1D3CEC2Ba0DC94Db211c9099F8b20132278aB4"
+const POLYMARKET_EXPECTED_SIGNER_ADDRESS = "0x5B581d7f0d8cbee002470095d072059DA7A984c2"
+const POLYMARKET_SIGNATURE_TYPE = 3
+
 const requireEnv = (name: string) => {
   const value = process.env[name]
 
@@ -77,6 +81,9 @@ export const config = {
     polymarketCredentials: {
       privateKeyPresent: polymarketPrivateKeyPresent,
       builderCodePresent: polymarketBuilderCodePresent,
+      signatureType: POLYMARKET_SIGNATURE_TYPE,
+      funderAddressRequired: true,
+      funderAddressPresent: true,
       allPresent:
         polymarketPrivateKeyPresent &&
         polymarketBuilderCodePresent,
@@ -95,6 +102,9 @@ export const config = {
     polymarketClob: {
       host: POLYMARKET_CLOB_HOST,
       chainId: POLYMARKET_CHAIN_ID,
+      signatureType: POLYMARKET_SIGNATURE_TYPE,
+      funderAddress: POLYMARKET_FUNDER_ADDRESS,
+      expectedSignerAddress: POLYMARKET_EXPECTED_SIGNER_ADDRESS,
     },
     scoreboardSideStrategy,
   },
