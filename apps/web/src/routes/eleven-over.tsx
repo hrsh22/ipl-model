@@ -13,8 +13,8 @@ type CheckpointState = 'before' | 'entry' | 'after' | 'unknown'
 type StateTone = 'default' | 'live' | 'pressure'
 
 const ENTRY_WINDOW_START_BALLS = 66
-const ENTRY_WINDOW_END_BALLS = 73
-const SCOREBOARD_SIDE_WINDOW_END_BALLS = 78
+const ENTRY_WINDOW_END_BALLS = 78
+const ENTRY_WINDOW_LABEL = '66-78 completed balls'
 const DEFAULT_SCOREBOARD_PRICE_CAP = 0.9
 const T20_MAX_LEGAL_BALLS = 120
 const SETTLED_MARKET_LOW_PRICE = 0.01
@@ -413,7 +413,7 @@ function ElevenOverStrategyPage() {
           <p className="eyebrow">State-aligned 11-over favourite strategy</p>
           <h1>Buy only when the chase state agrees.</h1>
           <p className="strategy-copy">
-            A checkpoint desk for the one-shot entry window after 11 completed overs and before 73 completed balls of the chase. It grades the live favourite, chase comfort, defensive pressure, and data quality before showing a buy, wait, skip, or missed-window call.
+            A checkpoint desk for the scoreboard-side 11-13 over window: 66-78 completed balls of the chase, inclusive. It grades the live favourite, chase comfort, defensive pressure, and data quality before showing a buy, wait, skip, or missed-window call.
           </p>
         </div>
         <div className="strategy-status-card">
@@ -448,11 +448,11 @@ function ElevenOverStrategyPage() {
           <SectionHeading label="Rule card" value="one entry" />
           <div className="strategy-rule-card">
             <strong>Entry timing</strong>
-            <p>Enter only after 11 completed overs and before 73 completed balls of the second innings. In completed-ball terms, the window is 66-72 balls; after that it is a missed window.</p>
+            <p>Enter only during the scoreboard-side 11-13 over window: 66-78 completed balls of the second innings, inclusive. After 78 balls, it is a missed window.</p>
           </div>
           <div className="strategy-rule-card">
             <strong>Chasing favourite</strong>
-            <p>Buy only when RRR ≤ 10, wickets lost ≤ 3, and CRR ≥ RRR. Clean signals get a higher strength score when RRR is under 9 and wickets are 0-2.</p>
+            <p>Buy only when RRR ≤ 11, wickets lost ≤ 3, and CRR ≥ RRR. The trade card strength is the actionable scoreboard-side score; the dial is only a trend read.</p>
           </div>
           <div className="strategy-rule-card">
             <strong>Defending favourite</strong>
@@ -688,7 +688,7 @@ function buildStrategyEvaluation(fixture: LiveModelFixture, priceCap = DEFAULT_S
     ? buildConditions(favouriteRole, requiredRate, currentRate, wicketsLost)
     : [
         condition('Second innings', false, 'pending', 'Wait until the chase starts'),
-        condition('Entry window', false, 'not open', 'Needs 66-72 completed balls of the chase'),
+        condition('Entry window', false, 'not open', `Needs ${ENTRY_WINDOW_LABEL} of the chase`),
       ]
   const isRuleQualified = dataQualityWarnings.length === 0 && !reducedOverRisk && favouriteRole !== null && ruleQualifies(favouriteRole, requiredRate, currentRate, wicketsLost)
   const strengthScore = calculateStrengthScore({
@@ -786,7 +786,7 @@ function collectDataQualityWarnings(
   if (favourite.kind === 'unclear') warnings.push(favourite.reason)
   if (favourite.kind === 'clear' && favouriteRole === null && second.status !== 'pending' && second.status !== 'unavailable') warnings.push('Could not map the favourite to chasing or defending side.')
   if (secondInningsPending) warnings.push('First innings is still in progress; wait until the chase starts.')
-  if (!secondInningsPending && secondBalls === null) warnings.push('Ball count is missing, so the 66-72 ball entry window is unclear.')
+  if (!secondInningsPending && secondBalls === null) warnings.push(`Ball count is missing, so the ${ENTRY_WINDOW_LABEL} entry window is unclear.`)
   if (!secondInningsPending && target === null) warnings.push('Target is missing, so required rate cannot be trusted.')
   if (!secondInningsPending && second.scoreRuns === null) warnings.push('Chasing score is missing.')
   if (!secondInningsPending && second.scoreWickets === null) warnings.push('Chasing wickets are missing.')
@@ -799,7 +799,7 @@ function collectDataQualityWarnings(
 function buildConditions(role: FavouriteRole | null, requiredRate: number | null, currentRate: number | null, wicketsLost: number | null): StrategyCondition[] {
   if (role === 'chasing') {
     return [
-      condition('Required rate', requiredRate !== null && requiredRate <= 10, formatRate(requiredRate), 'Needs RRR ≤ 10'),
+      condition('Required rate', requiredRate !== null && requiredRate <= 11, formatRate(requiredRate), 'Needs RRR ≤ 11'),
       condition('Wickets lost', wicketsLost !== null && wicketsLost <= 3, formatWickets(wicketsLost), 'Needs ≤ 3 down'),
       condition('Run-rate alignment', currentRate !== null && requiredRate !== null && currentRate >= requiredRate, `${formatRate(currentRate)} vs ${formatRate(requiredRate)}`, 'CRR must be ≥ RRR'),
     ]
@@ -823,7 +823,7 @@ function condition(label: string, passed: boolean, value: string, note: string):
 function ruleQualifies(role: FavouriteRole, requiredRate: number | null, currentRate: number | null, wicketsLost: number | null): boolean {
   if (requiredRate === null || currentRate === null || wicketsLost === null) return false
   if (role === 'chasing') {
-    return requiredRate <= 10 && wicketsLost <= 3 && currentRate >= requiredRate
+    return requiredRate <= 11 && wicketsLost <= 3 && currentRate >= requiredRate
   }
   return wicketsLost >= 4 || (requiredRate >= 12 && currentRate < requiredRate)
 }
@@ -1072,7 +1072,7 @@ export function buildScoreboardAction(fixture: LiveModelFixture, states: Innings
     }, priceCap)
   }
 
-  if (legalBalls > SCOREBOARD_SIDE_WINDOW_END_BALLS) {
+  if (legalBalls > ENTRY_WINDOW_END_BALLS) {
     return makeScoreboardAction({
       status: 'no-trade',
       role: null,
@@ -1482,12 +1482,12 @@ function NextMatchPanel({
           <State label="Score" value={liveFixture.fixture.score ?? 'score pending'} tone="live" />
           <State label="Period" value={liveFixture.fixture.period ?? 'live'} tone="live" />
           <State label="Live strategy cards" value={liveCount.toString()} />
-          <State label="Avg strategy score" value={averageStrength === null ? 'pending chase' : `${averageStrength}/100`} />
+          <State label="Avg trend score" value={averageStrength === null ? 'pending chase' : `${averageStrength}/100`} />
           <State label="Next action" value="watch live chase" />
         </div>
         <div className="strategy-next-brief">
           <p>The match is already live, so this panel is using the observer live-model feed instead of the predictor schedule countdown.</p>
-          <p>Entry window: 66-72 completed balls for the 11-over favourite rule; the scoreboard-side panel tracks 66-78 completed balls.</p>
+          <p>Entry window: {ENTRY_WINDOW_LABEL} for the scoreboard-side 11-13 over rule.</p>
         </div>
       </section>
     )
@@ -1499,7 +1499,7 @@ function NextMatchPanel({
         <div>
           <p className="strategy-overline">Next monitored match</p>
           <h2>No upcoming IPL fixture loaded yet</h2>
-          <p>Once the predictor schedule or Polymarket IPL market has a live/upcoming match, this panel will show the next match, mapping readiness, and when to start watching for the 66-72 ball window.</p>
+          <p>Once the predictor schedule or Polymarket IPL market has a live/upcoming match, this panel will show the next match, mapping readiness, and when to start watching for the {ENTRY_WINDOW_LABEL} window.</p>
         </div>
         <State label="Live strategy cards" value={liveCount.toString()} />
       </section>
@@ -1529,13 +1529,13 @@ function NextMatchPanel({
         <State label="Schedule source" value="predictor" tone="live" />
         <State label="Polymarket map" value={mapLabel} tone={mapTone} />
         <State label="Live strategy cards" value={liveCount.toString()} />
-        <State label="Avg strategy score" value={averageStrength === null ? 'pending chase' : `${averageStrength}/100`} />
+          <State label="Avg trend score" value={averageStrength === null ? 'pending chase' : `${averageStrength}/100`} />
         <State label="Next action" value="wait for chase" />
       </div>
       <div className="strategy-next-brief">
         <p>{marketCopy}{defaultMarket?.url ? ` · ${defaultMarket.url}` : ''}</p>
         <p>Pre-match checklist: confirm mapping, keep the observer running, and wait for the chase. No signal can qualify until the second innings reaches 66 completed balls.</p>
-        <p>Entry window: 66-72 completed balls. If the match is reduced-over, revised-target, missing odds, or the favourite is unclear, the dashboard will skip.</p>
+        <p>Entry window: {ENTRY_WINDOW_LABEL}. If the match is reduced-over, revised-target, missing odds, or the favourite is unclear, the dashboard will skip.</p>
       </div>
     </section>
   )
@@ -1547,7 +1547,7 @@ function StrengthDial({ score, label }: { score: number; label: string }) {
   }
   return (
     <div className="strategy-strength-dial" style={dialStyle}>
-      <span>Strategy score</span>
+      <span>Trend score</span>
       <strong>{score}</strong>
       <small>{label}</small>
     </div>
@@ -1656,7 +1656,7 @@ function oversToBalls(overs: number | null): number | null {
 function checkpointState(balls: number | null): CheckpointState {
   if (balls === null) return 'unknown'
   if (balls < ENTRY_WINDOW_START_BALLS) return 'before'
-  if (balls < ENTRY_WINDOW_END_BALLS) return 'entry'
+  if (balls <= ENTRY_WINDOW_END_BALLS) return 'entry'
   return 'after'
 }
 
@@ -1681,12 +1681,12 @@ function buildHeadline(action: StrategyAction, favourite: FavouriteResult, role:
 function buildStatusCopy(action: StrategyAction, checkpoint: CheckpointState, metrics: StrategyMetrics, isRuleQualified: boolean, warnings: string[]): string {
   const firstWarning = warnings.at(0)
   if (firstWarning !== undefined && action === 'skip') return firstWarning
-  if (action === 'buy') return 'The favourite passes the rule inside the 66-72 completed-ball entry window. Stake from the guide and hold to settlement unless a separately tested exit rule is active.'
+  if (action === 'buy') return `The favourite passes the scoreboard-side rule inside the ${ENTRY_WINDOW_LABEL} entry window. Stake from the guide and hold to settlement unless a separately tested exit rule is active.`
   if (action === 'wait') {
     if (checkpoint === 'before') return `${metrics.ballsToCheckpoint ?? '—'} balls until the only entry window. Treat strength as a watch signal only.`
     return 'Waiting for a clear 2nd-innings ball count and live YES prices.'
   }
-  if (action === 'passed') return isRuleQualified ? 'The current state would qualify, but the strategy only allows entry before 73 completed balls.' : 'The entry window has passed, and the current state is not actionable.'
+  if (action === 'passed') return isRuleQualified ? 'The current state would qualify, but the scoreboard-side window closes after 78 completed balls.' : 'The entry window has passed, and the current state is not actionable.'
   return 'No trade: the rule is designed to skip when favourite price and scoreboard state diverge.'
 }
 
@@ -1699,8 +1699,8 @@ function buildReasons(
   checkpoint: CheckpointState,
 ): string[] {
   if (warnings.length > 0) return warnings
-  if (action === 'wait') return ['No trade before 11 completed overs.', 'The strength score is only a pre-window trend read until the chase reaches 66 completed balls.']
-  if (action === 'passed') return ['Entry window has passed.', 'This strategy forbids entries once the chase reaches 73 completed balls or later.']
+  if (action === 'wait') return ['No trade before 11 completed overs.', 'The trend score is only a pre-window read until the chase reaches 66 completed balls.']
+  if (action === 'passed') return ['Entry window has passed.', 'This strategy forbids entries once the chase exceeds 78 completed balls.']
   if (action === 'buy' && role === 'chasing') return ['Chasing favourite is comfortable: rate is manageable, wickets are in hand, and CRR is at or above RRR.', 'Suggested stake comes from signal cleanliness, not favourite price alone.']
   if (action === 'buy' && role === 'defending') return ['Defending favourite is backed by real chase damage.', 'The board is avoiding the trap of buying a defender against a healthy, fast chase.']
   if (!isRuleQualified && checkpoint === 'entry') {

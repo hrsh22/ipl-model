@@ -116,6 +116,20 @@ describe('observer dashboard helpers', () => {
     expect(volume95Action.priceCap).toBe(0.95)
   })
 
+  test('keeps scoreboard-side entries open through 78 completed balls', () => {
+    const balls78Fixture = withSecondInningsState(liveModelFixture, { balls: 78, scoreRuns: 120 })
+    const balls79Fixture = withSecondInningsState(liveModelFixture, { balls: 79, scoreRuns: 120 })
+
+    expect(buildScoreboardAction(balls78Fixture, balls78Fixture.inningsStates, 0.95)).toMatchObject({
+      status: 'buy',
+      role: 'chaser',
+    })
+    expect(buildScoreboardAction(balls79Fixture, balls79Fixture.inningsStates, 0.95)).toMatchObject({
+      status: 'no-trade',
+      headline: 'NO TRADE',
+    })
+  })
+
   test('observer dashboard does not fetch trading status', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url === '/api/observer/ready') return jsonResponse({ ready: true })
@@ -209,6 +223,30 @@ describe('observer dashboard helpers', () => {
     })
   })
 })
+
+function withSecondInningsState(
+  fixture: typeof liveModelFixture,
+  state: { balls: number; scoreRuns: number },
+): typeof liveModelFixture {
+  return {
+    ...fixture,
+    expectedState: {
+      ...fixture.expectedState,
+      balls: state.balls,
+      overs: state.balls / 6,
+      scoreRuns: state.scoreRuns,
+    },
+    inningsStates: {
+      ...fixture.inningsStates,
+      second: {
+        ...fixture.inningsStates.second,
+        balls: state.balls,
+        overs: state.balls / 6,
+        scoreRuns: state.scoreRuns,
+      },
+    },
+  }
+}
 
 describe('observer trading proxy paths', () => {
   test('forwards all trading intent query parameters unchanged', () => {
