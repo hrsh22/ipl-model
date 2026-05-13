@@ -1708,14 +1708,16 @@ class IplObserverService {
     sourceEvent: string,
     ballStateOverlay?: BallStateLiveModelOverlayInput,
   ) {
-    if (this.liveModelPersistenceDisabledReason) {
-      return
-    }
-
     const now = Date.now()
     const liveModel = this.buildLiveModelView(fixtureState, sourceEvent, ballStateOverlay)
     const meaningfulInnings = [liveModel.inningsStates.first, liveModel.inningsStates.second]
       .filter(hasMeaningfulExpectedState)
+
+    await this.evaluateObserverTradeIntent(fixtureState, liveModel, sourceEvent, now)
+
+    if (this.liveModelPersistenceDisabledReason) {
+      return
+    }
 
     if (meaningfulInnings.length === 0) {
       return
@@ -1806,6 +1808,37 @@ class IplObserverService {
       return
     }
 
+    await insertLiveModelSignal({
+      fixtureId: fixtureState.fixture.id,
+      snapshotId: activeSnapshotId,
+      selection: strongestEdge.selection,
+      modelProbability: strongestEdge.fairProbability,
+      polymarketProbability: strongestEdge.marketProbability,
+      referenceProbability: strongestEdge.referenceProbability,
+      edgeVsPolymarketBps: strongestEdge.edgeVsMarketBps,
+      reason: buildLiveModelSignalReason(liveModel.expectedState, strongestEdge.edgeVsMarketBps),
+      confidence: liveModel.confidence,
+      scoreContext: {
+        score: fixtureState.fixture.lastScore,
+        period: fixtureState.fixture.lastPeriod,
+        expectedState: liveModel.expectedState,
+      },
+    }).catch((error: unknown) => {
+      this.disableLiveModelPersistence(error)
+    })
+
+    this.lastLiveModelSignalAt.set(signalKey, {
+      edgeBps: strongestEdge.edgeVsMarketBps,
+      observedAt: now,
+    })
+  }
+
+  private async evaluateObserverTradeIntent(
+    fixtureState: FixtureState,
+    liveModel: ReturnType<IplObserverService["buildLiveModelView"]>,
+    sourceEvent: string,
+    now: number,
+  ) {
     try {
       const tradeIntentResult = await createObserverTradeIntent({
         fixture: {
@@ -1815,7 +1848,9 @@ class IplObserverService {
           updatedAt: fixtureState.fixture.updatedAt,
           homeTeam: fixtureState.fixture.homeTeam,
           awayTeam: fixtureState.fixture.awayTeam,
+          startTime: fixtureState.fixture.startTime,
           polymarketMarketSlug: fixtureState.fixture.polymarketMarketSlug,
+          polymarketConditionId: fixtureState.fixture.polymarketConditionId,
           homeTokenId: fixtureState.fixture.homeTokenId,
           awayTokenId: fixtureState.fixture.awayTokenId,
         },
@@ -1828,7 +1863,7 @@ class IplObserverService {
       })
 
       if (tradeIntentResult.status === "created") {
-        logger.info("Created durable trade intent from observer live model signal", {
+        logger.info("Created durable trade intent from observer scoreboard-side signal", {
           fixtureId: fixtureState.fixture.id,
           recipeKey: tradeIntentResult.recipeKey,
           intentId: tradeIntentResult.intent.id,
@@ -1859,30 +1894,6 @@ class IplObserverService {
         errorType: error instanceof Error ? error.name : typeof error,
       })
     }
-
-    await insertLiveModelSignal({
-      fixtureId: fixtureState.fixture.id,
-      snapshotId: activeSnapshotId,
-      selection: strongestEdge.selection,
-      modelProbability: strongestEdge.fairProbability,
-      polymarketProbability: strongestEdge.marketProbability,
-      referenceProbability: strongestEdge.referenceProbability,
-      edgeVsPolymarketBps: strongestEdge.edgeVsMarketBps,
-      reason: buildLiveModelSignalReason(liveModel.expectedState, strongestEdge.edgeVsMarketBps),
-      confidence: liveModel.confidence,
-      scoreContext: {
-        score: fixtureState.fixture.lastScore,
-        period: fixtureState.fixture.lastPeriod,
-        expectedState: liveModel.expectedState,
-      },
-    }).catch((error: unknown) => {
-      this.disableLiveModelPersistence(error)
-    })
-
-    this.lastLiveModelSignalAt.set(signalKey, {
-      edgeBps: strongestEdge.edgeVsMarketBps,
-      observedAt: now,
-    })
   }
 
   private disableLiveModelPersistence(error: unknown) {

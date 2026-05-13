@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/harsh/Developer/ipl-trader
+
+ ✓ tests/trading-config.test.ts (21 tests) 32ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  01:35:26
+   Duration  332ms (transform 57ms, setup 0ms, collect 39ms, tests 32ms, environment 0ms, prepare 62ms)
+

@@ -1,22 +1,33 @@
 import { normalizeTeamName } from "../model-data/aliases.js"
 import {
-  evaluateElevenOverEntry,
-  type FavouriteRole,
-  type FavouriteSignal,
-} from "../ipl/eleven-over-strategy.js"
+  SCOREBOARD_SIDE_STRATEGY_KEY,
+  SCOREBOARD_SIDE_WINDOW_KEY,
+  evaluateScoreboardSideStrategy,
+  type ScoreboardSideSignalSide,
+  type ScoreboardSideTokenSide,
+} from "../ipl/scoreboard-side-strategy.js"
+import { config } from "../config.js"
 import {
   buildTradeRecipeKey,
   createTradeIntent,
+  findTradeIntentByFixtureScope,
   getTradingRecipe,
+  upsertTradingRecipe,
   type CreateTradeIntentInput,
   type CreateTradeIntentResult,
+  type FixtureTradeIntentIdentity,
+  type TradingIntentRecord,
   type TradingRecipeRecord,
+  type TradingRecipeUpsertInput,
 } from "./repository.js"
+import { seedScoreboardSideTokenRecipes } from "./scoreboard-side-recipes.js"
 
-const ELEVEN_OVER_STRATEGY_KEY = "eleven-over"
-const ELEVEN_OVER_TRADE_SIDE = "buy" as const
+const SCOREBOARD_SIDE_TRADE_SIDE = "buy" as const
 const MAX_SIGNAL_AGE_MS = 30_000
 const MAX_FIXTURE_AGE_MS = 45 * 60 * 1000
+const SCOREBOARD_SIDE_NOMINAL_RECIPE_SIZE = 100
+const SCOREBOARD_SIDE_RECIPE_EXPIRY_AFTER_START_MS = 6 * 60 * 60 * 1000
+const SCOREBOARD_SIDE_MIN_RECIPE_EXPIRY_FROM_NOW_MS = 60 * 60 * 1000
 
 type InningsStateStatus = "live" | "frozen" | "pending" | "unavailable"
 
@@ -27,7 +38,9 @@ export interface ObserverIntentFixtureSnapshot {
   updatedAt: Date
   homeTeam: string
   awayTeam: string
+  startTime: Date
   polymarketMarketSlug: string | null
+  polymarketConditionId: string | null
   homeTokenId: string | null
   awayTokenId: string | null
 }
@@ -68,6 +81,8 @@ export interface ObserverIntentSignalInput {
 export interface ObserverTradeIntentRepository {
   getTradingRecipe(recipeKey: string): Promise<TradingRecipeRecord | null>
   createTradeIntent(input: CreateTradeIntentInput): Promise<CreateTradeIntentResult>
+  findTradeIntentByFixtureScope?(identity: FixtureTradeIntentIdentity): Promise<TradingIntentRecord | null>
+  upsertTradingRecipe?(input: TradingRecipeUpsertInput): Promise<TradingRecipeRecord | null>
 }
 
 export type ObserverTradeIntentResult =
@@ -76,14 +91,14 @@ export type ObserverTradeIntentResult =
       reason: "INTENT_CREATED"
       recipeKey: string
       intent: CreateTradeIntentResult["record"]
-      evaluation: ReturnType<typeof evaluateElevenOverEntry>
+      evaluation: ReturnType<typeof evaluateScoreboardSideStrategy>
     }
   | {
       status: "blocked"
       reason: "INTENT_ALREADY_EXISTS"
       recipeKey: string
       intent: CreateTradeIntentResult["record"]
-      evaluation: ReturnType<typeof evaluateElevenOverEntry>
+      evaluation: ReturnType<typeof evaluateScoreboardSideStrategy>
     }
   | {
       status: "ignored"
@@ -95,10 +110,11 @@ export type ObserverTradeIntentResult =
         | "RECIPE_IDENTITY_INCOMPLETE"
         | "RECIPE_MISSING"
         | "INTENT_PERSISTENCE_FAILED"
+        | "SIDE_TOKEN_UNSUPPORTED"
         | "STRATEGY_WAIT"
         | "STRATEGY_PASSED"
         | "STRATEGY_SKIP"
-      evaluation: ReturnType<typeof evaluateElevenOverEntry>
+      evaluation: ReturnType<typeof evaluateScoreboardSideStrategy>
       recipeKey?: string
       details?: Record<string, unknown>
     }
@@ -107,9 +123,9 @@ type ObserverIntentPersistenceFailureResult = {
   status: "ignored"
   reason: "INTENT_PERSISTENCE_FAILED"
   recipeKey: string
-  evaluation: ReturnType<typeof evaluateElevenOverEntry>
+  evaluation: ReturnType<typeof evaluateScoreboardSideStrategy>
   details: {
-    step: "getTradingRecipe" | "createTradeIntent"
+    step: "findTradeIntentByFixtureScope" | "seedTradingRecipes" | "getTradingRecipe" | "createTradeIntent"
     error: string
   }
 }
@@ -117,21 +133,29 @@ type ObserverIntentPersistenceFailureResult = {
 const defaultRepository: ObserverTradeIntentRepository = {
   getTradingRecipe,
   createTradeIntent,
+  findTradeIntentByFixtureScope,
+  upsertTradingRecipe,
 }
 
-type FavouriteResult =
+type ScoreboardMarketSide =
   | {
-      kind: "clear"
       team: string
       side: "home" | "away"
-      price: number
-      otherPrice: number
-      lead: number
+      price: number | null
+      tokenId: string | null
     }
   | {
-      kind: "unclear"
+      team: string | null
+      side: null
+      price: null
+      tokenId: null
       reason: string
     }
+
+type ScoreboardMarketSides = {
+  chaser: ScoreboardMarketSide
+  defender: ScoreboardMarketSide
+}
 
 export const createObserverTradeIntent = async (
   input: ObserverIntentSignalInput,
@@ -143,7 +167,7 @@ export const createObserverTradeIntent = async (
   const first = inningsStates.first
   const second = inningsStates.second
   const secondBalls = second.balls
-  const target = second.targetRuns ?? (first.scoreRuns === null ? null : first.scoreRuns + 1)
+  const target = second.targetRuns
   const ballsLeft = secondBalls === null ? null : Math.max(120 - secondBalls, 0)
   const runsNeeded = target === null || second.scoreRuns === null ? null : Math.max(target - second.scoreRuns, 0)
   const oversFaced = secondBalls === null || secondBalls === 0 ? null : secondBalls / 6
@@ -157,13 +181,10 @@ export const createObserverTradeIntent = async (
           ? 0
           : null
         : runsNeeded / oversLeft
-  const favourite = getFavourite(input.home, input.away)
   const secondInningsAvailable = second.innings === 2 && second.status !== "pending" && second.status !== "unavailable"
   const chasingTeam = second.battingTeam
   const defendingTeam = first.battingTeam ?? second.bowlingTeam
-  const favouriteRole = favourite.kind === "clear" && secondInningsAvailable
-    ? getFavouriteRole(favourite.team, chasingTeam, defendingTeam, second.bowlingTeam)
-    : null
+  const marketSides = buildScoreboardMarketSides(input, chasingTeam, defendingTeam)
   const fixtureFinished = second.status === "frozen" || isFinishedStatus(input.fixture.status) || runsNeeded === 0
   const warnings = collectDataQualityWarnings({
     fixture: input.fixture,
@@ -171,8 +192,7 @@ export const createObserverTradeIntent = async (
     second,
     target,
     secondBalls,
-    favourite,
-    favouriteRole,
+    marketSides,
     fixtureFinished,
     observedAt,
     now,
@@ -188,16 +208,19 @@ export const createObserverTradeIntent = async (
   const reducedOverRisk =
     firstInningsComplete
     && (targetMismatch || (firstBalls !== null && firstBalls < 120 && (first.scoreWickets === null || first.scoreWickets < 10)))
-  const evaluation = evaluateElevenOverEntry({
+  const evaluation = evaluateScoreboardSideStrategy({
     fixtureId: input.fixture.id,
-    inningsNumber: 2,
-    secondBalls,
-    requiredRate,
-    currentRate,
+    inningsNumber: second.innings,
+    legalBallsCompleted: secondBalls,
+    firstInningsScore: first.scoreRuns,
+    firstInningsBalls: first.balls,
+    firstInningsWickets: first.scoreWickets,
+    chasingScore: second.scoreRuns,
     wicketsLost: second.scoreWickets,
-    favourite: toStrategyFavouriteSignal(favourite),
-    favouriteRole,
-    chaseSuccessProbability: second.chaseSuccessProbability,
+    targetRuns: second.targetRuns,
+    chaser: toScoreboardSideStrategyMarketSide(marketSides.chaser),
+    defender: toScoreboardSideStrategyMarketSide(marketSides.defender),
+    mode: config.trading.scoreboardSideStrategy.mode,
     fixtureFinished,
     dataQualityWarnings: warnings,
     reducedOverRisk,
@@ -233,34 +256,95 @@ export const createObserverTradeIntent = async (
       reason: "STRATEGY_SKIP",
       evaluation,
       details: {
-        warnings: evaluation.dataQualityWarnings,
-        checkpoint: evaluation.checkpoint,
+        blockers: evaluation.blockers,
+        reasons: evaluation.reasons,
       },
     }
   }
 
   const marketId = input.fixture.polymarketMarketSlug
-  const tokenId = favourite.kind === "clear"
-    ? favourite.side === "home"
-      ? input.fixture.homeTokenId
-      : input.fixture.awayTokenId
-    : null
+  const conditionId = input.fixture.polymarketConditionId
+  const homeTokenId = input.fixture.homeTokenId
+  const awayTokenId = input.fixture.awayTokenId
+  const selectedMarketSide = evaluation.signalSide === null ? null : marketSides[evaluation.signalSide]
+  const tokenId = selectedMarketSide?.tokenId ?? null
 
-  if (!marketId || !tokenId) {
-    return { status: "ignored", reason: "RECIPE_IDENTITY_INCOMPLETE", evaluation }
+  if (!marketId || !conditionId || !homeTokenId || !awayTokenId || !tokenId) {
+    return {
+      status: "ignored",
+      reason: marketId && conditionId ? "SIDE_TOKEN_UNSUPPORTED" : "RECIPE_IDENTITY_INCOMPLETE",
+      evaluation,
+      details: {
+        marketId,
+        conditionId,
+        homeTokenId,
+        awayTokenId,
+        selectedSignalSide: evaluation.signalSide,
+        selectedTokenSide: evaluation.tokenSide,
+        selectedTeam: evaluation.team,
+        selectedMarketSide,
+      },
+    }
   }
 
+  const resolvedMarketId: string = marketId
+  const resolvedConditionId: string = conditionId
+  const resolvedHomeTokenId: string = homeTokenId
+  const resolvedAwayTokenId: string = awayTokenId
+  const resolvedTokenId: string = tokenId
+
   const identity = {
-    strategyKey: ELEVEN_OVER_STRATEGY_KEY,
+    strategyKey: SCOREBOARD_SIDE_STRATEGY_KEY,
     recipeVersion: evaluation.strategyVersion,
-    windowKey: evaluation.windowKey,
+    windowKey: SCOREBOARD_SIDE_WINDOW_KEY,
     fixtureId: input.fixture.id,
-    marketId,
-    tokenId,
-    side: ELEVEN_OVER_TRADE_SIDE,
+    marketId: resolvedMarketId,
+    tokenId: resolvedTokenId,
+    side: SCOREBOARD_SIDE_TRADE_SIDE,
   } as const
 
   const recipeKey = buildTradeRecipeKey(identity)
+  const existingIntent = await repository.findTradeIntentByFixtureScope?.(identity).catch((error: unknown) => {
+    return buildPersistenceFailureResult(evaluation, recipeKey, "findTradeIntentByFixtureScope", error)
+  })
+
+  if (isPersistenceFailureResult(existingIntent)) {
+    return existingIntent
+  }
+
+  if (existingIntent) {
+    return {
+      status: "blocked",
+      reason: "INTENT_ALREADY_EXISTS",
+      recipeKey,
+      intent: existingIntent,
+      evaluation,
+    }
+  }
+
+  const seededRecipes = repository.upsertTradingRecipe
+    ? await seedScoreboardSideTokenRecipes({
+        fixtureId: input.fixture.id,
+        marketId: resolvedMarketId,
+        conditionId: resolvedConditionId,
+        homeTeam: input.fixture.homeTeam,
+        awayTeam: input.fixture.awayTeam,
+        homeTokenId: resolvedHomeTokenId,
+        awayTokenId: resolvedAwayTokenId,
+        size: SCOREBOARD_SIDE_NOMINAL_RECIPE_SIZE,
+        expiryTime: buildScoreboardSideRecipeExpiryTime(input.fixture.startTime, now),
+        mode: config.trading.scoreboardSideStrategy.mode,
+      }, {
+        upsertTradingRecipe: (recipeInput) => repository.upsertTradingRecipe?.(recipeInput) ?? Promise.resolve(null),
+      }).catch((error: unknown) => {
+        return buildPersistenceFailureResult(evaluation, recipeKey, "seedTradingRecipes", error)
+      })
+    : null
+
+  if (isPersistenceFailureResult(seededRecipes)) {
+    return seededRecipes
+  }
+
   const recipe = await repository.getTradingRecipe(recipeKey).catch((error: unknown) => {
     return buildPersistenceFailureResult(evaluation, recipeKey, "getTradingRecipe", error)
   })
@@ -282,15 +366,12 @@ export const createObserverTradeIntent = async (
       sourceEvent: input.sourceEvent,
       observedAt: observedAt.toISOString(),
       confidence: input.confidence,
-      favourite: favourite.kind === "clear"
-        ? {
-            team: favourite.team,
-            side: favourite.side,
-            price: favourite.price,
-            otherPrice: favourite.otherPrice,
-            lead: favourite.lead,
-          }
-        : favourite,
+      scoreboardSideStrategy: {
+        mode: config.trading.scoreboardSideStrategy.mode,
+        priceCap: config.trading.scoreboardSideStrategy.priceCap,
+        allocationFraction: config.trading.scoreboardSideStrategy.allocationFraction,
+      },
+      selectedSide: selectedMarketSide,
       evaluation,
       innings: {
         activeInnings: inningsStates.activeInnings,
@@ -334,61 +415,75 @@ export const createObserverTradeIntent = async (
   }
 }
 
-const toStrategyFavouriteSignal = (favourite: FavouriteResult): FavouriteSignal =>
-  favourite.kind === "clear"
-    ? { kind: "clear", lead: favourite.lead }
-    : { kind: "unclear", reason: favourite.reason }
-
-const getFavourite = (
-  home: ObserverIntentMarketSide,
-  away: ObserverIntentMarketSide,
-): FavouriteResult => {
-  const homePrice = home.marketProbability
-  const awayPrice = away.marketProbability
-
-  if (homePrice === null || awayPrice === null) {
-    return { kind: "unclear", reason: "Missing YES price for one or both teams." }
-  }
-
-  if (Math.abs(homePrice - awayPrice) < 0.005) {
-    return { kind: "unclear", reason: "YES prices are tied or too close to call." }
-  }
-
-  return homePrice > awayPrice
-    ? {
-        kind: "clear",
-        team: home.team,
-        side: "home",
-        price: homePrice,
-        otherPrice: awayPrice,
-        lead: homePrice - awayPrice,
-      }
-    : {
-        kind: "clear",
-        team: away.team,
-        side: "away",
-        price: awayPrice,
-        otherPrice: homePrice,
-        lead: awayPrice - homePrice,
-      }
-}
-
-const getFavouriteRole = (
-  favouriteTeam: string,
+const buildScoreboardMarketSides = (
+  input: ObserverIntentSignalInput,
   chasingTeam: string | null,
   defendingTeam: string | null,
-  bowlingTeam: string | null,
-): FavouriteRole | null => {
-  if (teamsComparable(favouriteTeam, chasingTeam)) {
-    return "chasing"
+): ScoreboardMarketSides => ({
+  chaser: findMarketSideForTeam(input, chasingTeam),
+  defender: findMarketSideForTeam(input, defendingTeam),
+})
+
+const findMarketSideForTeam = (
+  input: ObserverIntentSignalInput,
+  team: string | null,
+): ScoreboardMarketSide => {
+  if (!team) {
+    return {
+      team,
+      side: null,
+      price: null,
+      tokenId: null,
+      reason: "Scoreboard team is missing.",
+    }
   }
 
-  if (teamsComparable(favouriteTeam, defendingTeam) || teamsComparable(favouriteTeam, bowlingTeam)) {
-    return "defending"
+  const normalizedTeam = normalizeSelection(team)
+  const homeMatches = normalizedTeam !== "" && normalizedTeam === normalizeSelection(input.fixture.homeTeam)
+  const awayMatches = normalizedTeam !== "" && normalizedTeam === normalizeSelection(input.fixture.awayTeam)
+
+  if (homeMatches && awayMatches) {
+    return {
+      team,
+      side: null,
+      price: null,
+      tokenId: null,
+      reason: "Scoreboard team maps to both market teams.",
+    }
   }
 
-  return null
+  if (homeMatches) {
+    return {
+      team,
+      side: "home",
+      price: input.home.marketProbability,
+      tokenId: input.fixture.homeTokenId,
+    }
+  }
+
+  if (awayMatches) {
+    return {
+      team,
+      side: "away",
+      price: input.away.marketProbability,
+      tokenId: input.fixture.awayTokenId,
+    }
+  }
+
+  return {
+    team,
+    side: null,
+    price: null,
+    tokenId: null,
+    reason: "Scoreboard team does not map to the fixture home or away team.",
+  }
 }
+
+const toScoreboardSideStrategyMarketSide = (side: ScoreboardMarketSide) => ({
+  team: side.team,
+  price: side.price,
+  tokenSide: side.side satisfies ScoreboardSideTokenSide | null,
+})
 
 const collectDataQualityWarnings = (input: {
   fixture: ObserverIntentFixtureSnapshot
@@ -396,8 +491,7 @@ const collectDataQualityWarnings = (input: {
   second: ObserverIntentInningsState
   target: number | null
   secondBalls: number | null
-  favourite: FavouriteResult
-  favouriteRole: FavouriteRole | null
+  marketSides: ScoreboardMarketSides
   fixtureFinished: boolean
   observedAt: Date
   now: Date
@@ -406,17 +500,14 @@ const collectDataQualityWarnings = (input: {
   const secondInningsPending =
     input.second.innings !== 2 || input.second.status === "pending" || input.second.status === "unavailable"
 
-  if (input.favourite.kind === "unclear") {
-    warnings.push(input.favourite.reason)
-  }
-
-  if (
-    input.favourite.kind === "clear"
-    && input.favouriteRole === null
-    && input.second.status !== "pending"
-    && input.second.status !== "unavailable"
-  ) {
-    warnings.push("Could not map the favourite to chasing or defending side.")
+  for (const [side, marketSide] of Object.entries(input.marketSides) as [ScoreboardSideSignalSide, ScoreboardMarketSide][]) {
+    if (marketSide.side === null) {
+      warnings.push(`Could not map ${side} team to a supported market token: ${marketSide.reason}`)
+    } else if (marketSide.price === null) {
+      warnings.push(`Missing market probability for ${side} team.`)
+    } else if (marketSide.tokenId === null) {
+      warnings.push(`Missing Polymarket token id for ${side} team.`)
+    }
   }
 
   if (secondInningsPending) {
@@ -424,11 +515,11 @@ const collectDataQualityWarnings = (input: {
   }
 
   if (!secondInningsPending && input.secondBalls === null) {
-    warnings.push("Ball count is missing, so the 66-72 ball entry window is unclear.")
+    warnings.push(`Ball count is missing, so the ${SCOREBOARD_SIDE_WINDOW_KEY} entry window is unclear.`)
   }
 
   if (!secondInningsPending && input.target === null) {
-    warnings.push("Target is missing, so required rate cannot be trusted.")
+    warnings.push("Target is missing; this may indicate a reduced-over, DLS, or incomplete scoreboard state.")
   }
 
   if (!secondInningsPending && input.second.scoreRuns === null) {
@@ -462,25 +553,34 @@ const collectDataQualityWarnings = (input: {
   return warnings
 }
 
-const teamsComparable = (left: string | null, right: string | null) =>
-  normalizeSelection(left) === normalizeSelection(right)
-
 const normalizeSelection = (value: string | null) =>
   normalizeTeamName(value ?? "").trim().toLowerCase().replace(/\s+/g, "_")
 
 const isFinishedStatus = (status: string) => {
   const normalized = status.toLowerCase()
+  const padded = ` ${normalized} `
   return (
     normalized.includes("complete")
     || normalized.includes("final")
     || normalized.includes("finished")
     || normalized.includes("ended")
+    || normalized.includes("abandoned")
+    || normalized.includes("no result")
+    || normalized.includes("no-result")
+    || normalized.includes("super over")
+    || normalized.includes("super-over")
+    || normalized.includes("tied")
+    || padded.includes(" tie ")
   )
 }
 
-const isPersistenceFailureResult = (
-  value: TradingRecipeRecord | CreateTradeIntentResult | ObserverTradeIntentResult | null,
-): value is ObserverIntentPersistenceFailureResult =>
+const buildScoreboardSideRecipeExpiryTime = (fixtureStartTime: Date, now: Date) =>
+  new Date(Math.max(
+    fixtureStartTime.getTime() + SCOREBOARD_SIDE_RECIPE_EXPIRY_AFTER_START_MS,
+    now.getTime() + SCOREBOARD_SIDE_MIN_RECIPE_EXPIRY_FROM_NOW_MS,
+  ))
+
+const isPersistenceFailureResult = (value: unknown): value is ObserverIntentPersistenceFailureResult =>
   typeof value === "object"
   && value !== null
   && "status" in value
@@ -489,9 +589,9 @@ const isPersistenceFailureResult = (
   && value.reason === "INTENT_PERSISTENCE_FAILED"
 
 const buildPersistenceFailureResult = (
-  evaluation: ReturnType<typeof evaluateElevenOverEntry>,
+  evaluation: ReturnType<typeof evaluateScoreboardSideStrategy>,
   recipeKey: string,
-  step: "getTradingRecipe" | "createTradeIntent",
+  step: "findTradeIntentByFixtureScope" | "seedTradingRecipes" | "getTradingRecipe" | "createTradeIntent",
   error: unknown,
 ): ObserverIntentPersistenceFailureResult => ({
   status: "ignored",

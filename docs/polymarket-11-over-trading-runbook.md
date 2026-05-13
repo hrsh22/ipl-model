@@ -1,10 +1,23 @@
-# Polymarket 11-over Trading Runbook
+# Polymarket Scoreboard-side Trading Runbook
 
 ## Purpose
 
-This runbook covers operations, secrets, live rollout, reconciliation, and incident response for the 11-over Polymarket trading path. It applies to durable trade intents created from the observer live model and submitted by the trading executor.
+This runbook covers operations, secrets, dry-run rollout, reconciliation, and incident response for the active scoreboard-side Polymarket trading path. It applies to durable trade intents created from the observer live model and submitted by the trading executor.
 
-Dry-run is default. In dry-run, the executor records the would-submit order, execution events, and exposure ledger entries, but it must not call the live Polymarket submit path.
+The current strategy key is `scoreboard-side-11-13`. Historical notes may still refer to the earlier 11-over or favourite-based framing, but operators should not treat a legacy `eleven-over` runtime as restorable working behavior.
+
+Dry-run is default. In dry-run, the executor records the would-submit order, execution events, and exposure ledger entries, but it must not call the live Polymarket submit path or live `createOrder`.
+
+## Active strategy and modes
+
+The active observer strategy trades the side supported by the live scoreboard between 11.0 and 13.0 overs in the chase, not simply the market favourite. That supported side may flip between the home BUY token and away BUY token as live match state changes.
+
+- Strategy key: `scoreboard-side-11-13`.
+- Active default mode: `value90`, price cap `<=0.90`, allocation `0.20` of available pUSD balance.
+- Selectable explicit mode: `volume95`, price cap `<=0.95`, allocation `0.10` of available pUSD balance, only when explicitly selected.
+- Window key: `balls-66-78`, which covers the 11.0 through 13.0 chase window.
+
+Before dry-run or live evaluation for a fixture/mode, seed both-token recipes: one home BUY token recipe and one away BUY token recipe for the same fixture, market, strategy key, recipe version, and window. The observer chooses the scoreboard-supported token at intent time, so seeding only the current favourite is insufficient.
 
 ## Safety contract
 
@@ -13,16 +26,20 @@ The live gates are intentionally redundant. Live trading requires all of the fol
 1. Environment gate `TRADING_LIVE_ENABLED=true`.
 2. DB runtime flag `live-trading-enabled` set to enabled.
 3. Polymarket credentials present: `POLYMARKET_PRIVATE_KEY` for signing and `POLY_BUILDER_CODE` for V2 builder attribution. The TypeScript CLOB V2 SDK creates or derives its internal L2 API credentials from the private key.
-4. A valid trading recipe for the exact intent identity.
-5. Fresh match/book state and sufficient pUSD balance. The executor sizes each eligible order at 20% of the current Polymarket pUSD balance.
+4. A valid trading recipe for the exact intent identity, seeded for both home BUY and away BUY tokens for the active fixture/mode.
+5. Fresh match/book state and sufficient pUSD balance. The executor sizes each eligible order from current Polymarket pUSD balance using the selected recipe allocation: `0.20` for `value90` or `0.10` for explicitly selected `volume95`.
 
 If any gate is missing, the trading adapter stays in dry-run and readiness returns dry-run blockers. Do not bypass this by creating a live client manually.
 
 ## One-shot duplicate policy
 
-Each trade intent is keyed by strategy, recipe version, window key, fixture, market, token, and side. The repository uses that deterministic key to prevent duplicates.
+Each trade intent is keyed by strategy, recipe version, window key, fixture, market, token, and side. The repository uses that deterministic key to prevent exact duplicates.
+
+For `scoreboard-side-11-13`, the operational one-shot policy is fixture-level: create at most one intent per fixture/market/side for the strategy and window, even if the scoreboard-supported side later flips to the opposite token or the operator changes `SCOREBOARD_SIDE_STRATEGY_MODE`. The fixture-level guard intentionally ignores token and recipe version for this duplicate check while preserving the token-scoped, versioned intent key for exact retry idempotency.
 
 There is no automatic re-entry. A duplicate observer signal should return the existing intent, not create a second one. A partial fill, cancelled order, expired order, timeout, rate limit, duplicate order response, or WebSocket disconnect must not trigger an automatic top-up, replacement, or blind retry.
+
+Before applying migrations that create or tighten the fixture-level unique index, run a duplicate-scope preflight for `scoreboard-side-11-13`. If any existing rows share the same strategy/window/fixture/market/side, retain the earliest canonical intent for audit and resolve later duplicates before rerunning `pnpm db:migrate`; the migration intentionally fails with a clear duplicate-scope error rather than silently choosing which historical trading intent to keep.
 
 ## Credential handling
 
@@ -63,10 +80,11 @@ Daily start:
 2. Confirm `/trading/status` shows mode `dry-run` before any live change.
 3. Confirm `TRADING_LIVE_ENABLED=true` only for an approved live window.
 4. Confirm credential presence is OK: `POLYMARKET_PRIVATE_KEY` and `POLY_BUILDER_CODE` are present.
-5. Confirm recipe validation is `valid` for the active 11-over recipe.
-6. Confirm Polymarket pUSD balance is available; the executor uses 20% of the current balance for each eligible trade.
-7. Set `live-trading-enabled=true` with a reason that names the match window.
-8. Recheck `/trading/status` and confirm live readiness before allowing the executor to submit.
+5. Confirm recipe validation is `valid` for the active `scoreboard-side-11-13` recipe pair: home BUY token and away BUY token for the fixture/mode.
+6. Confirm the selected mode is intended: default `value90` with cap `<=0.90` and allocation `0.20`, or explicitly selected `volume95` with cap `<=0.95` and allocation `0.10`.
+7. Confirm Polymarket pUSD balance is available; the executor uses the recipe allocation context against current balance for each eligible trade.
+8. Set `live-trading-enabled=true` with a reason that names the match window only after an approved live rollout decision.
+9. Recheck `/trading/status` and confirm live readiness before allowing the executor to submit.
 
 Daily stop:
 
@@ -88,20 +106,26 @@ Immediately set `live-trading-enabled=false` for any of these conditions:
 
 For severe credential or mapping risk, also set `TRADING_LIVE_ENABLED=false` at runtime deployment level and restart in dry-run.
 
-## Live rollout checklist
+## Dry-run-first rollout checklist
 
-Use this sequence for the first live rollout and for any future promotion after code or model changes.
+Use this sequence for the first dry-run rollout, for any future promotion after code or model changes, and before any separate live trading decision. Do not claim live readiness from this checklist alone.
 
-1. Start with `TRADING_LIVE_ENABLED=false` and `live-trading-enabled=false`.
-2. Run dry-run through a full 11-over window and confirm no live submit calls.
-3. Confirm one observer signal creates at most one durable intent for the same deterministic key.
-4. Confirm the recipe identity matches the Polymarket market, condition, token, side, max price, and expiry. Order size is derived at execution time from current pUSD balance.
-5. Confirm `/trading/status` shows credential presence only.
-6. Confirm `/trading/reconciliation/status` can write and read the `polymarket:user-updates` checkpoint.
-7. Set `TRADING_LIVE_ENABLED=true` for the deployment.
-8. Set `live-trading-enabled=true` only during the approved match window.
+1. Start with `TRADING_LIVE_ENABLED=false` and runtime DB flag `live-trading-enabled=false`.
+2. Run dry-run through the `scoreboard-side-11-13` 11.0 to 13.0 chase window and confirm the dry-run adapter path records would-submit state without live `createOrder` calls.
+3. Confirm fixture-level one-shot behavior: at most one active-mode intent per fixture/market/side, even if supported side flips token.
+4. Confirm both-token recipe seeding for the fixture/mode: home BUY token and away BUY token are present before observer evaluation.
+5. Confirm the recipe identity matches the Polymarket market, condition, token, side, max price, allocation, and expiry. Order size is derived at execution time from current pUSD balance.
+6. Confirm `/trading/status` shows credential presence only and remains dry-run unless both existing live gates are deliberately enabled.
+7. Confirm `/trading/reconciliation/status` can write and read the `polymarket:user-updates` checkpoint.
+8. If a later live rollout is separately approved, set `TRADING_LIVE_ENABLED=true` for the deployment and then set `live-trading-enabled=true` only during the approved match window.
 9. Watch `/trading/events` for `detected`, `eligible`, `approved`, `submitted`, and then a venue-derived state.
 10. If anything is unclear, disarm first, then reconcile.
+
+## Rollback and disabling
+
+Rollback for this strategy means disabling `scoreboard-side-11-13` observer intent creation or setting the active scoreboard-side mode to a non-trading/disabled state if such a state is available. Keep `TRADING_LIVE_ENABLED=false` where possible and keep runtime DB flag `live-trading-enabled=false` until the issue is understood.
+
+After disabling, inspect `/trading/intents`, `/trading/events`, `/trading/exposure`, and `/trading/reconciliation/status` for any affected fixture/market/side. Do not claim that restoring a legacy `eleven-over` runtime path is a rollback option; use the current dry-run controls, fixture-level duplicate protection, and reconciliation process instead.
 
 ## Reconciliation rules
 
@@ -115,12 +139,12 @@ Never blindly retry after timeout, duplicate order, rate limit, network error, o
 
 ### Bad mapping
 
-Symptoms: recipe token does not match the current favourite, market slug points to the wrong match, condition id is wrong, or team mapping is uncertain.
+Symptoms: recipe token does not match the scoreboard-supported home/away side, market slug points to the wrong match, condition id is wrong, fixture-level one-shot behavior is bypassed, or team mapping is uncertain.
 
 Actions:
 
 1. Set `live-trading-enabled=false`.
-2. Stop treating new 11-over signals as tradable until the recipe is corrected.
+2. Stop treating new `scoreboard-side-11-13` signals as tradable until the recipe or mapping is corrected.
 3. Check `/trading/intents` and `/trading/events` for affected fixture, market, condition, token, and side.
 4. Reconcile any submitted order before deciding on manual venue action.
 5. Record the bad mapping and replacement recipe in the incident notes without credential values.
@@ -175,4 +199,4 @@ Actions:
 
 ## Evidence expectations
 
-For Task 12 verification, evidence should prove the runbook contains the required gates, exact names, one-shot policy, incident coverage, and secret safety checks. Evidence must not contain real credentials, auth headers, signed payloads, raw signatures, or funded account details.
+For rollout verification, evidence should prove the runbook contains the required gates, exact names, fixture-level one-shot policy, both-token recipe seeding, dry-run adapter behavior, status dry-run blockers, incident coverage, rollback/disabling guidance, and secret safety checks. Evidence must not contain real credentials, auth headers, signed payloads, raw signatures, account identifiers, or funded account details.

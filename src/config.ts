@@ -1,5 +1,10 @@
 import "dotenv/config"
 
+import {
+  SCOREBOARD_SIDE_STRATEGY_MODES,
+  getScoreboardSideStrategySettings,
+  type ScoreboardSideStrategyMode,
+} from "./ipl/scoreboard-side-strategy.js"
 import { POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_HOST } from "./trading/config.js"
 
 const requireEnv = (name: string) => {
@@ -21,6 +26,22 @@ const optionalEnv = (name: string) => {
 const parseBooleanEnv = (value: string | undefined) =>
   value ? ["1", "true", "yes", "on"].includes(value.trim().toLowerCase()) : false
 
+const parseScoreboardSideStrategyMode = (value: string | undefined): ScoreboardSideStrategyMode => {
+  const mode = value?.trim()
+
+  if (!mode) {
+    return "value90"
+  }
+
+  if (mode in SCOREBOARD_SIDE_STRATEGY_MODES) {
+    return mode as ScoreboardSideStrategyMode
+  }
+
+  throw new Error(
+    `SCOREBOARD_SIDE_STRATEGY_MODE must be one of: ${Object.keys(SCOREBOARD_SIDE_STRATEGY_MODES).join(", ")}`,
+  )
+}
+
 const parsePort = (value: string) => {
   const port = Number(value)
 
@@ -39,6 +60,8 @@ const defaultTradingExecutorIntervalMs = 5_000
 const defaultTradingExecutorLeaseMs = 30_000
 const polymarketPrivateKeyPresent = optionalEnv("POLYMARKET_PRIVATE_KEY") !== null
 const polymarketBuilderCodePresent = optionalEnv("POLY_BUILDER_CODE") !== null
+const scoreboardSideStrategyMode = parseScoreboardSideStrategyMode(process.env.SCOREBOARD_SIDE_STRATEGY_MODE)
+const scoreboardSideStrategy = getScoreboardSideStrategySettings(scoreboardSideStrategyMode)
 
 export const config = {
   port: parsePort(requireEnv("PORT")),
@@ -73,5 +96,6 @@ export const config = {
       host: POLYMARKET_CLOB_HOST,
       chainId: POLYMARKET_CHAIN_ID,
     },
+    scoreboardSideStrategy,
   },
 }

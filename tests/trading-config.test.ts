@@ -19,6 +19,7 @@ const TRADING_ENV_KEYS = [
   'TRADING_LIVE_ENABLED',
   'POLYMARKET_PRIVATE_KEY',
   'POLY_BUILDER_CODE',
+  'SCOREBOARD_SIDE_STRATEGY_MODE',
 ] as const
 
 const buildValidRecipeInput = (): TradingRecipeInput => ({
@@ -89,7 +90,52 @@ describe('trading config env defaults', () => {
         host: 'https://clob.polymarket.com',
         chainId: 137,
       },
+      scoreboardSideStrategy: {
+        mode: 'value90',
+        strategyVersion: 'v1-value90',
+        priceCap: 0.9,
+        allocationFraction: 0.2,
+      },
     })
+  })
+
+  test('defaults blank scoreboard-side strategy mode to value90 settings', async () => {
+    const { config } = await loadFreshConfig({ SCOREBOARD_SIDE_STRATEGY_MODE: '   ' })
+
+    expect(config.trading.scoreboardSideStrategy).toEqual({
+      mode: 'value90',
+      strategyVersion: 'v1-value90',
+      priceCap: 0.9,
+      allocationFraction: 0.2,
+    })
+  })
+
+  test('accepts explicit value90 scoreboard-side strategy mode', async () => {
+    const { config } = await loadFreshConfig({ SCOREBOARD_SIDE_STRATEGY_MODE: 'value90' })
+
+    expect(config.trading.scoreboardSideStrategy).toEqual({
+      mode: 'value90',
+      strategyVersion: 'v1-value90',
+      priceCap: 0.9,
+      allocationFraction: 0.2,
+    })
+  })
+
+  test('accepts explicit volume95 scoreboard-side strategy mode', async () => {
+    const { config } = await loadFreshConfig({ SCOREBOARD_SIDE_STRATEGY_MODE: 'volume95' })
+
+    expect(config.trading.scoreboardSideStrategy).toEqual({
+      mode: 'volume95',
+      strategyVersion: 'v1-volume95',
+      priceCap: 0.95,
+      allocationFraction: 0.1,
+    })
+  })
+
+  test('rejects invalid scoreboard-side strategy mode', async () => {
+    await expect(loadFreshConfig({ SCOREBOARD_SIDE_STRATEGY_MODE: 'aggressive' })).rejects.toThrow(
+      'SCOREBOARD_SIDE_STRATEGY_MODE must be one of: value90, volume95',
+    )
   })
 
   test('requires only the private key and builder code for live credential readiness', async () => {

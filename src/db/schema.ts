@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm"
 import {
   boolean,
   doublePrecision,
@@ -204,6 +205,13 @@ export const tradingTradeIntents = pgTable(
   },
   (table) => ({
     intentKeyIdx: uniqueIndex("trading_trade_intents_intent_key_idx").on(table.intentKey),
+    fixtureScopeIdx: uniqueIndex("trading_trade_intents_fixture_scope_idx").on(
+      table.strategyKey,
+      table.windowKey,
+      table.fixtureId,
+      table.marketId,
+      table.side,
+    ).where(sql`${table.strategyKey} = 'scoreboard-side-11-13'`),
     claimQueueIdx: index("trading_trade_intents_claim_queue_idx").on(
       table.status,
       table.claimExpiresAt,

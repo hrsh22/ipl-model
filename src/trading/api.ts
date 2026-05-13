@@ -1,6 +1,11 @@
 import express, { type NextFunction, type Request, type Response } from "express"
 
 import {
+  SCOREBOARD_SIDE_STRATEGY_KEY,
+  getScoreboardSideStrategySettings,
+  type ScoreboardSideStrategyMode,
+} from "../ipl/scoreboard-side-strategy.js"
+import {
   assessTradingLiveReadiness,
   validateTradingRecipe,
   type TradingOrderStyle,
@@ -23,7 +28,7 @@ export const TRADING_RUNTIME_LIVE_FLAG_KEY = "live-trading-enabled"
 export const TRADING_RECONCILIATION_CHECKPOINT_KEY = "polymarket:user-updates"
 
 const REDACTED = "[REDACTED]"
-const SENSITIVE_KEY_PATTERN = /(authorization|auth[_-]?header|credential|api[_-]?key|secret|passphrase|private[_-]?key|signature|signed|signed[_-]?payload|raw[_-]?order|order[_-]?auth)/i
+const SENSITIVE_KEY_PATTERN = /(authorization|auth[_-]?header|credential|api[_-]?key|secret|passphrase|private[_-]?key|signature|signed|signed[_-]?payload|raw[_-]?order|order[_-]?auth|funded[_-]?account|account[_-]?identifier)/i
 const allowedIntentStatuses = new Set<TradeIntentStatus>([
   "pending",
   "claimed",
@@ -39,6 +44,11 @@ export interface TradingApiConfig {
     privateKeyPresent: boolean
     builderCodePresent: boolean
     allPresent: boolean
+  }
+  scoreboardSideStrategy?: {
+    mode: ScoreboardSideStrategyMode
+    priceCap: number
+    allocationFraction: number
   }
 }
 
@@ -283,6 +293,21 @@ const summarizeReadiness = (readiness: TradingReadinessResult, config: TradingAp
   blockerReasons: readiness.liveReady ? [] : readiness.reasons.map(summarizeReadinessBlockerReason),
 })
 
+const summarizeActiveStrategy = (readiness: TradingReadinessResult, config: TradingApiConfig) => {
+  const strategy = config.scoreboardSideStrategy ?? getScoreboardSideStrategySettings("value90")
+
+  return {
+    strategyKey: SCOREBOARD_SIDE_STRATEGY_KEY,
+    mode: strategy.mode,
+    priceCap: strategy.priceCap,
+    allocationFraction: strategy.allocationFraction,
+    executionMode: readiness.mode,
+    dryRun: readiness.mode === "dry-run",
+    liveReady: readiness.liveReady,
+    readinessBlockers: readiness.liveReady ? [] : readiness.reasons.map(summarizeReadinessBlockerReason),
+  }
+}
+
 const summarizeIntent = (intent: TradingIntentRecord) => ({
   id: intent.id,
   intentKey: intent.intentKey,
@@ -489,6 +514,7 @@ export const buildTradingStatusResponse = async (input: {
     generatedAt: (input.now ?? new Date()).toISOString(),
     mode: effectiveReadiness.mode,
     liveReady: effectiveReadiness.liveReady,
+    activeStrategy: summarizeActiveStrategy(effectiveReadiness, input.config),
     liveEligibility: summarizeReadiness(effectiveReadiness, input.config, runtimeTradingEnabled),
     runtimeFlag: summarizeRuntimeFlag(runtimeFlag),
     recipeValidation: summarizeRecipeValidation(latestRecipe),

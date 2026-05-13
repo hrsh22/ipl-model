@@ -1,0 +1,11 @@
+Task 8 focused safety suite evidence
+
+Command:
+pnpm exec vitest run tests/scoreboard-side-strategy.test.ts tests/observer-trade-intent.test.ts tests/trading-repository.test.ts tests/trading-executor.test.ts tests/trading-dry-run-e2e.test.ts tests/trading-api.test.ts
+
+Result: PASS
+Summary:
+- Test Files: 6 passed (6)
+- Tests: 58 passed (58)
+- Covered focused evaluator, observer intent bridge, repository one-shot, executor sizing/safety, dry-run e2e no-live-submit, and trading API status/readiness.
+- No live network calls, credentials, real balances, or live trading required.

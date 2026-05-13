@@ -159,6 +159,14 @@ const ambiguousSubmitErrorCodes = new Set(["REQUEST_TIMEOUT", "RATE_LIMITED", "N
 const completeableStates = new Set<TradeExecutionState>(["filled", "cancelled", "expired", "reconciled"])
 const reconciliationCheckpointKey = "polymarket:user-updates"
 
+const asRecipeContext = (context: unknown): Record<string, unknown> | null => {
+  if (context && typeof context === "object" && !Array.isArray(context)) {
+    return context as Record<string, unknown>
+  }
+
+  return null
+}
+
 const toValidatedTradingRecipe = (recipe: TradingRecipeRecord | null): ValidatedTradingRecipe | null => {
   if (!recipe) {
     return null
@@ -172,6 +180,7 @@ const toValidatedTradingRecipe = (recipe: TradingRecipeRecord | null): Validated
     orderStyle: recipe.orderStyle as ValidatedTradingRecipe["orderStyle"],
     maxPrice: recipe.maxPrice,
     expiryEpochMs: recipe.expiryTime.getTime(),
+    context: asRecipeContext(recipe.context),
   })
 
   return validation.ok ? validation.value : null
@@ -305,6 +314,9 @@ export class TradingExecutor {
       await this.recordStateTransition(eventHistory, intent.id, eventTime, state, {
         ...(state === "approved" || state === "blocked"
           ? {
+              allocationFraction: decision.allocationFraction,
+              requestedNotionalUsd: decision.requestedNotionalUsd,
+              requestedOrderSize: decision.requestedOrderSize,
               blockers: decision.blockers,
               exposureSummary: decision.exposureSummary,
             }
@@ -336,6 +348,7 @@ export class TradingExecutor {
       dryRun: this.dependencies.adapter.mode !== "live",
       orderRequest,
       clientOrderId: intent.intentKey,
+      allocationFraction: decision.allocationFraction,
       exposureSummary: decision.exposureSummary,
     })
     await this.store.updateTradeIntentStatus({

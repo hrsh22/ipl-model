@@ -1,0 +1,26 @@
+Task 9 documentation evidence
+Date: 2026-05-13
+
+Files updated
+- docs/polymarket-11-over-trading-runbook.md
+- docs/ipl-observer-scoreboard-side-trading-plan.md was inspected and left unchanged because it already delegates live execution safety to the runbook.
+
+Runbook coverage added/verified
+- Strategy key: scoreboard-side-11-13.
+- Active default mode: value90, cap <=0.90, allocation 0.20.
+- Selectable explicit mode: volume95, cap <=0.95, allocation 0.10, only when explicitly selected.
+- Dry-run-first rollout: TRADING_LIVE_ENABLED=false and runtime DB flag live-trading-enabled=false before rollout; no live readiness is claimed by dry-run evidence.
+- Both-token recipe seeding: home BUY token and away BUY token per fixture/mode before observer evaluation.
+- Fixture-level one-shot: at most one active-mode intent per fixture/market/side even if the scoreboard-supported side flips token.
+- Rollback/disabling: disable scoreboard-side observer intent creation or set active mode to a non-trading/disabled state if available, keep live-trading-enabled=false, inspect /trading/intents and related trading/reconciliation endpoints, and do not claim legacy eleven-over runtime restoration.
+
+Required grep verification
+- Command: grep docs for scoreboard-side-11-13|value90|volume95|live-trading-enabled=false|fixture-level
+- Result: PASS; 22 matches found in docs/polymarket-11-over-trading-runbook.md.
+
+Diagnostics note
+- Markdown LSP diagnostics are not configured in this workspace, so lsp_diagnostics returned: No LSP server configured for extension: .md.
+
+Secret safety
+- Documentation and evidence mention credential variable names only where operationally necessary.
+- No bearer tokens, private keys, signed orders, credential values, account identifiers, or raw order payloads are included.

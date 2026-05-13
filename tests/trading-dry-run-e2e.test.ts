@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
 
-import { ELEVEN_OVER_STRATEGY_VERSION, evaluateElevenOverEntry } from '../src/ipl/eleven-over-strategy.js'
+import {
+  SCOREBOARD_SIDE_STRATEGY_KEY,
+  SCOREBOARD_SIDE_WINDOW_KEY,
+  evaluateScoreboardSideStrategy,
+} from '../src/ipl/scoreboard-side-strategy.js'
 import {
   createObserverTradeIntent,
   type ObserverIntentSignalInput,
@@ -35,21 +39,29 @@ import { calculateTradingExposureSummary } from '../src/trading/policy.js'
 const FIXED_NOW = new Date('2026-05-11T10:12:00.000Z')
 const DAY_START = new Date('2026-05-11T00:00:00.000Z')
 const DAY_END = new Date('2026-05-12T00:00:00.000Z')
-const WINDOW_KEY = `${ELEVEN_OVER_STRATEGY_VERSION}:fixture-1:innings-2:balls-66-72`
+const SCOREBOARD_SIDE_RECIPE_VERSION = 'v1-value90'
+const WINDOW_KEY = SCOREBOARD_SIDE_WINDOW_KEY
+const FIXTURE_ID = 'fixture-scoreboard-side-001'
+const MARKET_ID = 'market-001'
+const CONDITION_ID = 'condition-001'
+const HOME_TOKEN_ID = 'token-home-001'
+const AWAY_TOKEN_ID = 'token-away-001'
 
 const buildObserverSignalInput = (
   overrides: Partial<ObserverIntentSignalInput> = {},
 ): ObserverIntentSignalInput => ({
   fixture: {
-    id: 'fixture-1',
+    id: FIXTURE_ID,
     status: 'live',
     isLive: true,
     updatedAt: FIXED_NOW,
     homeTeam: 'Mumbai Indians',
     awayTeam: 'Chennai Super Kings',
-    polymarketMarketSlug: 'mumbai-vs-chennai',
-    homeTokenId: 'token-home',
-    awayTokenId: 'token-away',
+    startTime: new Date('2026-05-11T09:00:00.000Z'),
+    polymarketMarketSlug: MARKET_ID,
+    polymarketConditionId: CONDITION_ID,
+    homeTokenId: HOME_TOKEN_ID,
+    awayTokenId: AWAY_TOKEN_ID,
     ...overrides.fixture,
   },
   inningsStates: {
@@ -70,7 +82,7 @@ const buildObserverSignalInput = (
       battingTeam: 'Chennai Super Kings',
       bowlingTeam: 'Mumbai Indians',
       scoreRuns: 104,
-      scoreWickets: 4,
+      scoreWickets: 3,
       balls: 66,
       targetRuns: 181,
       chaseSuccessProbability: 0.31,
@@ -97,24 +109,24 @@ const buildObserverSignalInput = (
 
 const buildRecipeRecord = (overrides: Partial<TradingRecipeRecord> = {}): TradingRecipeRecord => {
   const identity = {
-    strategyKey: overrides.strategyKey ?? 'eleven-over',
-    recipeVersion: overrides.recipeVersion ?? ELEVEN_OVER_STRATEGY_VERSION,
+    strategyKey: overrides.strategyKey ?? SCOREBOARD_SIDE_STRATEGY_KEY,
+    recipeVersion: overrides.recipeVersion ?? SCOREBOARD_SIDE_RECIPE_VERSION,
     windowKey: overrides.windowKey ?? WINDOW_KEY,
-    fixtureId: overrides.fixtureId ?? 'fixture-1',
-    marketId: overrides.marketId ?? 'mumbai-vs-chennai',
-    tokenId: overrides.tokenId ?? 'token-home',
+    fixtureId: overrides.fixtureId ?? FIXTURE_ID,
+    marketId: overrides.marketId ?? MARKET_ID,
+    tokenId: overrides.tokenId ?? HOME_TOKEN_ID,
     side: (overrides.side ?? 'buy') as TradingSide,
   }
 
   return {
     recipeKey: overrides.recipeKey ?? buildTradeRecipeKey(identity),
     ...identity,
-    conditionId: overrides.conditionId ?? 'condition-1',
+    conditionId: overrides.conditionId ?? CONDITION_ID,
     orderStyle: overrides.orderStyle ?? 'limit',
     maxPrice: overrides.maxPrice ?? 0.42,
     size: overrides.size ?? 952.380952,
     expiryTime: overrides.expiryTime ?? new Date('2026-05-11T12:00:00.000Z'),
-    context: overrides.context ?? { strategy: '11-over' },
+    context: overrides.context ?? { strategyMode: 'value90', priceCap: 0.9, allocationFraction: 0.2 },
     createdAt: overrides.createdAt ?? FIXED_NOW,
     updatedAt: overrides.updatedAt ?? FIXED_NOW,
   }
@@ -406,6 +418,10 @@ class SpyDryRunAdapter implements PolymarketTradingAdapter {
     return []
   }
 
+  async getSpendablePusdBalance() {
+    return 1000
+  }
+
   async subscribeUserUpdates() {
     return () => undefined
   }
@@ -440,9 +456,9 @@ const blockedEvent = (store: InMemoryTradingScenarioStore) => {
 const buildExposure = (overrides: Partial<TradingExposureLedgerRecord>): TradingExposureLedgerRecord => ({
   id: overrides.id ?? 1,
   intentId: overrides.intentId ?? 99,
-  fixtureId: overrides.fixtureId ?? 'fixture-1',
-  marketId: overrides.marketId ?? 'mumbai-vs-chennai',
-  tokenId: overrides.tokenId ?? 'token-home',
+  fixtureId: overrides.fixtureId ?? FIXTURE_ID,
+  marketId: overrides.marketId ?? MARKET_ID,
+  tokenId: overrides.tokenId ?? HOME_TOKEN_ID,
   side: overrides.side ?? 'buy',
   entryType: overrides.entryType ?? 'submitted_notional',
   quantity: overrides.quantity ?? 20,
@@ -456,19 +472,21 @@ const buildExposure = (overrides: Partial<TradingExposureLedgerRecord>): Trading
 describe('trading dry-run end-to-end safety scenario', () => {
   test('qualifying 11-over state creates one durable intent and records dry-run would-submit without live submit', async () => {
     const input = buildObserverSignalInput()
-    const recipe = buildRecipeRecord()
+    const recipe = buildRecipeRecord({ tokenId: AWAY_TOKEN_ID })
     const store = new InMemoryTradingScenarioStore({ recipes: [recipe] })
 
-    const evaluation = evaluateElevenOverEntry({
+    const evaluation = evaluateScoreboardSideStrategy({
       fixtureId: input.fixture.id,
-      inningsNumber: 2,
-      secondBalls: input.inningsStates.second.balls,
-      requiredRate: 8.555555555555555,
-      currentRate: 9.454545454545455,
-      wicketsLost: 4,
-      favourite: { kind: 'clear', lead: 0.26 },
-      favouriteRole: 'defending',
-      chaseSuccessProbability: 0.31,
+      inningsNumber: input.inningsStates.second.innings,
+      legalBallsCompleted: input.inningsStates.second.balls,
+      firstInningsScore: input.inningsStates.first.scoreRuns,
+      firstInningsBalls: input.inningsStates.first.balls,
+      firstInningsWickets: input.inningsStates.first.scoreWickets,
+      chasingScore: input.inningsStates.second.scoreRuns,
+      wicketsLost: input.inningsStates.second.scoreWickets,
+      targetRuns: input.inningsStates.second.targetRuns,
+      chaser: { team: input.away.team, price: input.away.marketProbability, tokenSide: 'away' },
+      defender: { team: input.home.team, price: input.home.marketProbability, tokenSide: 'home' },
     })
     const created = await createObserverTradeIntent({ ...input, repository: store })
     const duplicate = await createObserverTradeIntent({ ...input, repository: store })
@@ -480,7 +498,7 @@ describe('trading dry-run end-to-end safety scenario', () => {
     const intent = store.intents[0]
     const updatedIntent = intent ? await store.getTradeIntentById(intent.id) : null
 
-    expect(evaluation).toMatchObject({ action: 'buy', isRuleQualified: true, windowKey: WINDOW_KEY })
+    expect(evaluation).toMatchObject({ action: 'buy', windowKey: WINDOW_KEY, signalSide: 'chaser' })
     expect(created).toMatchObject({ status: 'created', reason: 'INTENT_CREATED' })
     expect(duplicate).toMatchObject({ status: 'blocked', reason: 'INTENT_ALREADY_EXISTS' })
     expect(store.intents).toHaveLength(1)
@@ -500,8 +518,8 @@ describe('trading dry-run end-to-end safety scenario', () => {
       clientOrderId: intent?.intentKey,
       orderRequest: {
         clientOrderId: intent?.intentKey,
-        marketId: 'mumbai-vs-chennai',
-        tokenId: 'token-home',
+        marketId: MARKET_ID,
+        tokenId: AWAY_TOKEN_ID,
         side: 'buy',
       },
     })
@@ -523,11 +541,17 @@ describe('trading dry-run end-to-end safety scenario', () => {
     const cases = [
       {
         name: 'ambiguous favourite mapping',
-        input: buildObserverSignalInput({ home: { team: 'Unmapped Favourite', marketProbability: 0.63 } }),
+        input: buildObserverSignalInput({
+          inningsStates: {
+            activeInnings: 2,
+            first: buildObserverSignalInput().inningsStates.first,
+            second: { ...buildObserverSignalInput().inningsStates.second, battingTeam: 'Unmapped Chaser' },
+          },
+        }),
         repository: new InMemoryTradingScenarioStore({ recipes: [buildRecipeRecord()] }) as ObserverTradeIntentRepository,
         expected: { status: 'ignored', reason: 'STRATEGY_SKIP' },
         assert: (result: Awaited<ReturnType<typeof createObserverTradeIntent>>) => {
-          expect(result.evaluation.dataQualityWarnings).toContain('Could not map the favourite to chasing or defending side.')
+          expect(result.evaluation.blockers).toContain('MISSING_TEAM_OR_PRICE')
         },
       },
       {
@@ -568,7 +592,7 @@ describe('trading dry-run end-to-end safety scenario', () => {
     }> = [
       { name: 'stale match state', context: { matchStateAgeMs: 45_001 }, expectedCode: 'STALE_MATCH_STATE', expectedDetails: { maxMatchStateAgeMs: 30_000 } },
       { name: 'stale book data', context: { bookAgeMs: 15_001 }, expectedCode: 'STALE_BOOK', expectedDetails: { maxBookAgeMs: 15_000 } },
-      { name: 'token mismatch', context: { currentTokenId: 'token-away' }, expectedCode: 'TOKEN_MISMATCH', expectedDetails: { expectedTokenId: 'token-home', actualTokenId: 'token-away' } },
+      { name: 'token mismatch', context: { currentTokenId: AWAY_TOKEN_ID }, expectedCode: 'TOKEN_MISMATCH', expectedDetails: { expectedTokenId: HOME_TOKEN_ID, actualTokenId: AWAY_TOKEN_ID } },
       { name: 'market closed', context: { marketStatus: 'closed' }, expectedCode: 'MARKET_CLOSED', expectedDetails: { marketStatus: 'closed' } },
       { name: 'market suspended', context: { marketStatus: 'halted' }, expectedCode: 'MARKET_CLOSED', expectedDetails: { marketStatus: 'halted' } },
       {
@@ -625,11 +649,41 @@ describe('trading dry-run end-to-end safety scenario', () => {
     const executor = createExecutor({ store, adapter, recipe })
 
     const outcome = await executor.processNextTradeIntent()
-    const summary = calculateTradingExposureSummary(store.exposures, { fixtureId: 'fixture-1', dayWindow: { start: DAY_START, end: DAY_END } })
+    const summary = calculateTradingExposureSummary(store.exposures, { fixtureId: FIXTURE_ID, dayWindow: { start: DAY_START, end: DAY_END } })
 
     expect(outcome).toMatchObject({ kind: 'dry-run-approved', blockerCodes: [] })
     expect(adapter.createOrderRequests).toHaveLength(0)
     expect(summary.daySubmittedNotionalUsd).toBe(471.6)
+  })
+
+  test('dry-run audit events include the scoreboard-side allocation fraction used for sizing', async () => {
+    const recipe = buildRecipeRecord({
+      maxPrice: 0.95,
+      context: { strategyMode: 'volume95', priceCap: 0.95, allocationFraction: 0.1 },
+    })
+    const store = new InMemoryTradingScenarioStore({
+      intents: [buildManualIntentRecord({ id: 1, recipeKey: recipe.recipeKey })],
+      recipes: [recipe],
+    })
+    const adapter = new SpyDryRunAdapter()
+    const executor = createExecutor({ store, adapter, recipe, context: { balanceAvailableUsd: 1000 } })
+
+    const outcome = await executor.processNextTradeIntent()
+
+    expect(outcome).toMatchObject({ kind: 'dry-run-approved', blockerCodes: [] })
+    expect(store.events.find((event) => event.eventType === 'approved')?.details).toMatchObject({
+      allocationFraction: 0.1,
+      requestedNotionalUsd: 100,
+      requestedOrderSize: 105.263158,
+    })
+    expect(store.events.find((event) => event.eventType === 'submitted')?.details).toMatchObject({
+      allocationFraction: 0.1,
+      orderRequest: { price: 0.95, size: 105.263158 },
+    })
+    expect(store.exposures.map((entry) => [entry.entryType, entry.notionalUsd, entry.quantity])).toEqual([
+      ['submitted_notional', 100, 105.263158],
+      ['pending_order', 100, 105.263158],
+    ])
   })
 
   test('live adapter failure matrix is reconciliation-first and never blindly retries ambiguous submits', async () => {
@@ -696,8 +750,8 @@ describe('trading dry-run end-to-end safety scenario', () => {
       'venue-order-disconnect',
       {
         tradeId: 'venue-trade-disconnect',
-        marketId: 'mumbai-vs-chennai',
-        tokenId: 'token-home',
+        marketId: MARKET_ID,
+        tokenId: HOME_TOKEN_ID,
         side: 'buy',
         price: 0.42,
         size: recipe.size,

@@ -1,0 +1,22 @@
+Task 6: Apply mode allocation through existing balance sizing
+
+Modified files:
+- src/trading/config.ts
+- src/trading/policy.ts
+- src/trading/executor.ts
+- tests/trading-executor.test.ts
+- tests/trading-dry-run-e2e.test.ts
+
+Verification:
+- lsp_diagnostics on modified files: no diagnostics found
+- pnpm exec vitest run tests/trading-executor.test.ts tests/trading-dry-run-e2e.test.ts
+  - Test Files: 2 passed (2)
+  - Tests: 16 passed (16)
+- pnpm typecheck
+  - tsc --noEmit passed
+
+Behavior covered:
+- Value mode recipe context allocationFraction 0.20 with $1000 balance requests $200 notional and size 222.222222 at maxPrice 0.90.
+- Volume mode recipe context allocationFraction 0.10 with $1000 balance requests $100 notional and size 105.263158 at maxPrice 0.95.
+- Legacy/no allocation context falls back to TRADING_BALANCE_ALLOCATION_FRACTION 0.20.
+- Execution audit events include allocationFraction plus requested sizing details.

@@ -31,6 +31,8 @@ export interface DeterministicTradeIntentIdentity {
   side: TradingSide
 }
 
+export type FixtureTradeIntentIdentity = Omit<DeterministicTradeIntentIdentity, "recipeVersion" | "tokenId">
+
 export interface TradingRecipeUpsertInput extends DeterministicTradeIntentIdentity {
   recipeKey?: string
   conditionId: string
@@ -110,6 +112,8 @@ export interface UpdateTradeIntentStatusInput {
   claimExpiresAt?: Date | null
 }
 
+const SCOREBOARD_SIDE_FIXTURE_SCOPE_STRATEGY_KEY = "scoreboard-side-11-13"
+
 export interface ListTradingExposureLedgerEntriesParams {
   fixtureId?: string
   marketId?: string
@@ -131,6 +135,7 @@ export interface ListTradingExecutionEventsParams {
 export interface TradingPersistenceStore {
   insertTradeIntent: (intent: typeof tradingTradeIntents.$inferInsert) => Promise<TradingIntentRecord | null>
   findTradeIntentByKey: (intentKey: string) => Promise<TradingIntentRecord | null>
+  findTradeIntentByFixtureScope: (identity: FixtureTradeIntentIdentity) => Promise<TradingIntentRecord | null>
   listClaimableTradeIntentIds: (now: Date, limit: number) => Promise<number[]>
   tryClaimTradeIntent: (
     intentId: number,
@@ -201,7 +206,7 @@ const databaseTradingPersistenceStore: TradingPersistenceStore = {
     const rows = await db
       .insert(tradingTradeIntents)
       .values(intent)
-      .onConflictDoNothing({ target: tradingTradeIntents.intentKey })
+      .onConflictDoNothing()
       .returning()
 
     return rows[0] ?? null
@@ -211,6 +216,28 @@ const databaseTradingPersistenceStore: TradingPersistenceStore = {
       .select()
       .from(tradingTradeIntents)
       .where(eq(tradingTradeIntents.intentKey, intentKey))
+      .limit(1)
+
+    return rows[0] ?? null
+  },
+  findTradeIntentByFixtureScope: async (identity) => {
+    if (identity.strategyKey !== SCOREBOARD_SIDE_FIXTURE_SCOPE_STRATEGY_KEY) {
+      return null
+    }
+
+    const rows = await db
+      .select()
+      .from(tradingTradeIntents)
+      .where(
+        and(
+          eq(tradingTradeIntents.strategyKey, identity.strategyKey),
+          eq(tradingTradeIntents.windowKey, identity.windowKey),
+          eq(tradingTradeIntents.fixtureId, identity.fixtureId),
+          eq(tradingTradeIntents.marketId, identity.marketId),
+          eq(tradingTradeIntents.side, identity.side),
+        ),
+      )
+      .orderBy(asc(tradingTradeIntents.createdAt), asc(tradingTradeIntents.id))
       .limit(1)
 
     return rows[0] ?? null
@@ -322,6 +349,11 @@ export const createTradeIntentWithStore = async (
   input: CreateTradeIntentInput,
 ): Promise<CreateTradeIntentResult> => {
   const intentKey = input.intentKey ?? buildTradeIntentKey(input)
+  const existingFixtureIntent = await store.findTradeIntentByFixtureScope(input)
+  if (existingFixtureIntent) {
+    return { created: false, record: existingFixtureIntent }
+  }
+
   const record: typeof tradingTradeIntents.$inferInsert = {
     intentKey,
     recipeKey: input.recipeKey,
@@ -343,15 +375,23 @@ export const createTradeIntentWithStore = async (
   }
 
   const existing = await store.findTradeIntentByKey(intentKey)
-  if (!existing) {
+  if (existing) {
+    return { created: false, record: existing }
+  }
+
+  const existingFixtureConflict = await store.findTradeIntentByFixtureScope(input)
+  if (!existingFixtureConflict) {
     throw new Error(`Trade intent conflict fallback failed for intentKey=${intentKey}`)
   }
 
-  return { created: false, record: existing }
+  return { created: false, record: existingFixtureConflict }
 }
 
 export const createTradeIntent = async (input: CreateTradeIntentInput) =>
   createTradeIntentWithStore(databaseTradingPersistenceStore, input)
+
+export const findTradeIntentByFixtureScope = async (identity: FixtureTradeIntentIdentity) =>
+  databaseTradingPersistenceStore.findTradeIntentByFixtureScope(identity)
 
 export const claimNextTradeIntentWithStore = async (
   store: TradingPersistenceStore,

@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest'
 
-import { ELEVEN_OVER_STRATEGY_VERSION } from '../src/ipl/eleven-over-strategy.js'
+import {
+  SCOREBOARD_SIDE_STRATEGY_KEY,
+  SCOREBOARD_SIDE_WINDOW_KEY,
+} from '../src/ipl/scoreboard-side-strategy.js'
 import {
   createObserverTradeIntent,
   type ObserverIntentSignalInput,
@@ -11,25 +14,35 @@ import {
   buildTradeRecipeKey,
   type CreateTradeIntentInput,
   type CreateTradeIntentResult,
+  type FixtureTradeIntentIdentity,
   type TradingIntentRecord,
   type TradingRecipeRecord,
+  type TradingRecipeUpsertInput,
 } from '../src/trading/repository.js'
 
 const FIXED_NOW = new Date('2026-05-11T10:12:00.000Z')
+const SCOREBOARD_SIDE_RECIPE_VERSION = 'v1-value90'
+const FIXTURE_ID = 'fixture-scoreboard-side-001'
+const MARKET_ID = 'market-001'
+const CONDITION_ID = 'condition-001'
+const HOME_TOKEN_ID = 'token-home-001'
+const AWAY_TOKEN_ID = 'token-away-001'
 
 const buildObserverSignalInput = (
   overrides: Partial<ObserverIntentSignalInput> = {},
 ): ObserverIntentSignalInput => ({
   fixture: {
-    id: 'fixture-1',
+    id: FIXTURE_ID,
     status: 'live',
     isLive: true,
     updatedAt: FIXED_NOW,
     homeTeam: 'Mumbai Indians',
     awayTeam: 'Chennai Super Kings',
-    polymarketMarketSlug: 'mumbai-vs-chennai',
-    homeTokenId: 'token-home',
-    awayTokenId: 'token-away',
+    startTime: new Date('2026-05-11T09:00:00.000Z'),
+    polymarketMarketSlug: MARKET_ID,
+    polymarketConditionId: CONDITION_ID,
+    homeTokenId: HOME_TOKEN_ID,
+    awayTokenId: AWAY_TOKEN_ID,
     ...overrides.fixture,
   },
   inningsStates: {
@@ -49,8 +62,8 @@ const buildObserverSignalInput = (
       innings: 2,
       battingTeam: 'Chennai Super Kings',
       bowlingTeam: 'Mumbai Indians',
-      scoreRuns: 104,
-      scoreWickets: 4,
+      scoreRuns: 70,
+      scoreWickets: 5,
       balls: 66,
       targetRuns: 181,
       chaseSuccessProbability: 0.31,
@@ -60,12 +73,12 @@ const buildObserverSignalInput = (
   },
   home: {
     team: 'Mumbai Indians',
-    marketProbability: 0.63,
+    marketProbability: 0.37,
     ...overrides.home,
   },
   away: {
     team: 'Chennai Super Kings',
-    marketProbability: 0.37,
+    marketProbability: 0.63,
     ...overrides.away,
   },
   sourceEvent: 'ball-state-runtime',
@@ -75,14 +88,19 @@ const buildObserverSignalInput = (
   ...overrides,
 })
 
-const buildRecipeRecord = (input: ObserverIntentSignalInput): TradingRecipeRecord => {
+const buildRecipeRecord = (
+  input: ObserverIntentSignalInput,
+  tokenSide: 'home' | 'away' = 'home',
+): TradingRecipeRecord => {
   const identity = {
-    strategyKey: 'eleven-over',
-    recipeVersion: ELEVEN_OVER_STRATEGY_VERSION,
-    windowKey: `${ELEVEN_OVER_STRATEGY_VERSION}:${input.fixture.id}:innings-2:balls-66-72`,
+    strategyKey: SCOREBOARD_SIDE_STRATEGY_KEY,
+    recipeVersion: SCOREBOARD_SIDE_RECIPE_VERSION,
+    windowKey: SCOREBOARD_SIDE_WINDOW_KEY,
     fixtureId: input.fixture.id,
     marketId: input.fixture.polymarketMarketSlug ?? 'missing-market',
-    tokenId: input.fixture.homeTokenId ?? 'missing-token',
+    tokenId: tokenSide === 'home'
+      ? input.fixture.homeTokenId ?? 'missing-token'
+      : input.fixture.awayTokenId ?? 'missing-token',
     side: 'buy' as const,
   }
   const recipeKey = buildTradeRecipeKey(identity)
@@ -94,14 +112,14 @@ const buildRecipeRecord = (input: ObserverIntentSignalInput): TradingRecipeRecor
     windowKey: identity.windowKey,
     fixtureId: identity.fixtureId,
     marketId: identity.marketId,
-    conditionId: 'condition-1',
+    conditionId: CONDITION_ID,
     tokenId: identity.tokenId,
     side: identity.side,
     orderStyle: 'limit',
-    maxPrice: 0.41,
+    maxPrice: 0.9,
     size: 975.609756,
     expiryTime: new Date('2026-05-11T12:00:00.000Z'),
-    context: { strategy: '11-over' },
+    context: { strategy: 'scoreboard-side-11-13' },
     createdAt: FIXED_NOW,
     updatedAt: FIXED_NOW,
   }
@@ -137,6 +155,9 @@ const buildIntentRecord = (
 class InMemoryObserverTradeIntentRepository implements ObserverTradeIntentRepository {
   recipes: TradingRecipeRecord[]
   intents: TradingIntentRecord[]
+  getTradingRecipeCalls = 0
+  createTradeIntentCalls = 0
+  upsertTradingRecipeCalls: TradingRecipeUpsertInput[] = []
 
   constructor(input?: { recipes?: TradingRecipeRecord[]; intents?: TradingIntentRecord[] }) {
     this.recipes = [...(input?.recipes ?? [])]
@@ -144,10 +165,60 @@ class InMemoryObserverTradeIntentRepository implements ObserverTradeIntentReposi
   }
 
   async getTradingRecipe(recipeKey: string) {
+    this.getTradingRecipeCalls += 1
     return this.recipes.find((recipe) => recipe.recipeKey === recipeKey) ?? null
   }
 
+  async findTradeIntentByFixtureScope(input: FixtureTradeIntentIdentity) {
+    return this.intents.find((intent) => (
+      intent.strategyKey === input.strategyKey
+      && intent.windowKey === input.windowKey
+      && intent.fixtureId === input.fixtureId
+      && intent.marketId === input.marketId
+      && intent.side === input.side
+    )) ?? null
+  }
+
+  async upsertTradingRecipe(input: TradingRecipeUpsertInput) {
+    this.upsertTradingRecipeCalls.push(input)
+    const recipeKey = input.recipeKey ?? buildTradeRecipeKey(input)
+    const existingIndex = this.recipes.findIndex((recipe) => recipe.recipeKey === recipeKey)
+    const existing = existingIndex >= 0 ? this.recipes[existingIndex] : null
+    const record: TradingRecipeRecord = {
+      recipeKey,
+      strategyKey: input.strategyKey,
+      recipeVersion: input.recipeVersion,
+      windowKey: input.windowKey,
+      fixtureId: input.fixtureId,
+      marketId: input.marketId,
+      conditionId: input.conditionId,
+      tokenId: input.tokenId,
+      side: input.side,
+      orderStyle: input.orderStyle,
+      maxPrice: input.maxPrice,
+      size: input.size,
+      expiryTime: input.expiryTime,
+      context: input.context ?? null,
+      createdAt: existing?.createdAt ?? FIXED_NOW,
+      updatedAt: existing ? new Date(FIXED_NOW.getTime() + this.upsertTradingRecipeCalls.length) : FIXED_NOW,
+    }
+
+    if (existingIndex >= 0) {
+      this.recipes[existingIndex] = record
+    } else {
+      this.recipes.push(record)
+    }
+
+    return record
+  }
+
   async createTradeIntent(input: CreateTradeIntentInput): Promise<CreateTradeIntentResult> {
+    this.createTradeIntentCalls += 1
+    const existingFixtureIntent = await this.findTradeIntentByFixtureScope(input)
+    if (existingFixtureIntent) {
+      return { created: false, record: existingFixtureIntent }
+    }
+
     const existing = this.intents.find((intent) => intent.intentKey === buildTradeIntentKey(input))
     if (existing) {
       return { created: false, record: existing }
@@ -160,7 +231,7 @@ class InMemoryObserverTradeIntentRepository implements ObserverTradeIntentReposi
 }
 
 describe('observer durable trade intent integration', () => {
-  test('creates one durable trade intent for a fresh eligible 11-over signal without submitting orders', async () => {
+  test('creates one durable trade intent for a fresh eligible defender signal using the defender token', async () => {
     const input = buildObserverSignalInput()
     const repository = new InMemoryObserverTradeIntentRepository({
       recipes: [buildRecipeRecord(input)],
@@ -175,21 +246,161 @@ describe('observer durable trade intent integration', () => {
     expect(result.reason).toBe('INTENT_CREATED')
     expect(repository.intents).toHaveLength(1)
     expect(repository.intents[0]).toMatchObject({
-      strategyKey: 'eleven-over',
-      recipeVersion: ELEVEN_OVER_STRATEGY_VERSION,
-      fixtureId: 'fixture-1',
-      marketId: 'mumbai-vs-chennai',
-      tokenId: 'token-home',
+      strategyKey: SCOREBOARD_SIDE_STRATEGY_KEY,
+      recipeVersion: SCOREBOARD_SIDE_RECIPE_VERSION,
+      windowKey: SCOREBOARD_SIDE_WINDOW_KEY,
+      fixtureId: FIXTURE_ID,
+      marketId: MARKET_ID,
+      conditionId: CONDITION_ID,
+      tokenId: HOME_TOKEN_ID,
       side: 'buy',
     })
     expect(repository.intents[0].context).toMatchObject({
       source: 'observer-live-model',
       sourceEvent: 'ball-state-runtime',
-      favourite: {
+      selectedSide: {
         team: 'Mumbai Indians',
         side: 'home',
+        tokenId: HOME_TOKEN_ID,
+      },
+      metrics: {
+        target: 181,
+        runsNeeded: 111,
+        wicketsLost: 5,
+        chasingTeam: 'Chennai Super Kings',
+        defendingTeam: 'Mumbai Indians',
+      },
+      evaluation: {
+        action: 'buy',
+        signalSide: 'defender',
+        tokenSide: 'home',
+        strategyVersion: SCOREBOARD_SIDE_RECIPE_VERSION,
       },
     })
+  })
+
+  test('seeds both scoreboard-side token recipes at runtime before lookup on a clean repository', async () => {
+    const input = buildObserverSignalInput()
+    const repository = new InMemoryObserverTradeIntentRepository()
+
+    const result = await createObserverTradeIntent({
+      ...input,
+      repository,
+    })
+
+    expect(result).toMatchObject({
+      status: 'created',
+      reason: 'INTENT_CREATED',
+      recipeKey: 'recipe:scoreboard-side-11-13:v1-value90:balls-66-78:fixture-scoreboard-side-001:market-001:token-home-001:buy',
+    })
+    expect(repository.upsertTradingRecipeCalls).toHaveLength(2)
+    expect(repository.upsertTradingRecipeCalls.map((recipe) => recipe.tokenId)).toEqual([HOME_TOKEN_ID, AWAY_TOKEN_ID])
+    expect(repository.upsertTradingRecipeCalls).toEqual([
+      expect.objectContaining({
+        conditionId: CONDITION_ID,
+        recipeVersion: 'v1-value90',
+        maxPrice: 0.9,
+        size: 100,
+      }),
+      expect.objectContaining({
+        conditionId: CONDITION_ID,
+        recipeVersion: 'v1-value90',
+        maxPrice: 0.9,
+        size: 100,
+      }),
+    ])
+    expect(repository.getTradingRecipeCalls).toBe(1)
+    expect(repository.intents).toHaveLength(1)
+  })
+
+  test('looks up the away-token recipe for an underdog chaser buy without persisting inactive volume mode', async () => {
+    const input = buildObserverSignalInput({
+      inningsStates: {
+        ...buildObserverSignalInput().inningsStates,
+        second: {
+          ...buildObserverSignalInput().inningsStates.second,
+          scoreRuns: 104,
+          scoreWickets: 3,
+        },
+      },
+      home: { team: 'Mumbai Indians', marketProbability: 0.63 },
+      away: { team: 'Chennai Super Kings', marketProbability: 0.37 },
+    })
+    const repository = new InMemoryObserverTradeIntentRepository({
+      recipes: [
+        buildRecipeRecord(input, 'home'),
+        buildRecipeRecord(input, 'away'),
+        {
+          ...buildRecipeRecord(input, 'away'),
+          recipeKey: 'recipe:scoreboard-side-11-13:v1-volume95:balls-66-78:fixture-scoreboard-side-001:market-001:token-away-001:buy',
+          recipeVersion: 'v1-volume95',
+          maxPrice: 0.95,
+          context: { strategy: 'scoreboard-side-11-13', strategyMode: 'volume95' },
+        },
+      ],
+    })
+
+    const result = await createObserverTradeIntent({
+      ...input,
+      repository,
+    })
+
+    expect(result).toMatchObject({
+      status: 'created',
+      reason: 'INTENT_CREATED',
+      recipeKey: 'recipe:scoreboard-side-11-13:v1-value90:balls-66-78:fixture-scoreboard-side-001:market-001:token-away-001:buy',
+      evaluation: {
+        action: 'buy',
+        signalSide: 'chaser',
+        tokenSide: 'away',
+        strategyVersion: 'v1-value90',
+        mode: 'value90',
+      },
+    })
+    expect(repository.intents).toHaveLength(1)
+    expect(repository.intents[0]).toMatchObject({
+      recipeVersion: 'v1-value90',
+      tokenId: AWAY_TOKEN_ID,
+      context: {
+        scoreboardSideStrategy: {
+          mode: 'value90',
+          priceCap: 0.9,
+          allocationFraction: 0.2,
+        },
+        selectedSide: {
+          side: 'away',
+          tokenId: AWAY_TOKEN_ID,
+        },
+      },
+    })
+    expect(repository.intents[0]?.recipeKey).not.toContain('v1-volume95')
+  })
+
+  test('does not create an intent when scoreboard teams map ambiguously to market tokens', async () => {
+    const input = buildObserverSignalInput({
+      fixture: {
+        ...buildObserverSignalInput().fixture,
+        awayTeam: 'Mumbai Indians',
+      },
+    })
+    const repository = new InMemoryObserverTradeIntentRepository({
+      recipes: [buildRecipeRecord(input)],
+    })
+
+    const result = await createObserverTradeIntent({
+      ...input,
+      repository,
+    })
+
+    expect(result).toMatchObject({
+      status: 'ignored',
+      reason: 'STRATEGY_SKIP',
+      evaluation: {
+        action: 'blocked',
+        blockers: expect.arrayContaining(['MISSING_TEAM_OR_PRICE']),
+      },
+    })
+    expect(repository.intents).toHaveLength(0)
   })
 
   test('ignores stale and historical signals with deterministic reasons', async () => {
@@ -201,6 +412,17 @@ describe('observer durable trade intent integration', () => {
         ...buildObserverSignalInput().fixture,
         isLive: false,
         status: 'completed',
+      },
+    })
+    const firstInningsInput = buildObserverSignalInput({
+      inningsStates: {
+        ...buildObserverSignalInput().inningsStates,
+        activeInnings: 1,
+        second: {
+          ...buildObserverSignalInput().inningsStates.second,
+          innings: null,
+          status: 'pending',
+        },
       },
     })
     const repository = new InMemoryObserverTradeIntentRepository({
@@ -215,6 +437,10 @@ describe('observer durable trade intent integration', () => {
       ...historicalInput,
       repository,
     })
+    const firstInningsResult = await createObserverTradeIntent({
+      ...firstInningsInput,
+      repository,
+    })
 
     expect(staleResult).toMatchObject({
       status: 'ignored',
@@ -224,27 +450,191 @@ describe('observer durable trade intent integration', () => {
       status: 'ignored',
       reason: 'FIXTURE_NOT_LIVE',
     })
+    expect(firstInningsResult).toMatchObject({
+      status: 'ignored',
+      reason: 'SECOND_INNINGS_NOT_LIVE',
+    })
     expect(repository.intents).toHaveLength(0)
   })
 
-  test('blocks replayed or duplicate polling cycles after the first durable intent is created', async () => {
+  test('ignores stale fixture state before recipe lookup', async () => {
+    const input = buildObserverSignalInput({
+      fixture: {
+        ...buildObserverSignalInput().fixture,
+        updatedAt: new Date(FIXED_NOW.getTime() - (46 * 60 * 1000)),
+      },
+    })
+    const repository = new InMemoryObserverTradeIntentRepository({ recipes: [buildRecipeRecord(input)] })
+
+    const result = await createObserverTradeIntent({ ...input, repository })
+
+    expect(result).toMatchObject({
+      status: 'ignored',
+      reason: 'FIXTURE_STATE_STALE',
+      evaluation: {
+        action: 'buy',
+        blockers: [],
+      },
+    })
+    expect(repository.getTradingRecipeCalls).toBe(0)
+    expect(repository.createTradeIntentCalls).toBe(0)
+  })
+
+  test('maps evaluator no-trade safety blocks to deterministic ignored results without recipe lookup', async () => {
+    const cases: Array<{
+      name: string
+      input: ObserverIntentSignalInput
+      expectedReason: 'STRATEGY_WAIT' | 'STRATEGY_PASSED' | 'STRATEGY_SKIP'
+      expectedAction: 'wait' | 'passed' | 'blocked'
+      expectedBlockers: string[]
+    }> = [
+      {
+        name: 'missing legal balls',
+        input: buildObserverSignalInput({
+          inningsStates: {
+            ...buildObserverSignalInput().inningsStates,
+            second: { ...buildObserverSignalInput().inningsStates.second, balls: null },
+          },
+        }),
+        expectedReason: 'STRATEGY_SKIP',
+        expectedAction: 'blocked',
+        expectedBlockers: ['MISSING_BALLS'],
+      },
+      {
+        name: 'before ball 66',
+        input: buildObserverSignalInput({
+          inningsStates: {
+            ...buildObserverSignalInput().inningsStates,
+            second: { ...buildObserverSignalInput().inningsStates.second, balls: 65 },
+          },
+        }),
+        expectedReason: 'STRATEGY_WAIT',
+        expectedAction: 'wait',
+        expectedBlockers: ['BEFORE_WINDOW'],
+      },
+      {
+        name: 'after ball 78',
+        input: buildObserverSignalInput({
+          inningsStates: {
+            ...buildObserverSignalInput().inningsStates,
+            second: { ...buildObserverSignalInput().inningsStates.second, balls: 79 },
+          },
+        }),
+        expectedReason: 'STRATEGY_PASSED',
+        expectedAction: 'passed',
+        expectedBlockers: ['AFTER_WINDOW'],
+      },
+      {
+        name: 'reduced DLS target mismatch',
+        input: buildObserverSignalInput({
+          inningsStates: {
+            ...buildObserverSignalInput().inningsStates,
+            first: { ...buildObserverSignalInput().inningsStates.first, balls: 108, scoreWickets: 8 },
+            second: { ...buildObserverSignalInput().inningsStates.second, targetRuns: 180 },
+          },
+        }),
+        expectedReason: 'STRATEGY_SKIP',
+        expectedAction: 'blocked',
+        expectedBlockers: ['REDUCED_OVER_RISK', 'TARGET_MISMATCH'],
+      },
+      {
+        name: 'tie or super-over integrity warning from finished status',
+        input: buildObserverSignalInput({
+          fixture: { ...buildObserverSignalInput().fixture, status: 'completed after super over' },
+          inningsStates: {
+            ...buildObserverSignalInput().inningsStates,
+            second: { ...buildObserverSignalInput().inningsStates.second, status: 'frozen' },
+          },
+        }),
+        expectedReason: 'STRATEGY_SKIP',
+        expectedAction: 'blocked',
+        expectedBlockers: ['FIXTURE_FINISHED'],
+      },
+      {
+        name: 'missing chase target blocks possible DLS or reduced-over state',
+        input: buildObserverSignalInput({
+          inningsStates: {
+            ...buildObserverSignalInput().inningsStates,
+            second: { ...buildObserverSignalInput().inningsStates.second, targetRuns: null },
+          },
+        }),
+        expectedReason: 'STRATEGY_SKIP',
+        expectedAction: 'blocked',
+        expectedBlockers: ['MISSING_TARGET'],
+      },
+      {
+        name: 'terminal no-result status blocks before recipe lookup',
+        input: buildObserverSignalInput({
+          fixture: { ...buildObserverSignalInput().fixture, status: 'no result' },
+        }),
+        expectedReason: 'STRATEGY_SKIP',
+        expectedAction: 'blocked',
+        expectedBlockers: ['FIXTURE_FINISHED'],
+      },
+      {
+        name: 'abandoned rain-affected status blocks before recipe lookup',
+        input: buildObserverSignalInput({
+          fixture: { ...buildObserverSignalInput().fixture, status: 'abandoned due to rain' },
+        }),
+        expectedReason: 'STRATEGY_SKIP',
+        expectedAction: 'blocked',
+        expectedBlockers: ['FIXTURE_FINISHED'],
+      },
+      {
+        name: 'settled or closed market price',
+        input: buildObserverSignalInput({
+          home: { team: 'Mumbai Indians', marketProbability: 0.99 },
+        }),
+        expectedReason: 'STRATEGY_SKIP',
+        expectedAction: 'blocked',
+        expectedBlockers: ['SETTLED_MARKET'],
+      },
+    ]
+
+    for (const scenario of cases) {
+      const repository = new InMemoryObserverTradeIntentRepository({ recipes: [buildRecipeRecord(scenario.input)] })
+
+      const result = await createObserverTradeIntent({ ...scenario.input, repository })
+
+      expect(result, scenario.name).toMatchObject({
+        status: 'ignored',
+        reason: scenario.expectedReason,
+        evaluation: {
+          action: scenario.expectedAction,
+          blockers: expect.arrayContaining(scenario.expectedBlockers),
+        },
+      })
+      expect(repository.getTradingRecipeCalls, scenario.name).toBe(0)
+      expect(repository.createTradeIntentCalls, scenario.name).toBe(0)
+    }
+  })
+
+  test('blocks duplicate fixture-scope polling cycles across mode changes before recipe lookup or insert', async () => {
     const input = buildObserverSignalInput()
+    const existingIdentity = {
+      strategyKey: SCOREBOARD_SIDE_STRATEGY_KEY,
+      recipeVersion: 'v1-volume95',
+      windowKey: SCOREBOARD_SIDE_WINDOW_KEY,
+      fixtureId: input.fixture.id,
+      marketId: input.fixture.polymarketMarketSlug ?? 'missing-market',
+      tokenId: input.fixture.awayTokenId ?? 'missing-token',
+      side: 'buy' as const,
+      recipeKey: 'recipe:scoreboard-side-11-13:v1-volume95:balls-66-78:fixture-scoreboard-side-001:market-001:token-away-001:buy',
+      conditionId: 'condition-existing',
+    }
     const repository = new InMemoryObserverTradeIntentRepository({
-      recipes: [buildRecipeRecord(input)],
+      intents: [buildIntentRecord(existingIdentity)],
     })
 
-    const first = await createObserverTradeIntent({
-      ...input,
-      repository,
-    })
-    const second = await createObserverTradeIntent({
+    const result = await createObserverTradeIntent({
       ...input,
       repository,
     })
 
-    expect(first).toMatchObject({ status: 'created', reason: 'INTENT_CREATED' })
-    expect(second).toMatchObject({ status: 'blocked', reason: 'INTENT_ALREADY_EXISTS' })
+    expect(result).toMatchObject({ status: 'blocked', reason: 'INTENT_ALREADY_EXISTS' })
     expect(repository.intents).toHaveLength(1)
+    expect(repository.getTradingRecipeCalls).toBe(0)
+    expect(repository.createTradeIntentCalls).toBe(0)
   })
 
   test('fails open with a deterministic ignored result when recipe lookup throws unexpectedly', async () => {
@@ -266,7 +656,7 @@ describe('observer durable trade intent integration', () => {
     expect(result).toMatchObject({
       status: 'ignored',
       reason: 'INTENT_PERSISTENCE_FAILED',
-      recipeKey: 'recipe:eleven-over:2026-05-11-v1:2026-05-11-v1%3Afixture-1%3Ainnings-2%3Aballs-66-72:fixture-1:mumbai-vs-chennai:token-home:buy',
+      recipeKey: 'recipe:scoreboard-side-11-13:v1-value90:balls-66-78:fixture-scoreboard-side-001:market-001:token-home-001:buy',
       details: {
         step: 'getTradingRecipe',
         error: 'database temporarily unavailable',

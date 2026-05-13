@@ -2000,6 +2000,7 @@ const createApp = Effect.sync((): Express => {
       liveTradingEnabled: config.trading.liveEnabled,
       dailyBoundaryTimezone: config.trading.dailyBoundaryTimezone,
       polymarketCredentials: config.trading.polymarketCredentials,
+      scoreboardSideStrategy: config.trading.scoreboardSideStrategy,
     },
   }))
 

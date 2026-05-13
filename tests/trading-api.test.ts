@@ -1,7 +1,7 @@
 import { type Server } from 'node:http'
 
 import express, { type NextFunction, type Request, type Response } from 'express'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import {
   buildTradingStatusResponse,
@@ -25,6 +25,10 @@ import type {
 
 const FIXED_NOW = new Date('2026-05-11T10:00:00.000Z')
 const AUTH_TOKEN = 'test-observer-token'
+const FIXTURE_ID = 'fixture-scoreboard-side-001'
+const MARKET_ID = 'market-001'
+const CONDITION_ID = 'condition-001'
+const HOME_TOKEN_ID = 'token-home-001'
 
 const tradingApiConfig: TradingApiConfig = {
   liveTradingEnabled: true,
@@ -37,14 +41,14 @@ const tradingApiConfig: TradingApiConfig = {
 }
 
 const buildRecipe = (overrides: Partial<TradingRecipeRecord> = {}): TradingRecipeRecord => ({
-  recipeKey: overrides.recipeKey ?? 'recipe:eleven-over:fixture-1',
-  strategyKey: overrides.strategyKey ?? 'eleven-over',
-  recipeVersion: overrides.recipeVersion ?? '2026-05-11-v1',
-  windowKey: overrides.windowKey ?? '2026-05-11-v1:fixture-1:innings-2:balls-66-72',
-  fixtureId: overrides.fixtureId ?? 'fixture-1',
-  marketId: overrides.marketId ?? 'market-1',
-  conditionId: overrides.conditionId ?? 'condition-1',
-  tokenId: overrides.tokenId ?? 'token-1',
+  recipeKey: overrides.recipeKey ?? 'recipe:scoreboard-side-11-13:v1-value90:balls-66-78:fixture-scoreboard-side-001:market-001:token-home-001:buy',
+  strategyKey: overrides.strategyKey ?? 'scoreboard-side-11-13',
+  recipeVersion: overrides.recipeVersion ?? 'v1-value90',
+  windowKey: overrides.windowKey ?? 'balls-66-78',
+  fixtureId: overrides.fixtureId ?? FIXTURE_ID,
+  marketId: overrides.marketId ?? MARKET_ID,
+  conditionId: overrides.conditionId ?? CONDITION_ID,
+  tokenId: overrides.tokenId ?? HOME_TOKEN_ID,
   side: overrides.side ?? 'buy',
   orderStyle: overrides.orderStyle ?? 'limit',
   maxPrice: overrides.maxPrice ?? 0.42,
@@ -57,15 +61,15 @@ const buildRecipe = (overrides: Partial<TradingRecipeRecord> = {}): TradingRecip
 
 const buildIntent = (overrides: Partial<TradingIntentRecord> = {}): TradingIntentRecord => ({
   id: overrides.id ?? 1,
-  intentKey: overrides.intentKey ?? 'eleven-over:fixture-1:token-1:buy',
-  recipeKey: overrides.recipeKey ?? 'recipe:eleven-over:fixture-1',
-  strategyKey: overrides.strategyKey ?? 'eleven-over',
-  recipeVersion: overrides.recipeVersion ?? '2026-05-11-v1',
-  windowKey: overrides.windowKey ?? '2026-05-11-v1:fixture-1:innings-2:balls-66-72',
-  fixtureId: overrides.fixtureId ?? 'fixture-1',
-  marketId: overrides.marketId ?? 'market-1',
-  conditionId: overrides.conditionId ?? 'condition-1',
-  tokenId: overrides.tokenId ?? 'token-1',
+  intentKey: overrides.intentKey ?? 'intent:scoreboard-side-11-13:v1-value90:balls-66-78:fixture-scoreboard-side-001:market-001:token-home-001:buy',
+  recipeKey: overrides.recipeKey ?? 'recipe:scoreboard-side-11-13:v1-value90:balls-66-78:fixture-scoreboard-side-001:market-001:token-home-001:buy',
+  strategyKey: overrides.strategyKey ?? 'scoreboard-side-11-13',
+  recipeVersion: overrides.recipeVersion ?? 'v1-value90',
+  windowKey: overrides.windowKey ?? 'balls-66-78',
+  fixtureId: overrides.fixtureId ?? FIXTURE_ID,
+  marketId: overrides.marketId ?? MARKET_ID,
+  conditionId: overrides.conditionId ?? CONDITION_ID,
+  tokenId: overrides.tokenId ?? HOME_TOKEN_ID,
   side: overrides.side ?? 'buy',
   status: overrides.status ?? 'pending',
   claimCount: overrides.claimCount ?? 0,
@@ -93,9 +97,9 @@ const buildEvent = (overrides: Partial<TradingExecutionEventRecord> = {}): Tradi
 const buildExposureEntry = (overrides: Partial<TradingExposureLedgerRecord> = {}): TradingExposureLedgerRecord => ({
   id: overrides.id ?? 1,
   intentId: overrides.intentId ?? 1,
-  fixtureId: overrides.fixtureId ?? 'fixture-1',
-  marketId: overrides.marketId ?? 'market-1',
-  tokenId: overrides.tokenId ?? 'token-1',
+  fixtureId: overrides.fixtureId ?? FIXTURE_ID,
+  marketId: overrides.marketId ?? MARKET_ID,
+  tokenId: overrides.tokenId ?? HOME_TOKEN_ID,
   side: overrides.side ?? 'buy',
   entryType: overrides.entryType ?? 'pending_order',
   quantity: overrides.quantity ?? 20,
@@ -219,6 +223,7 @@ const createApp = (store: TradingApiStore, config: TradingApiConfig = tradingApi
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   setTradingRuntimeReadinessFailureReasons([])
 })
 
@@ -300,6 +305,69 @@ describe('trading API routes', () => {
     expect(status.liveEligibility.blockerReasons).toEqual(['POLYMARKET_CREDENTIALS_MISSING'])
   })
 
+  test('reports the active scoreboard-side strategy and dry-run readiness blockers', async () => {
+    const store = new InMemoryTradingApiStore({ runtimeFlag: buildRuntimeFlag({ enabled: false }) })
+
+    const { response, body } = await requestJson(createApp(store), '/trading/status', {
+      headers: { authorization: `Bearer ${AUTH_TOKEN}` },
+    })
+    const status = body as {
+      activeStrategy: {
+        strategyKey: string
+        mode: string
+        priceCap: number
+        allocationFraction: number
+        executionMode: string
+        dryRun: boolean
+        liveReady: boolean
+        readinessBlockers: string[]
+      }
+    }
+
+    expect(response.status).toBe(200)
+    expect(status.activeStrategy).toMatchObject({
+      strategyKey: 'scoreboard-side-11-13',
+      mode: 'value90',
+      priceCap: 0.9,
+      allocationFraction: 0.2,
+      executionMode: 'dry-run',
+      dryRun: true,
+      liveReady: false,
+    })
+    expect(status.activeStrategy.readinessBlockers).toContain('DB_RUNTIME_LIVE_GATE_DISABLED')
+  })
+
+  test('reports explicit volume95 scoreboard-side strategy settings when configured', async () => {
+    const store = new InMemoryTradingApiStore({ runtimeFlag: buildRuntimeFlag({ enabled: false }) })
+
+    const { response, body } = await requestJson(
+      createApp(store, {
+        ...tradingApiConfig,
+        scoreboardSideStrategy: {
+          mode: 'volume95',
+          priceCap: 0.95,
+          allocationFraction: 0.1,
+        },
+      }),
+      '/trading/status',
+      { headers: { authorization: `Bearer ${AUTH_TOKEN}` } },
+    )
+    const status = body as {
+      activeStrategy: {
+        mode: string
+        priceCap: number
+        allocationFraction: number
+      }
+    }
+
+    expect(response.status).toBe(200)
+    expect(status.activeStrategy).toMatchObject({
+      mode: 'volume95',
+      priceCap: 0.95,
+      allocationFraction: 0.1,
+    })
+  })
+
   test('summarizes daily exposure using the configured trading timezone boundary', async () => {
     const store = new InMemoryTradingApiStore({
       runtimeFlag: buildRuntimeFlag({ enabled: false }),
@@ -331,6 +399,8 @@ describe('trading API routes', () => {
   })
 
   test('uses the configured trading timezone boundary on the exposure endpoint', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(FIXED_NOW)
     const store = new InMemoryTradingApiStore({
       exposures: [
         buildExposureEntry({
@@ -385,8 +455,8 @@ describe('trading API routes', () => {
           },
         }),
       ],
-      exposures: [buildExposureEntry({ details: { safe: true } })],
       reconciliationCheckpoint: buildCheckpoint({ details: { apiSecret: 'checkpoint-secret' } }),
+      exposures: [buildExposureEntry({ details: { fundedAccountIdentifier: 'funded-account-secret' } })],
     })
 
     const { response, body } = await requestJson(createApp(store), '/trading/status', {
@@ -402,6 +472,7 @@ describe('trading API routes', () => {
     expect(serialized).not.toContain('signed-order-body-secret')
     expect(serialized).not.toContain('signature-secret')
     expect(serialized).not.toContain('checkpoint-secret')
+    expect(serialized).not.toContain('funded-account-secret')
   })
 
   test('updates the persistent live flag only for authenticated requests and records audit metadata', async () => {

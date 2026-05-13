@@ -370,6 +370,72 @@ describe('trading executor dry-run policy engine', () => {
     expect(updatedIntent?.lastErrorCode).toBeNull()
   })
 
+  test('uses recipe allocation context for value and volume sizing while preserving legacy fallback', async () => {
+    const cases: Array<{
+      name: string
+      recipe: TradingRecipeRecord
+      expectedAllocationFraction: number
+      expectedRequestedNotionalUsd: number
+      expectedOrderSize: number
+    }> = [
+      {
+        name: 'value mode allocation override',
+        recipe: buildRecipeRecord({ maxPrice: 0.9, context: { strategyMode: 'value90', allocationFraction: 0.2 } }),
+        expectedAllocationFraction: 0.2,
+        expectedRequestedNotionalUsd: 200,
+        expectedOrderSize: 222.222222,
+      },
+      {
+        name: 'volume mode allocation override',
+        recipe: buildRecipeRecord({ maxPrice: 0.95, context: { strategyMode: 'volume95', allocationFraction: 0.1 } }),
+        expectedAllocationFraction: 0.1,
+        expectedRequestedNotionalUsd: 100,
+        expectedOrderSize: 105.263158,
+      },
+      {
+        name: 'legacy fallback allocation',
+        recipe: buildRecipeRecord({ maxPrice: 0.42, context: { strategy: '11-over' } }),
+        expectedAllocationFraction: 0.2,
+        expectedRequestedNotionalUsd: 200,
+        expectedOrderSize: 476.190476,
+      },
+    ]
+
+    for (const testCase of cases) {
+      const intent = buildIntentRecord({ recipeKey: testCase.recipe.recipeKey })
+      const store = new InMemoryTradingExecutorStore({ intents: [intent], recipes: [testCase.recipe] })
+      const adapter = createDryRunAdapter()
+      const executor = new TradingExecutor({
+        workerId: 'worker-1',
+        leaseMs: 30_000,
+        adapter,
+        store,
+        now: () => FIXED_NOW,
+        buildEvaluationContext: async () => buildExecutionContext({ balanceAvailableUsd: 1000 }),
+      })
+
+      const result = await executor.processClaimedTradeIntent(intent)
+      const submitted = store.events.find((event) => event.eventType === 'submitted')
+
+      expect(result, testCase.name).toMatchObject({ kind: 'dry-run-approved' })
+      expect(result.kind === 'dry-run-approved' ? result.orderRequest : null, testCase.name).toMatchObject({
+        price: testCase.recipe.maxPrice,
+        size: testCase.expectedOrderSize,
+      })
+      expect(submitted?.details, testCase.name).toMatchObject({
+        allocationFraction: testCase.expectedAllocationFraction,
+        orderRequest: {
+          size: testCase.expectedOrderSize,
+          price: testCase.recipe.maxPrice,
+        },
+      })
+      expect(store.exposures.map((entry) => [entry.entryType, entry.notionalUsd, entry.quantity]), testCase.name).toEqual([
+        ['submitted_notional', testCase.expectedRequestedNotionalUsd, testCase.expectedOrderSize],
+        ['pending_order', testCase.expectedRequestedNotionalUsd, testCase.expectedOrderSize],
+      ])
+    }
+  })
+
   test('fails closed for the required blocker matrix', async () => {
     const cases: Array<{
       name: string

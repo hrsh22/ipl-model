@@ -77,6 +77,7 @@ export interface EvaluateTradeIntentPolicyResult {
   approved: boolean
   requestedNotionalUsd: number | null
   requestedOrderSize: number | null
+  allocationFraction: number
   blockers: TradePolicyBlocker[]
   exposureSummary: TradingExposureSummary
   statePath: TradeExecutionState[]
@@ -102,15 +103,33 @@ const roundUsd = (value: number) => Math.round(value * 100) / 100
 
 const roundOrderSize = (value: number) => Math.round(value * 1_000_000) / 1_000_000
 
-const calculateOrderSizing = (recipe: ValidatedTradingRecipe | null, balanceAvailableUsd: number | null) => {
-  if (!recipe || balanceAvailableUsd == null || !Number.isFinite(balanceAvailableUsd) || balanceAvailableUsd <= 0) {
-    return { requestedNotionalUsd: null, requestedOrderSize: null }
+const readRecipeAllocationFraction = (recipe: ValidatedTradingRecipe | null) => {
+  const allocationFraction = recipe?.context?.allocationFraction
+
+  if (
+    typeof allocationFraction === "number" &&
+    Number.isFinite(allocationFraction) &&
+    allocationFraction > 0 &&
+    allocationFraction <= 1
+  ) {
+    return allocationFraction
   }
 
-  const requestedNotionalUsd = roundUsd(balanceAvailableUsd * TRADING_BALANCE_ALLOCATION_FRACTION)
+  return TRADING_BALANCE_ALLOCATION_FRACTION
+}
+
+const calculateOrderSizing = (recipe: ValidatedTradingRecipe | null, balanceAvailableUsd: number | null) => {
+  const allocationFraction = readRecipeAllocationFraction(recipe)
+
+  if (!recipe || balanceAvailableUsd == null || !Number.isFinite(balanceAvailableUsd) || balanceAvailableUsd <= 0) {
+    return { requestedNotionalUsd: null, requestedOrderSize: null, allocationFraction }
+  }
+
+  const requestedNotionalUsd = roundUsd(balanceAvailableUsd * allocationFraction)
   return {
     requestedNotionalUsd,
     requestedOrderSize: roundOrderSize(requestedNotionalUsd / recipe.maxPrice),
+    allocationFraction,
   }
 }
 
@@ -268,7 +287,7 @@ export const evaluateTradeIntentPolicy = (
     fixtureId: input.fixtureId,
     dayWindow: input.dayWindow,
   })
-  const { requestedNotionalUsd, requestedOrderSize } = calculateOrderSizing(input.recipe, input.balanceAvailableUsd)
+  const { requestedNotionalUsd, requestedOrderSize, allocationFraction } = calculateOrderSizing(input.recipe, input.balanceAvailableUsd)
 
   if (!input.recipe) {
     blockers.push({
@@ -332,7 +351,7 @@ export const evaluateTradeIntentPolicy = (
       message: "Available pUSD balance is unavailable or insufficient",
       details: {
         balanceAvailableUsd: input.balanceAvailableUsd,
-        allocationFraction: TRADING_BALANCE_ALLOCATION_FRACTION,
+        allocationFraction,
       },
     })
   }
@@ -341,6 +360,7 @@ export const evaluateTradeIntentPolicy = (
     approved: blockers.length === 0,
     requestedNotionalUsd,
     requestedOrderSize,
+    allocationFraction,
     blockers,
     exposureSummary,
     statePath: blockers.length === 0 ? ["detected", "eligible", "approved"] : ["detected", "eligible", "blocked"],

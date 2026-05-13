@@ -13,6 +13,7 @@ export interface TradingRecipeInput {
   orderStyle?: TradingOrderStyle | null
   maxPrice?: number | null
   expiryEpochMs?: number | null
+  context?: Record<string, unknown> | null
 }
 
 export interface ValidatedTradingRecipe {
@@ -23,6 +24,7 @@ export interface ValidatedTradingRecipe {
   orderStyle: TradingOrderStyle
   maxPrice: number
   expiryEpochMs: number
+  context?: Record<string, unknown> | null
 }
 
 export type ValidationResult<T> =
@@ -132,6 +134,7 @@ export const validateTradingRecipe = (
       orderStyle: recipe.orderStyle as TradingOrderStyle,
       maxPrice: validatedMaxPrice,
       expiryEpochMs: expiryEpochMs as number,
+      context: recipe.context ?? null,
     },
   }
 }
