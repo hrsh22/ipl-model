@@ -1611,6 +1611,147 @@ input {
   line-height: 1.55;
 }
 
+.strategy-scoreboard-action {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(220px, 0.55fr);
+  gap: 16px;
+  margin-top: 20px;
+  padding: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(245, 241, 223, 0.13);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(245, 241, 223, 0.07), rgba(245, 241, 223, 0.025)),
+    rgba(5, 8, 6, 0.7);
+}
+
+.strategy-scoreboard-action.buy {
+  border-color: rgba(216, 255, 56, 0.6);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(216, 255, 56, 0.36), transparent 26rem),
+    linear-gradient(135deg, rgba(216, 255, 56, 0.24), rgba(134, 239, 172, 0.12)),
+    rgba(8, 14, 8, 0.92);
+  box-shadow: 0 30px 90px rgba(216, 255, 56, 0.14), var(--shadow);
+}
+
+.strategy-scoreboard-action.wait {
+  border-color: rgba(255, 191, 63, 0.34);
+  background:
+    linear-gradient(135deg, rgba(255, 191, 63, 0.17), rgba(245, 241, 223, 0.035)),
+    rgba(9, 16, 12, 0.86);
+}
+
+.strategy-scoreboard-action.no-trade,
+.strategy-scoreboard-action.unavailable {
+  border-style: dashed;
+}
+
+.strategy-scoreboard-command span,
+.strategy-scoreboard-sizing span,
+.strategy-scoreboard-sizing small,
+.strategy-scoreboard-notes span {
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.strategy-scoreboard-command strong {
+  display: block;
+  margin-top: 6px;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: clamp(2.2rem, 5vw, 4.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+  text-transform: uppercase;
+}
+
+.strategy-scoreboard-action.buy .strategy-scoreboard-command strong {
+  color: var(--accent);
+  text-shadow: 0 0 30px rgba(216, 255, 56, 0.22);
+}
+
+.strategy-scoreboard-command p {
+  max-width: 780px;
+  margin: 12px 0 0;
+  color: var(--text);
+  font-size: 1.02rem;
+  line-height: 1.45;
+}
+
+.strategy-scoreboard-sizing {
+  align-self: stretch;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid rgba(245, 241, 223, 0.12);
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.strategy-scoreboard-sizing strong {
+  display: block;
+  color: var(--accent);
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+  line-height: 1;
+}
+
+.strategy-scoreboard-grid,
+.strategy-scoreboard-notes {
+  grid-column: 1 / -1;
+}
+
+.strategy-scoreboard-notes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.strategy-scoreboard-notes > div {
+  padding: 14px 16px;
+  border: 1px solid rgba(245, 241, 223, 0.1);
+  border-radius: 18px;
+  background: rgba(245, 241, 223, 0.045);
+}
+
+.strategy-scoreboard-notes ul {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.strategy-trading-panel {
+  margin: 16px 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  background: rgba(9, 16, 12, 0.84);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.strategy-trading-metric-grid {
+  margin-top: 16px;
+}
+
+.strategy-trading-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.strategy-muted-copy {
+  margin: 14px 0 0;
+  color: var(--muted);
+}
+
 .strategy-strength-dial {
   display: grid;
   place-items: center;
@@ -1810,6 +1951,7 @@ input {
   .strategy-hero,
   .strategy-layout,
   .strategy-decision-panel,
+  .strategy-scoreboard-action,
   .strategy-next-panel,
   .strategy-next-empty {
     grid-template-columns: 1fr;
@@ -1862,6 +2004,9 @@ input {
     .observer-innings-grid,
     .strategy-metric-grid,
     .strategy-state-grid,
+    .strategy-scoreboard-action,
+    .strategy-scoreboard-notes,
+    .strategy-trading-details-grid,
     .strategy-condition-grid,
     .strategy-side-row,
     .strategy-alignment-grid,

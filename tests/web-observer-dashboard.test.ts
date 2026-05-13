@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { buildScoreboardAction, loadObserverDashboard } from '../apps/web/src/routes/observer.js'
+import { loadObserverDashboard } from '../apps/web/src/routes/observer.js'
+import { buildScoreboardAction, loadStrategyDashboard } from '../apps/web/src/routes/eleven-over.js'
 import { tradingEventsProxyPath } from '../apps/web/src/routes/api/observer/trading/events.js'
 import { tradingIntentsProxyPath } from '../apps/web/src/routes/api/observer/trading/intents.js'
 
@@ -115,13 +116,12 @@ describe('observer dashboard helpers', () => {
     expect(volume95Action.priceCap).toBe(0.95)
   })
 
-  test('keeps core dashboard data when trading status is unavailable', async () => {
+  test('observer dashboard does not fetch trading status', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url === '/api/observer/ready') return jsonResponse({ ready: true })
       if (url === '/api/observer/live-model') return jsonResponse([])
       if (url === '/api/observer/live-model/signals?limit=8') return jsonResponse([])
       if (url === '/api/observer/live-model/history?limit=12') return jsonResponse([])
-      if (url === '/api/observer/trading/status') return jsonResponse({ error: 'trading unavailable' }, 500)
       return jsonResponse({ error: 'unexpected fetch' }, 404)
     }))
 
@@ -130,6 +130,27 @@ describe('observer dashboard helpers', () => {
       fixtures: [],
       signals: [],
       history: [],
+    })
+    expect(fetch).not.toHaveBeenCalledWith('/api/observer/trading/status')
+  })
+
+  test('keeps 11-over dashboard data when trading status is unavailable', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url === '/api/observer/ready') return jsonResponse({ ready: true })
+      if (url === '/api/observer/live-model') return jsonResponse([])
+      if (url === '/api/observer/fixtures') return jsonResponse([])
+      if (url === '/api/predictor/fixtures') return jsonResponse([])
+      if (url === '/api/scanner/default-market') return jsonResponse({ error: 'default unavailable' }, 500)
+      if (url === '/api/observer/trading/status') return jsonResponse({ error: 'trading unavailable' }, 500)
+      return jsonResponse({ error: 'unexpected fetch' }, 404)
+    }))
+
+    await expect(loadStrategyDashboard()).resolves.toMatchObject({
+      ready: { ready: true },
+      fixtures: [],
+      observerFixtures: [],
+      scheduleFixtures: [],
+      defaultMarket: null,
       tradingStatus: null,
     })
   })
