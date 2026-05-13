@@ -529,6 +529,7 @@ describe('trading executor dry-run policy engine', () => {
       matchedSize: buildRecipeRecord().size / 2,
       tradeId: 'venue-trade-1',
       emitUserUpdate: false,
+      omitClientOrderIdFromTrade: true,
     })
 
     const result = await executor.processNextTradeIntent()
@@ -559,6 +560,7 @@ describe('trading executor dry-run policy engine', () => {
       'createOrder',
       'getTrades',
       'getOrder',
+      'getTrades',
     ])
   })
 

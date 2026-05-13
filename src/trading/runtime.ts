@@ -137,18 +137,17 @@ export const buildRuntimeEvaluationContext = async (input: {
 const buildStartupReadiness = async () => {
   const recipes = await listTradingRecipes(1)
   const recipeValidation = validateTradingRecipe(recipeToValidationInput(recipes[0] ?? null))
-  return {
-    readiness: assessTradingLiveReadiness({
-      liveTradingEnabled: config.trading.liveEnabled,
-      credentialsPresent: config.trading.polymarketCredentials.allPresent,
-      recipe: recipeValidation,
-    }),
-  }
+  return assessTradingLiveReadiness({
+    liveTradingEnabled: config.trading.liveEnabled,
+    credentialsPresent: config.trading.polymarketCredentials.allPresent,
+    recipe: recipeValidation,
+  })
 }
 
-const buildRuntimeAdapter = async (): Promise<PolymarketTradingAdapter> => {
-  const startup = await buildStartupReadiness()
-  const liveClient = startup.readiness.liveReady
+export const buildRuntimeAdapter = async (): Promise<PolymarketTradingAdapter> => {
+  const startupReadiness = await buildStartupReadiness()
+  const shouldCreateLiveClient = config.trading.liveEnabled && config.trading.polymarketCredentials.allPresent
+  const liveClient = shouldCreateLiveClient
     ? await createPolymarketClobV2LiveClient({
         host: config.trading.polymarketClob.host,
         chainId: config.trading.polymarketClob.chainId,
@@ -163,7 +162,7 @@ const buildRuntimeAdapter = async (): Promise<PolymarketTradingAdapter> => {
         mode: "dry-run" as const,
         reasons: [{ code: "POLYMARKET_CREDENTIALS_MISSING" as const, errors: liveClient.reasons }],
       }
-    : startup.readiness
+    : startupReadiness
 
   if (liveClient && !liveClient.ok) {
     setTradingRuntimeReadinessFailureReasons(liveClient.reasons)
@@ -175,7 +174,7 @@ const buildRuntimeAdapter = async (): Promise<PolymarketTradingAdapter> => {
   }
 
   return buildPolymarketTradingAdapter({
-    requestedMode: readiness.liveReady ? "live" : "dry-run",
+    requestedMode: liveClient?.ok ? "live" : "dry-run",
     readiness,
     ...(liveClient?.ok ? { liveClient: liveClient.client } : {}),
   })

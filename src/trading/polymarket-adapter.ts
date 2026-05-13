@@ -214,6 +214,7 @@ export type MockCreateOrderOutcome =
       matchedSize?: number
       tradeId?: string
       emitUserUpdate?: boolean
+      omitClientOrderIdFromTrade?: boolean
     } & MockOutcomeBase)
   | ({ type: "duplicate"; duplicateOfOrderId: string } & MockOutcomeBase)
   | ({ type: "partial-fill"; orderId?: string; matchedSize: number; tradeId?: string } & MockOutcomeBase)
@@ -638,17 +639,23 @@ const mapOpenOrder = (order: OpenOrder): PolymarketOrderRecord => {
   }
 }
 
-const mapTrade = (trade: Trade): PolymarketTradeRecord => ({
-  tradeId: trade.id,
-  orderId: trade.taker_order_id,
-  clientOrderId: null,
-  marketId: trade.market,
-  tokenId: trade.asset_id,
-  side: fromSdkSide(trade.side),
-  price: normalizeNumberString(trade.price),
-  size: normalizeNumberString(trade.size),
-  createdAt: trade.match_time ? new Date(trade.match_time).toISOString() : nowIso(),
-})
+const findMakerOrderForTrade = (trade: Trade) =>
+  trade.maker_orders.find((order) => order.asset_id === trade.asset_id) ?? trade.maker_orders[0] ?? null
+
+const mapTrade = (trade: Trade): PolymarketTradeRecord => {
+  const makerOrder = trade.trader_side === "MAKER" ? findMakerOrderForTrade(trade) : null
+  return {
+    tradeId: trade.id,
+    orderId: makerOrder?.order_id ?? trade.taker_order_id,
+    clientOrderId: null,
+    marketId: trade.market,
+    tokenId: makerOrder?.asset_id ?? trade.asset_id,
+    side: fromSdkSide(makerOrder?.side ?? trade.side),
+    price: normalizeNumberString(makerOrder?.price ?? trade.price),
+    size: normalizeNumberString(makerOrder?.matched_amount ?? trade.size),
+    createdAt: trade.match_time ? new Date(trade.match_time).toISOString() : nowIso(),
+  }
+}
 
 export class PolymarketClobV2LiveClient implements PolymarketLiveClient {
   constructor(
@@ -765,7 +772,7 @@ export class PolymarketClobV2LiveClient implements PolymarketLiveClient {
   }
 
   subscribeUserUpdates(): () => void {
-    return () => undefined
+    throw new Error("Polymarket CLOB V2 user update streaming is not implemented for this client; REST reconciliation remains authoritative")
   }
 
   async selfTest(): Promise<Omit<PolymarketHealthStatus, "mode">> {
@@ -1126,7 +1133,7 @@ export class MockPolymarketTradingAdapter implements PolymarketTradingAdapter {
             const trade: PolymarketTradeRecord = {
               tradeId: outcome.tradeId ?? `mock-trade-${this.nextTradeSequence++}`,
               orderId: persistedOrder.orderId,
-              clientOrderId: request.clientOrderId ?? null,
+              clientOrderId: outcome.omitClientOrderIdFromTrade ? null : request.clientOrderId ?? null,
               marketId: request.marketId,
               tokenId: request.tokenId,
               side: request.side,
@@ -1293,7 +1300,7 @@ export const buildPolymarketTradingAdapter = (
     return input.mockAdapter ?? new MockPolymarketTradingAdapter()
   }
 
-  if (input.requestedMode === "live" && input.readiness.liveReady && input.liveClient) {
+  if (input.requestedMode === "live" && input.liveClient) {
     return new LivePolymarketTradingAdapter(input.liveClient)
   }
 

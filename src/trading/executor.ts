@@ -158,6 +158,8 @@ const noOpStates = new Set<TradeExecutionState>(["blocked", "reconciled"])
 const ambiguousSubmitErrorCodes = new Set(["REQUEST_TIMEOUT", "RATE_LIMITED", "NETWORK_ERROR", "DUPLICATE_ORDER"])
 const completeableStates = new Set<TradeExecutionState>(["filled", "cancelled", "expired", "reconciled"])
 const reconciliationCheckpointKey = "polymarket:user-updates"
+const priceTolerance = 0.000001
+const sizeTolerance = 0.000001
 
 const asRecipeContext = (context: unknown): Record<string, unknown> | null => {
   if (context && typeof context === "object" && !Array.isArray(context)) {
@@ -187,6 +189,10 @@ const toValidatedTradingRecipe = (recipe: TradingRecipeRecord | null): Validated
 }
 
 const roundUsd = (value: number) => Math.round(value * 100) / 100
+
+const uniqueStrings = (values: Array<string | null | undefined>) => [...new Set(values.filter((value): value is string => Boolean(value)))]
+
+const isApproxEqual = (actual: number, expected: number, tolerance: number) => Math.abs(actual - expected) <= tolerance
 
 const buildOrderRequest = (
   intent: TradingIntentRecord,
@@ -940,9 +946,23 @@ export class TradingExecutor {
           marketId: input.intent.marketId,
           tokenId: input.intent.tokenId,
         })
-        trades = candidateTrades.filter((trade) => trade.clientOrderId === input.clientOrderId)
-        orderId = trades[0]?.orderId ?? null
-        order = orderId ? await this.dependencies.adapter.getOrder(orderId) : null
+        const candidateOrderIds = uniqueStrings([
+          ...candidateTrades
+            .filter((trade) => this.isPlausibleTradeForIntent(trade, input))
+            .map((trade) => trade.orderId),
+        ])
+
+        for (const candidateOrderId of candidateOrderIds) {
+          const candidateOrder = await this.dependencies.adapter.getOrder(candidateOrderId)
+          if (!candidateOrder || !this.isPlausibleOrderForIntent(candidateOrder, input)) {
+            continue
+          }
+
+          orderId = candidateOrderId
+          order = candidateOrder
+          trades = await this.dependencies.adapter.getTrades({ orderId })
+          break
+        }
       }
 
       trades.forEach((trade) => this.indexTradeUpdate(trade))
@@ -964,6 +984,29 @@ export class TradingExecutor {
     } catch {
       return null
     }
+  }
+
+  private isPlausibleTradeForIntent(
+    trade: PolymarketTradeRecord,
+    input: { intent: TradingIntentRecord; requestedSize: number },
+  ) {
+    return trade.marketId === input.intent.marketId &&
+      trade.tokenId === input.intent.tokenId &&
+      trade.side === input.intent.side &&
+      trade.size > 0 &&
+      trade.size <= input.requestedSize + sizeTolerance
+  }
+
+  private isPlausibleOrderForIntent(
+    order: PolymarketOrderRecord,
+    input: { intent: TradingIntentRecord; requestedSize: number; requestedNotionalUsd: number },
+  ) {
+    const requestedPrice = input.requestedNotionalUsd / input.requestedSize
+    return order.marketId === input.intent.marketId &&
+      order.tokenId === input.intent.tokenId &&
+      order.side === input.intent.side &&
+      isApproxEqual(order.price, requestedPrice, priceTolerance) &&
+      isApproxEqual(order.size, input.requestedSize, sizeTolerance)
   }
 
   private async persistReconciliationCheckpoint(

@@ -127,6 +127,50 @@ describe('polymarket adapter boundary', () => {
     })
   })
 
+  test('keeps live adapter available when env and credentials are ready before recipes seed', async () => {
+    const adapter = buildPolymarketTradingAdapter({
+      requestedMode: 'live',
+      readiness: {
+        liveReady: false,
+        mode: 'dry-run',
+        reasons: [{ code: 'RECIPE_MISSING' }],
+      },
+      liveClient: {
+        lookupMarket: async () => null,
+        createOrder: async (request) => ({
+          orderId: 'late-recipe-live-order',
+          clientOrderId: request.clientOrderId ?? null,
+          marketId: request.marketId,
+          conditionId: request.conditionId,
+          tokenId: request.tokenId,
+          side: request.side,
+          orderStyle: request.orderStyle,
+          price: request.price,
+          size: request.size,
+          status: 'open',
+          matchedSize: 0,
+          remainingSize: request.size,
+          createdAt: '2026-05-11T00:00:00.000Z',
+          updatedAt: '2026-05-11T00:00:00.000Z',
+          reason: null,
+          duplicateOfOrderId: null,
+        }),
+        cancelOrder: async () => {
+          throw new Error('not needed in this test')
+        },
+        getOrder: async () => null,
+        getTrades: async () => [],
+        subscribeUserUpdates: async () => () => undefined,
+        selfTest: async () => ({ ok: true, authenticated: true, reasons: [] }),
+      },
+    })
+
+    expect(adapter.mode).toBe('live')
+    await expect(adapter.createOrder(buildCreateOrderRequest())).resolves.toMatchObject({
+      orderId: 'late-recipe-live-order',
+    })
+  })
+
   test('package-backed CLOB V2 live client factory fails closed without required signing and builder inputs', async () => {
     const result = await createPolymarketClobV2LiveClient({
       host: 'https://clob.polymarket.com',
@@ -220,6 +264,99 @@ describe('polymarket adapter boundary', () => {
         orderType: 'GTD',
       },
     ])
+  })
+
+  test('package-backed CLOB V2 client maps maker trade order ids for REST reconciliation', async () => {
+    const sdkClient: PolymarketClobV2SdkClient = {
+      getClobMarketInfo: async () => {
+        throw new Error('not needed in this test')
+      },
+      createAndPostOrder: async () => {
+        throw new Error('not needed in this test')
+      },
+      createAndPostMarketOrder: async () => {
+        throw new Error('not needed in this test')
+      },
+      cancelOrder: async () => ({}),
+      getOrder: async () => {
+        throw new Error('not needed in this test')
+      },
+      getTrades: async () => [
+        {
+          id: 'trade-1',
+          taker_order_id: 'taker-order-1',
+          market: 'market-1',
+          asset_id: 'token-home',
+          side: 'SELL',
+          size: '10',
+          fee_rate_bps: '0',
+          price: '0.41',
+          status: 'CONFIRMED',
+          match_time: '2026-05-11T10:00:00.000Z',
+          last_update: '2026-05-11T10:00:00.000Z',
+          outcome: 'Home',
+          bucket_index: 0,
+          owner: 'owner-1',
+          maker_address: 'maker-1',
+          maker_orders: [
+            {
+              order_id: 'maker-order-1',
+              owner: 'owner-1',
+              maker_address: 'maker-1',
+              matched_amount: '10',
+              price: '0.41',
+              fee_rate_bps: '0',
+              asset_id: 'token-home',
+              outcome: 'Home',
+              side: 'BUY',
+            },
+          ],
+          trader_side: 'MAKER',
+        },
+      ],
+      updateBalanceAllowance: async () => ({}),
+      getBalanceAllowance: async () => ({ balance: '2000', allowances: {} }),
+      getOk: async () => ({}),
+    }
+    const client = new PolymarketClobV2LiveClient(sdkClient, FAKE_BUILDER_CODE)
+
+    await expect(client.getTrades({ marketId: 'market-1', tokenId: 'token-home' })).resolves.toMatchObject([
+      {
+        tradeId: 'trade-1',
+        orderId: 'maker-order-1',
+        marketId: 'market-1',
+        tokenId: 'token-home',
+        side: 'buy',
+        price: 0.41,
+        size: 10,
+      },
+    ])
+    await expect(client.getTrades({ orderId: 'maker-order-1' })).resolves.toHaveLength(1)
+  })
+
+  test('package-backed CLOB V2 user updates fail closed until streaming is implemented', () => {
+    const sdkClient: PolymarketClobV2SdkClient = {
+      getClobMarketInfo: async () => {
+        throw new Error('not needed in this test')
+      },
+      createAndPostOrder: async () => {
+        throw new Error('not needed in this test')
+      },
+      createAndPostMarketOrder: async () => {
+        throw new Error('not needed in this test')
+      },
+      cancelOrder: async () => ({}),
+      getOrder: async () => {
+        throw new Error('not needed in this test')
+      },
+      getTrades: async () => [],
+      updateBalanceAllowance: async () => ({}),
+      getBalanceAllowance: async () => ({ balance: '2000', allowances: {} }),
+      getOk: async () => ({}),
+    }
+    const client = new PolymarketClobV2LiveClient(sdkClient, FAKE_BUILDER_CODE)
+
+    expect(() => client.subscribeUserUpdates(() => {})).toThrow('user update streaming is not implemented')
   })
 })
 
