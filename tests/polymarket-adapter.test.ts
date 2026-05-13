@@ -222,8 +222,42 @@ describe('polymarket adapter boundary', () => {
   })
 
   test('package-backed CLOB V2 live client passes signature type and funder into SDK clients', async () => {
+    const funderAddress = '0x1234567890123456789012345678901234567890'
     const deriveApiCredentials = vi.fn(async () => ({
       key: FAKE_API_KEY,
+      secret: FAKE_SECRET,
+      passphrase: FAKE_PASSPHRASE,
+    }))
+
+    const result = await createPolymarketClobV2LiveClient({
+      host: 'https://clob.polymarket.com',
+      chainId: 137,
+      privateKey: VALID_TEST_PRIVATE_KEY,
+      builderCode: FAKE_BUILDER_CODE,
+      signatureType: 3,
+      funderAddress,
+      deriveApiCredentials,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(deriveApiCredentials).toHaveBeenCalledTimes(1)
+    const bootstrapClient = deriveApiCredentials.mock.calls[0]?.[0] as {
+      signatureType?: number
+      funderAddress?: string
+      useServerTime?: boolean
+      throwOnError?: boolean
+    }
+    expect(bootstrapClient).toMatchObject({
+      signatureType: 3,
+      funderAddress,
+      useServerTime: true,
+      throwOnError: false,
+    })
+  })
+
+  test('package-backed CLOB V2 live client rejects incomplete derived API credentials', async () => {
+    const deriveApiCredentials = vi.fn(async () => ({
+      key: '',
       secret: FAKE_SECRET,
       passphrase: FAKE_PASSPHRASE,
     }))
@@ -238,7 +272,7 @@ describe('polymarket adapter boundary', () => {
       deriveApiCredentials,
     })
 
-    expect(result.ok).toBe(true)
+    expect(result).toEqual({ ok: false, reasons: ['POLYMARKET_CLOB_API_CREDENTIAL_DERIVATION_FAILED'] })
   })
 
   test('package-backed CLOB V2 live client accepts the expected signer address case-insensitively', async () => {

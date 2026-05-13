@@ -254,6 +254,9 @@ const nowIso = () => new Date().toISOString()
 
 const normalizeString = (value: string | null | undefined) => value?.trim() ?? ""
 
+const hasApiCredentials = (value: ApiKeyCreds): boolean =>
+  Boolean(value.key?.trim() && value.secret?.trim() && value.passphrase?.trim())
+
 const normalizeNumberString = (value: string | number | null | undefined) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -826,12 +829,19 @@ export const createPolymarketClobV2LiveClient = async (
     host,
     chain: input.chainId,
     signer,
-    throwOnError: true,
+    signatureType: signatureType as SignatureTypeV2,
+    ...(funderAddress ? { funderAddress } : {}),
+    useServerTime: true,
+    throwOnError: false,
   })
   let creds: ApiKeyCreds
   try {
     creds = await (input.deriveApiCredentials ?? ((client) => client.createOrDeriveApiKey()))(bootstrapClient)
   } catch {
+    return { ok: false, reasons: ["POLYMARKET_CLOB_API_CREDENTIAL_DERIVATION_FAILED"] }
+  }
+
+  if (!hasApiCredentials(creds)) {
     return { ok: false, reasons: ["POLYMARKET_CLOB_API_CREDENTIAL_DERIVATION_FAILED"] }
   }
 
@@ -845,6 +855,7 @@ export const createPolymarketClobV2LiveClient = async (
         creds,
         signatureType: signatureType as SignatureTypeV2,
         ...(funderAddress ? { funderAddress } : {}),
+        useServerTime: true,
         throwOnError: true,
       }),
       builderCode,
