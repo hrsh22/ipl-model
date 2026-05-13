@@ -229,14 +229,16 @@ describe('trading API routes', () => {
     expect(body).toEqual({ error: 'Unauthorized' })
   })
 
-  test('returns string-only live eligibility blocker reasons when trading is blocked', async () => {
+  test('returns string-only live eligibility blocker reasons when venue readiness is blocked', async () => {
     const store = new InMemoryTradingApiStore({
       recipes: [buildRecipe({ marketId: '' })],
     })
 
-    const { response, body } = await requestJson(createApp(store), '/trading/status', {
-      headers: { authorization: `Bearer ${AUTH_TOKEN}` },
-    })
+    const { response, body } = await requestJson(
+      createApp(store, { ...tradingApiConfig, liveTradingEnabled: false }),
+      '/trading/status',
+      { headers: { authorization: `Bearer ${AUTH_TOKEN}` } },
+    )
     const status = body as {
       liveReady: boolean
       liveEligibility: { blockerReasons: unknown[] }
@@ -244,9 +246,40 @@ describe('trading API routes', () => {
 
     expect(response.status).toBe(200)
     expect(status.liveReady).toBe(false)
-    expect(status.liveEligibility.blockerReasons).toEqual(['RECIPE_INVALID'])
+    expect(status.liveEligibility.blockerReasons).toEqual(['ENV_LIVE_GATE_DISABLED'])
     expect(status.liveEligibility.blockerReasons.every((reason) => typeof reason === 'string')).toBe(true)
     expect(status.liveEligibility.blockerReasons.some((reason) => typeof reason === 'object')).toBe(false)
+  })
+
+  test('reports live venue readiness when only the lazily seeded recipe is missing', async () => {
+    const store = new InMemoryTradingApiStore({ recipes: [] })
+
+    const { response, body } = await requestJson(createApp(store), '/trading/status', {
+      headers: { authorization: `Bearer ${AUTH_TOKEN}` },
+    })
+    const status = body as {
+      mode: string
+      liveReady: boolean
+      liveEligibility: { liveReady: boolean; blockerReasons: string[] }
+      activeStrategy: { executionMode: string; dryRun: boolean; liveReady: boolean; readinessBlockers: string[] }
+      recipeValidation: { status: string; errors: string[] }
+    }
+
+    expect(response.status).toBe(200)
+    expect(status.mode).toBe('live')
+    expect(status.liveReady).toBe(true)
+    expect(status.liveEligibility.liveReady).toBe(true)
+    expect(status.liveEligibility.blockerReasons).toEqual([])
+    expect(status.activeStrategy).toMatchObject({
+      executionMode: 'live',
+      dryRun: false,
+      liveReady: true,
+      readinessBlockers: [],
+    })
+    expect(status.recipeValidation).toMatchObject({
+      status: 'missing',
+      errors: ['recipe is required'],
+    })
   })
 
   test('reports dry-run when runtime live-client construction failed after config readiness passed', async () => {

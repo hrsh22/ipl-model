@@ -59,7 +59,7 @@ const liveModelFixture = {
       expectedRunRate: null,
       battingTeamWinProbability: null,
       chaseSuccessProbability: null,
-      status: 'frozen',
+      status: 'frozen' as const,
     },
     second: {
       innings: 2,
@@ -78,7 +78,7 @@ const liveModelFixture = {
       expectedRunRate: null,
       battingTeamWinProbability: null,
       chaseSuccessProbability: null,
-      status: 'live',
+      status: 'live' as const,
     },
   },
   venueContext: null,
@@ -152,6 +152,36 @@ describe('observer dashboard helpers', () => {
       scheduleFixtures: [],
       defaultMarket: null,
       tradingStatus: null,
+    })
+  })
+
+  test('loads live trading venue status into the 11-over dashboard even while recipe is pending', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url === '/api/observer/ready') return jsonResponse({ ready: true })
+      if (url === '/api/observer/live-model') return jsonResponse([])
+      if (url === '/api/observer/fixtures') return jsonResponse([])
+      if (url === '/api/predictor/fixtures') return jsonResponse([])
+      if (url === '/api/scanner/default-market') return jsonResponse({ error: 'default unavailable' }, 500)
+      if (url === '/api/observer/trading/status') {
+        return jsonResponse({
+          status: 'ok',
+          mode: 'live',
+          liveReady: true,
+          activeStrategy: { mode: 'value90', priceCap: 0.9, allocationFraction: 0.2 },
+          liveEligibility: { blockerReasons: [], liveReady: true },
+          recipeValidation: { status: 'missing', errors: ['recipe is required'] },
+        })
+      }
+      return jsonResponse({ error: 'unexpected fetch' }, 404)
+    }))
+
+    await expect(loadStrategyDashboard()).resolves.toMatchObject({
+      tradingStatus: {
+        mode: 'live',
+        liveReady: true,
+        liveEligibility: { blockerReasons: [] },
+        recipeValidation: { status: 'missing' },
+      },
     })
   })
 })

@@ -6,10 +6,8 @@ import {
   type ScoreboardSideStrategyMode,
 } from "../ipl/scoreboard-side-strategy.js"
 import {
-  assessTradingLiveReadiness,
   validateTradingRecipe,
   type TradingOrderStyle,
-  type TradingReadinessResult,
   type TradingRecipeInput,
   type TradingSide,
 } from "./config.js"
@@ -242,14 +240,6 @@ const summarizeRecipeValidation = (recipe: TradingRecipeRecord | null) => {
   }
 }
 
-const validateLatestRecipe = (recipe: TradingRecipeRecord | null) => {
-  if (!recipe) {
-    return null
-  }
-
-  return validateTradingRecipe(recipeToValidationInput(recipe))
-}
-
 const summarizeEnvironmentLiveGate = (config: TradingApiConfig) => ({
   flagKey: "TRADING_LIVE_ENABLED",
   enabled: config.liveTradingEnabled,
@@ -282,7 +272,36 @@ const summarizeReadinessBlockerReason = (reason: unknown) => {
   return "READINESS_BLOCKED"
 }
 
-const summarizeReadiness = (readiness: TradingReadinessResult, config: TradingApiConfig) => ({
+type TradingStatusReadinessSummary = {
+  mode: "live" | "dry-run"
+  liveReady: boolean
+  reasons: Array<{
+    code: "ENV_LIVE_GATE_DISABLED" | "POLYMARKET_CREDENTIALS_MISSING"
+    errors?: string[]
+  }>
+}
+
+const buildVenueReadinessSummary = (config: TradingApiConfig): TradingStatusReadinessSummary => {
+  const reasons: TradingStatusReadinessSummary["reasons"] = []
+
+  if (!config.liveTradingEnabled) {
+    reasons.push({ code: "ENV_LIVE_GATE_DISABLED" })
+  }
+
+  if (!config.polymarketCredentials.allPresent) {
+    reasons.push({ code: "POLYMARKET_CREDENTIALS_MISSING" })
+  }
+
+  if (runtimeReadinessFailureReasons.length > 0) {
+    reasons.push({ code: "POLYMARKET_CREDENTIALS_MISSING", errors: runtimeReadinessFailureReasons })
+  }
+
+  return reasons.length === 0
+    ? { mode: "live", liveReady: true, reasons: [] }
+    : { mode: "dry-run", liveReady: false, reasons }
+}
+
+const summarizeReadiness = (readiness: TradingStatusReadinessSummary, config: TradingApiConfig) => ({
   mode: readiness.mode,
   liveReady: readiness.liveReady,
   liveEnvGateEnabled: config.liveTradingEnabled,
@@ -299,7 +318,7 @@ const summarizeReadiness = (readiness: TradingReadinessResult, config: TradingAp
   blockerReasons: readiness.liveReady ? [] : readiness.reasons.map(summarizeReadinessBlockerReason),
 })
 
-const summarizeActiveStrategy = (readiness: TradingReadinessResult, config: TradingApiConfig) => {
+const summarizeActiveStrategy = (readiness: TradingStatusReadinessSummary, config: TradingApiConfig) => {
   const strategy = config.scoreboardSideStrategy ?? getScoreboardSideStrategySettings("value90")
 
   return {
@@ -498,27 +517,15 @@ export const buildTradingStatusResponse = async (input: {
     input.store.getReconciliationCheckpoint(TRADING_RECONCILIATION_CHECKPOINT_KEY),
   ])
   const latestRecipe = recipes[0] ?? null
-  const recipeValidation = validateLatestRecipe(latestRecipe)
-  const readiness = assessTradingLiveReadiness({
-    liveTradingEnabled: input.config.liveTradingEnabled,
-    credentialsPresent: input.config.polymarketCredentials.allPresent,
-    recipe: recipeValidation,
-  })
-  const effectiveReadiness: TradingReadinessResult = readiness.liveReady && runtimeReadinessFailureReasons.length > 0
-    ? {
-        liveReady: false,
-        mode: "dry-run",
-        reasons: [{ code: "POLYMARKET_CREDENTIALS_MISSING", errors: runtimeReadinessFailureReasons }],
-      }
-    : readiness
+  const venueReadiness = buildVenueReadinessSummary(input.config)
 
   return {
     status: "ok" as const,
     generatedAt: (input.now ?? new Date()).toISOString(),
-    mode: effectiveReadiness.mode,
-    liveReady: effectiveReadiness.liveReady,
-    activeStrategy: summarizeActiveStrategy(effectiveReadiness, input.config),
-    liveEligibility: summarizeReadiness(effectiveReadiness, input.config),
+    mode: venueReadiness.mode,
+    liveReady: venueReadiness.liveReady,
+    activeStrategy: summarizeActiveStrategy(venueReadiness, input.config),
+    liveEligibility: summarizeReadiness(venueReadiness, input.config),
     runtimeFlag: summarizeEnvironmentLiveGate(input.config),
     recipeValidation: summarizeRecipeValidation(latestRecipe),
     latestIntents: latestIntents.map(summarizeIntent),
