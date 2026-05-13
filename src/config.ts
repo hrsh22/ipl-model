@@ -1,5 +1,16 @@
 import "dotenv/config"
 
+import {
+  SCOREBOARD_SIDE_STRATEGY_MODES,
+  getScoreboardSideStrategySettings,
+  type ScoreboardSideStrategyMode,
+} from "./ipl/scoreboard-side-strategy.js"
+import { POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_HOST } from "./trading/config.js"
+
+const POLYMARKET_FUNDER_ADDRESS = "0xBF1D3CEC2Ba0DC94Db211c9099F8b20132278aB4"
+const POLYMARKET_EXPECTED_SIGNER_ADDRESS = "0x5B581d7f0d8cbee002470095d072059DA7A984c2"
+const POLYMARKET_SIGNATURE_TYPE = 3
+
 const requireEnv = (name: string) => {
   const value = process.env[name]
 
@@ -19,6 +30,22 @@ const optionalEnv = (name: string) => {
 const parseBooleanEnv = (value: string | undefined) =>
   value ? ["1", "true", "yes", "on"].includes(value.trim().toLowerCase()) : false
 
+const parseScoreboardSideStrategyMode = (value: string | undefined): ScoreboardSideStrategyMode => {
+  const mode = value?.trim()
+
+  if (!mode) {
+    return "value90"
+  }
+
+  if (mode in SCOREBOARD_SIDE_STRATEGY_MODES) {
+    return mode as ScoreboardSideStrategyMode
+  }
+
+  throw new Error(
+    `SCOREBOARD_SIDE_STRATEGY_MODE must be one of: ${Object.keys(SCOREBOARD_SIDE_STRATEGY_MODES).join(", ")}`,
+  )
+}
+
 const parsePort = (value: string) => {
   const port = Number(value)
 
@@ -29,47 +56,56 @@ const parsePort = (value: string) => {
   return port
 }
 
-const parseOptionalPositiveIntegerEnv = (
-  value: string | undefined,
-  fallback: number,
-) => {
-  if (!value?.trim()) {
-    return fallback
-  }
-
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error("Expected a positive integer environment value")
-  }
-
-  return parsed
-}
-
-const opticOddsEnabled = parseBooleanEnv(process.env.OPTICODDS_ENABLED)
 const defaultPredictorBackgroundIntervalMs = 60 * 60 * 1000
-const opticOddsApiKey = opticOddsEnabled
-  ? requireEnv("OPTICODDS_API_KEY")
-  : optionalEnv("OPTICODDS_API_KEY")
+const tradingLiveEnabled = parseBooleanEnv(process.env.TRADING_LIVE_ENABLED)
+const defaultTradingMatchStateMaxAgeMs = 30_000
+const defaultTradingBookMaxAgeMs = 15_000
+const defaultTradingExecutorIntervalMs = 5_000
+const defaultTradingExecutorLeaseMs = 30_000
+const polymarketPrivateKeyPresent = optionalEnv("POLYMARKET_PRIVATE_KEY") !== null
+const polymarketBuilderCodePresent = optionalEnv("POLY_BUILDER_CODE") !== null
+const scoreboardSideStrategyMode = parseScoreboardSideStrategyMode(process.env.SCOREBOARD_SIDE_STRATEGY_MODE)
+const scoreboardSideStrategy = getScoreboardSideStrategySettings(scoreboardSideStrategyMode)
 
 export const config = {
   port: parsePort(requireEnv("PORT")),
   logLevel: requireEnv("LOG_LEVEL"),
   databaseUrl: requireEnv("DATABASE_URL"),
-  opticOddsEnabled,
-  opticOddsApiKey,
   observerApiToken: optionalEnv("OBSERVER_API_TOKEN"),
-  predictorLiveDataMaxAgeMs: parseOptionalPositiveIntegerEnv(
-    process.env.PREDICTOR_LIVE_DATA_MAX_AGE_MS,
-    defaultPredictorBackgroundIntervalMs,
-  ),
-  predictorMaintenanceIntervalMs: parseOptionalPositiveIntegerEnv(
-    process.env.PREDICTOR_MAINTENANCE_INTERVAL_MS,
-    defaultPredictorBackgroundIntervalMs,
-  ),
-  experimentalBallStateShadowRefreshEnabled: parseBooleanEnv(
-    process.env.EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED,
-  ),
-  experimentalBallStateRemoteFetchEnabled: parseBooleanEnv(
-    process.env.EXPERIMENTAL_BALL_STATE_REMOTE_FETCH_ENABLED,
-  ),
+  predictorLiveDataMaxAgeMs: defaultPredictorBackgroundIntervalMs,
+  predictorMaintenanceIntervalMs: defaultPredictorBackgroundIntervalMs,
+  experimentalBallStateShadowRefreshEnabled: false,
+  experimentalBallStateRemoteFetchEnabled: false,
+  trading: {
+    liveEnabled: tradingLiveEnabled,
+    polymarketCredentials: {
+      privateKeyPresent: polymarketPrivateKeyPresent,
+      builderCodePresent: polymarketBuilderCodePresent,
+      signatureType: POLYMARKET_SIGNATURE_TYPE,
+      funderAddressRequired: true,
+      funderAddressPresent: true,
+      allPresent:
+        polymarketPrivateKeyPresent &&
+        polymarketBuilderCodePresent,
+    },
+    staleWindows: {
+      matchStateMaxAgeMs: defaultTradingMatchStateMaxAgeMs,
+      bookMaxAgeMs: defaultTradingBookMaxAgeMs,
+    },
+    dailyBoundaryTimezone: "Asia/Kolkata",
+    executor: {
+      enabled: true,
+      intervalMs: defaultTradingExecutorIntervalMs,
+      leaseMs: defaultTradingExecutorLeaseMs,
+      workerId: "polymarket-runtime-executor",
+    },
+    polymarketClob: {
+      host: POLYMARKET_CLOB_HOST,
+      chainId: POLYMARKET_CHAIN_ID,
+      signatureType: POLYMARKET_SIGNATURE_TYPE,
+      funderAddress: POLYMARKET_FUNDER_ADDRESS,
+      expectedSignerAddress: POLYMARKET_EXPECTED_SIGNER_ADDRESS,
+    },
+    scoreboardSideStrategy,
+  },
 }

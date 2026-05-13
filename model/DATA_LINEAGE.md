@@ -248,11 +248,6 @@ override chain before retraining anything.
 
 ### Runtime freshness and audit files
 
-Relevant config:
-
-- `PREDICTOR_LIVE_DATA_MAX_AGE_MS`
-- `PREDICTOR_MAINTENANCE_INTERVAL_MS`
-
 Background maintenance refreshes runtime sidecars using commands such as:
 
 - `pnpm model:data:fixtures`
@@ -433,11 +428,6 @@ production training while a match is live:
 | `model/build_live_payload_from_events.py` | Builds local live-model payloads from event journals. |
 | `model/run_no_paid_ball_state_live.py` | One-command no-paid experimental validation path. |
 | `model/experiments/ball-state/live-events/**` | Ignored local event journals and derived snapshots. |
-
-Relevant flags:
-
-- `EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED`
-- `EXPERIMENTAL_BALL_STATE_REMOTE_FETCH_ENABLED`
 
 These paths must not write into `model/final_models/`, `model/predict_fixture.py`,
 or `model/data/live/` during live testing. After a match is complete and audited,

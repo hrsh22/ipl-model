@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useReducer } from 'react'
 
 export const Route = createFileRoute('/observer')({
   component: ObserverPage,
@@ -35,6 +35,8 @@ type ExpectedState = {
   scoreRuns: number | null
   scoreWickets: number | null
   overs: number | null
+  balls?: number | null
+  targetRuns?: number | null
   expectedRunsNow: number | null
   expectedWicketsNow: number | null
   runsDelta: number | null
@@ -126,6 +128,7 @@ type LiveModelHistoryEntry = {
   signalCount: number
 }
 
+
 type DashboardData = {
   ready: Record<string, unknown>
   fixtures: LiveModelFixture[]
@@ -134,14 +137,45 @@ type DashboardData = {
 }
 
 type ObserverState = {
+  refresh: () => Promise<void>
   data: DashboardData | null
   error: string | null
   status: 'loading' | 'success' | 'error'
-  updatedAt: Date | null
+  updatedAt: string | null
   refreshing: boolean
 }
 
+type ObserverStateAction =
+  | { type: 'refreshing'; initial: boolean }
+  | { type: 'success'; data: DashboardData; refresh: () => Promise<void>; updatedAt: string }
+  | { type: 'error'; message: string }
+
 let lastStableDashboardData: DashboardData | null = null
+
+const initialObserverState: ObserverState = {
+  data: null,
+  error: null,
+  status: 'loading',
+  updatedAt: null,
+  refreshing: false,
+  refresh: async () => {},
+}
+
+function observerStateReducer(current: ObserverState, action: ObserverStateAction): ObserverState {
+  switch (action.type) {
+    case 'refreshing':
+      return { ...current, refreshing: !action.initial }
+    case 'success':
+      return { data: action.data, error: null, status: 'success', updatedAt: action.updatedAt, refreshing: false, refresh: action.refresh }
+    case 'error':
+      return {
+        ...current,
+        error: action.message,
+        status: current.data ? 'success' : 'error',
+        refreshing: false,
+      }
+  }
+}
 
 function ObserverPage() {
   const state = useObserverDashboard()
@@ -157,11 +191,6 @@ function ObserverPage() {
     : state.status === 'loading'
       ? 'Loading observer'
       : 'Observer warming'
-  const aggregateEdge = useMemo(() => {
-    const edges = fixtures.flatMap((fixture) => [fixture.home.edgeVsMarketBps, fixture.away.edgeVsMarketBps])
-    const valid = edges.filter((edge): edge is number => edge !== null)
-    return valid.length === 0 ? null : valid.reduce((sum, edge) => sum + Math.abs(edge), 0) / valid.length
-  }, [fixtures])
 
   return (
     <main className="observer-shell">
@@ -176,7 +205,7 @@ function ObserverPage() {
         <div className="observer-status-card">
           <span className="observer-status-dot" />
           <span>{observerStatusLabel}</span>
-          <strong>{state.updatedAt ? `Last ${state.updatedAt.toLocaleTimeString()}` : 'waiting'}</strong>
+          <strong>{state.updatedAt ? `Last ${state.updatedAt}` : 'waiting'}</strong>
           <small>{state.refreshing ? 'refreshing' : state.status}</small>
         </div>
       </section>
@@ -185,7 +214,6 @@ function ObserverPage() {
 
       <section className="observer-metric-grid">
         <ObserverMetric label="Tracked live models" value={fixtures.length.toString()} />
-        <ObserverMetric label="Avg absolute edge" value={aggregateEdge === null ? '—' : `${Math.round(aggregateEdge)} bps`} />
         <ObserverMetric label="Recent signals" value={signals.length.toString()} />
       </section>
 
@@ -194,11 +222,11 @@ function ObserverPage() {
           <SectionHeading label="Live model board" value={`${fixtures.length} fixtures`} />
           {fixtures.length === 0 ? <ObserverEmptyState /> : fixtures.map((fixture) => <FixtureCard key={fixture.fixture.id} fixture={fixture} />)}
 
-          <SectionHeading label="Historical tracking" value={`${history.length} matches`} />
+          <SectionHeading label="Persisted fixture tracking" value={`${history.length} matches`} />
           {history.length === 0 ? (
             <div className="observer-empty-state">
-              <strong>No persisted match history yet</strong>
-              <p>Run migrations and keep the observer running during matches to collect snapshots.</p>
+              <strong>No scored fixture history available yet</strong>
+              <p>The observer has not persisted a fixture with innings score context or live-model snapshots yet. Venue history can still appear on live cards when the stadium is known.</p>
             </div>
           ) : (
             history.map((entry) => <HistoryCard entry={entry} key={entry.fixture.id} />)
@@ -209,7 +237,7 @@ function ObserverPage() {
           <SectionHeading label="Signal tape" value="latest" />
           <div className="observer-terms-card">
             <strong>Terms</strong>
-            <p><b>Expected now</b> is scored through the trained ball-by-ball model for the current live payload; unavailable model targets render as —.</p>
+            <p><b>Expected now</b> is scored through the trained ball-by-ball model for the current live payload; unavailable model targets render as unavailable.</p>
             <p><b>Fair probability</b> is the Betfair-led reference price, not the deployed predictor.</p>
             <p><b>PM</b> is Polymarket moneyline probability.</p>
           </div>
@@ -225,13 +253,7 @@ function ObserverPage() {
 }
 
 function useObserverDashboard(): ObserverState {
-  const [state, setState] = useState<ObserverState>({
-    data: null,
-    error: null,
-    status: 'loading',
-    updatedAt: null,
-    refreshing: false,
-  })
+  const [state, dispatch] = useReducer(observerStateReducer, initialObserverState)
 
   useEffect(() => {
     let cancelled = false
@@ -240,11 +262,11 @@ function useObserverDashboard(): ObserverState {
 
     const load = async (initial: boolean) => {
       if (stopped) return
-      setState((current) => ({ ...current, refreshing: !initial }))
+      dispatch({ type: 'refreshing', initial })
       try {
         const data = await loadObserverDashboard()
         if (cancelled) return
-        setState({ data, error: null, status: 'success', updatedAt: new Date(), refreshing: false })
+        dispatch({ type: 'success', data, updatedAt: formatEpochTime(Date.now()), refresh: async () => { await load(false) } })
       } catch (error) {
         if (cancelled) return
         const message = error instanceof Error ? error.message : 'Observer dashboard request failed.'
@@ -254,12 +276,7 @@ function useObserverDashboard(): ObserverState {
             window.clearInterval(interval)
           }
         }
-        setState((current) => ({
-          ...current,
-          error: message,
-          status: current.data ? 'success' : 'error',
-          refreshing: false,
-        }))
+        dispatch({ type: 'error', message })
       }
     }
 
@@ -277,7 +294,7 @@ function useObserverDashboard(): ObserverState {
   return state
 }
 
-async function loadObserverDashboard(): Promise<DashboardData> {
+export async function loadObserverDashboard(): Promise<DashboardData> {
   const responses = await Promise.all([
     fetch('/api/observer/ready'),
     fetch('/api/observer/live-model'),
@@ -370,6 +387,8 @@ function mergeExpectedState(previous: ExpectedState, next: ExpectedState, preser
     scoreRuns: next.scoreRuns ?? previous.scoreRuns,
     scoreWickets: next.scoreWickets ?? previous.scoreWickets,
     overs: next.overs ?? previous.overs,
+    balls: next.balls ?? previous.balls ?? null,
+    targetRuns: next.targetRuns ?? previous.targetRuns ?? null,
     expectedRunsNow: preserveNulls ? next.expectedRunsNow ?? previous.expectedRunsNow : next.expectedRunsNow,
     expectedWicketsNow: preserveNulls ? next.expectedWicketsNow ?? previous.expectedWicketsNow : next.expectedWicketsNow,
     runsDelta: preserveNulls ? next.runsDelta ?? previous.runsDelta : next.runsDelta,
@@ -510,7 +529,7 @@ function HistoryCard({ entry }: { entry: LiveModelHistoryEntry }) {
         <LegacySnapshotPanel snapshot={snapshot} />
       ) : null}
       <div className="observer-history-grid">
-        <State label="Last tracked" value={snapshot ? new Date(snapshot.createdAt).toLocaleString() : '—'} />
+        <State label="Last tracked" value={formatTimestamp(snapshot?.createdAt)} />
         <State label="Signals" value={entry.signalCount.toString()} />
       </div>
       <VenueContextPanel venueContext={entry.venueContext} compact />
@@ -524,7 +543,7 @@ function LegacySnapshotPanel({ snapshot }: { snapshot: LiveModelSnapshot }) {
       <header>
         <div>
           <span>Legacy tracked state</span>
-          <strong>{new Date(snapshot.createdAt).toLocaleString()}</strong>
+          <strong>{formatTimestamp(snapshot.createdAt)}</strong>
         </div>
         <small>innings unavailable in older snapshot</small>
       </header>
@@ -559,7 +578,7 @@ function SnapshotInningsPanel({ title, snapshot, fallbackState }: { title: strin
       <header>
         <div>
           <span>{title}</span>
-          <strong>{new Date(snapshot.createdAt).toLocaleString()}</strong>
+          <strong>{formatTimestamp(snapshot.createdAt)}</strong>
         </div>
         <small>{snapshot.battingTeam ?? 'batting team unavailable'}</small>
       </header>
@@ -659,6 +678,8 @@ function toFallbackInningsStates(state: ExpectedState): InningsStates {
     scoreRuns: null,
     scoreWickets: null,
     overs: null,
+    balls: null,
+    targetRuns: null,
     expectedRunsNow: null,
     expectedWicketsNow: null,
     runsDelta: null,
@@ -715,6 +736,28 @@ function formatDelta(runs: number | null, wickets: number | null): string {
 
 function formatRuns(value: number | null): string {
   return value === null ? '—' : `${Math.round(value)} runs`
+}
+
+function formatEpochTime(timestampMs: number): string {
+  const totalMinutes = Math.floor(timestampMs / 60_000)
+  const hours = Math.floor(totalMinutes / 60) % 24
+  const minutes = totalMinutes % 60
+  return `${padTimePart(hours)}:${padTimePart(minutes)} UTC`
+}
+
+function padTimePart(value: number): string {
+  return value.toString().padStart(2, '0')
+}
+
+function formatTimestamp(value: string | null | undefined, mode: 'dateTime' | 'time' = 'dateTime'): string {
+  if (!value) return mode === 'time' ? 'Never' : '—'
+  const trimmed = value.trim()
+  const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(trimmed)
+  if (!match) return trimmed
+  const [, year, month, day, hour, minute] = match
+  if (!year || !month || !day || !hour || !minute) return trimmed
+  const suffix = trimmed.endsWith('Z') ? ' UTC' : ''
+  return mode === 'time' ? `${hour}:${minute}${suffix}` : `${year}-${month}-${day} ${hour}:${minute}${suffix}`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

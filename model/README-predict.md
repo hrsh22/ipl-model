@@ -149,14 +149,13 @@ Confirmed XI is now auto-fetched in `post_toss` mode from the IPL official match
 - If no matching Polymarket market exists, `market_overlay` will be `null`; prediction can still run from official/local fixture data.
 - In `post_toss` mode, official toss + confirmed XI are applied before any file or CLI overrides; file overrides can still replace them if needed.
 
-## Experimental ball-state shadow flags
+## Experimental ball-state shadow mode
 
 The ball-by-ball shadow scorer is experimental and isolated from the production
 pre/post-toss predictor. `/observer/live-model` can invoke the scorer as a
 runtime bridge for the current observer payload using
 `model/ball_state_live_candidate_selection.json`; if runtime scoring fails, the
-model-scored fields remain unavailable rather than using heuristic expected-state values. Runtime
-refresh for saved shadow journals remains opt-in:
+model-scored fields remain unavailable rather than using heuristic expected-state values.
 
 Selected runtime artifacts are bundled under
 `model/runtime_artifacts/ball_state_live/`, including the feature-column contract
@@ -165,15 +164,8 @@ the local research workspace and is recorded as `source_artifact` metadata only;
 production-like deploys should rely on the runtime bundle paths rather than
 requiring experiment manifests or matrices to be present.
 
-- `EXPERIMENTAL_BALL_STATE_SHADOW_REFRESH_ENABLED=false` by default. When false,
-  `/observer/ball-state-shadow` is read-only and only reports existing ignored
-  experiment artifacts.
-- `EXPERIMENTAL_BALL_STATE_REMOTE_FETCH_ENABLED=false` by default. When false,
-  runtime ingestion will not fetch ESPN URLs from context files; use saved public
-  HTML under `model/experiments/ball-state/` for local experiments.
-
-Keep these disabled in production unless you are intentionally running an
-experimental live ball-state session.
+Runtime shadow refresh and remote fetch are disabled in production config. Use saved
+public HTML under `model/experiments/ball-state/` for local experiments.
 
 ## Experimental 2026 preseason squad context
 

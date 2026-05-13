@@ -976,7 +976,7 @@ This directory is the ML data boundary for the IPL prediction system.
 ## Notes
 
 - Historical market odds are intentionally excluded from this first data-gathering pass.
-- Live OpticOdds and Polymarket data should be treated as inference-time context, not training inputs.
+- Live market data should be treated as inference-time context, not training inputs.
 - Post-toss fields should be prepared later on top of these staged historical datasets.
 `
 

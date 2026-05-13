@@ -26,6 +26,8 @@ import {
   recordPredictorPerformanceSnapshot,
   refreshPredictorPerformanceSummary,
 } from "./predictor-performance.js"
+import { createDatabaseTradingApiStore, createTradingRouter } from "./trading/api.js"
+import { createConfiguredTradingRuntimeService } from "./trading/runtime.js"
 
 const sendJson = <A>(res: Response, program: Effect.Effect<A, unknown>) => {
   void Effect.runPromise(
@@ -1443,6 +1445,13 @@ const createApp = Effect.sync((): Express => {
           "/observer/tape/live",
           "/observer/history/signals",
           "/observer/signals",
+          "/trading/status",
+          "/trading/controls/live",
+          "/trading/intents",
+          "/trading/intents/:intentId",
+          "/trading/events",
+          "/trading/exposure",
+          "/trading/reconciliation/status",
         ]
 
         return {
@@ -1984,6 +1993,17 @@ const createApp = Effect.sync((): Express => {
     )
   })
 
+  app.use(createTradingRouter({
+    requireAuth: requireObserverAuth,
+    store: createDatabaseTradingApiStore(),
+    config: {
+      liveTradingEnabled: config.trading.liveEnabled,
+      dailyBoundaryTimezone: config.trading.dailyBoundaryTimezone,
+      polymarketCredentials: config.trading.polymarketCredentials,
+      scoreboardSideStrategy: config.trading.scoreboardSideStrategy,
+    },
+  }))
+
   // IPL Prediction Endpoint
   app.post("/predict/ipl", (req, res) => {
     sendJson(
@@ -2092,6 +2112,18 @@ const program = Effect.gen(function* () {
       logger.error("Failed to start IPL observer", { error })
     })
   })
+
+  yield* Effect.tryPromise({
+    try: createConfiguredTradingRuntimeService,
+    catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+  }).pipe(
+    Effect.tap((tradingRuntime) => Effect.sync(() => {
+      tradingRuntime.start()
+    })),
+    Effect.catchAll((error) => Effect.sync(() => {
+      logger.warn("Trading executor runtime was not started", { error: error.message })
+    })),
+  )
 
   yield* Effect.never
 })

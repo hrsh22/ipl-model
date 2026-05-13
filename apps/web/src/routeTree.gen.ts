@@ -24,8 +24,14 @@ import { Route as ApiObserverReadyRouteImport } from './routes/api/observer/read
 import { Route as ApiObserverLiveModelRouteImport } from './routes/api/observer/live-model'
 import { Route as ApiObserverFixturesRouteImport } from './routes/api/observer/fixtures'
 import { Route as ApiObserverBallStateShadowRouteImport } from './routes/api/observer/ball-state-shadow'
+import { Route as ApiObserverTradingStatusRouteImport } from './routes/api/observer/trading/status'
+import { Route as ApiObserverTradingIntentsRouteImport } from './routes/api/observer/trading/intents'
+import { Route as ApiObserverTradingExposureRouteImport } from './routes/api/observer/trading/exposure'
+import { Route as ApiObserverTradingEventsRouteImport } from './routes/api/observer/trading/events'
 import { Route as ApiObserverLiveModelSignalsRouteImport } from './routes/api/observer/live-model/signals'
 import { Route as ApiObserverLiveModelHistoryRouteImport } from './routes/api/observer/live-model/history'
+import { Route as ApiObserverTradingReconciliationStatusRouteImport } from './routes/api/observer/trading/reconciliation/status'
+import { Route as ApiObserverTradingControlsLiveRouteImport } from './routes/api/observer/trading/controls/live'
 
 const ScannerRoute = ScannerRouteImport.update({
   id: '/scanner',
@@ -103,6 +109,30 @@ const ApiObserverBallStateShadowRoute =
     path: '/api/observer/ball-state-shadow',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiObserverTradingStatusRoute =
+  ApiObserverTradingStatusRouteImport.update({
+    id: '/api/observer/trading/status',
+    path: '/api/observer/trading/status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiObserverTradingIntentsRoute =
+  ApiObserverTradingIntentsRouteImport.update({
+    id: '/api/observer/trading/intents',
+    path: '/api/observer/trading/intents',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiObserverTradingExposureRoute =
+  ApiObserverTradingExposureRouteImport.update({
+    id: '/api/observer/trading/exposure',
+    path: '/api/observer/trading/exposure',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiObserverTradingEventsRoute =
+  ApiObserverTradingEventsRouteImport.update({
+    id: '/api/observer/trading/events',
+    path: '/api/observer/trading/events',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiObserverLiveModelSignalsRoute =
   ApiObserverLiveModelSignalsRouteImport.update({
     id: '/signals',
@@ -114,6 +144,18 @@ const ApiObserverLiveModelHistoryRoute =
     id: '/history',
     path: '/history',
     getParentRoute: () => ApiObserverLiveModelRoute,
+  } as any)
+const ApiObserverTradingReconciliationStatusRoute =
+  ApiObserverTradingReconciliationStatusRouteImport.update({
+    id: '/api/observer/trading/reconciliation/status',
+    path: '/api/observer/trading/reconciliation/status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiObserverTradingControlsLiveRoute =
+  ApiObserverTradingControlsLiveRouteImport.update({
+    id: '/api/observer/trading/controls/live',
+    path: '/api/observer/trading/controls/live',
+    getParentRoute: () => rootRouteImport,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -134,6 +176,12 @@ export interface FileRoutesByFullPath {
   '/api/scanner/scan': typeof ApiScannerScanRoute
   '/api/observer/live-model/history': typeof ApiObserverLiveModelHistoryRoute
   '/api/observer/live-model/signals': typeof ApiObserverLiveModelSignalsRoute
+  '/api/observer/trading/events': typeof ApiObserverTradingEventsRoute
+  '/api/observer/trading/exposure': typeof ApiObserverTradingExposureRoute
+  '/api/observer/trading/intents': typeof ApiObserverTradingIntentsRoute
+  '/api/observer/trading/status': typeof ApiObserverTradingStatusRoute
+  '/api/observer/trading/controls/live': typeof ApiObserverTradingControlsLiveRoute
+  '/api/observer/trading/reconciliation/status': typeof ApiObserverTradingReconciliationStatusRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -153,6 +201,12 @@ export interface FileRoutesByTo {
   '/api/scanner/scan': typeof ApiScannerScanRoute
   '/api/observer/live-model/history': typeof ApiObserverLiveModelHistoryRoute
   '/api/observer/live-model/signals': typeof ApiObserverLiveModelSignalsRoute
+  '/api/observer/trading/events': typeof ApiObserverTradingEventsRoute
+  '/api/observer/trading/exposure': typeof ApiObserverTradingExposureRoute
+  '/api/observer/trading/intents': typeof ApiObserverTradingIntentsRoute
+  '/api/observer/trading/status': typeof ApiObserverTradingStatusRoute
+  '/api/observer/trading/controls/live': typeof ApiObserverTradingControlsLiveRoute
+  '/api/observer/trading/reconciliation/status': typeof ApiObserverTradingReconciliationStatusRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -173,6 +227,12 @@ export interface FileRoutesById {
   '/api/scanner/scan': typeof ApiScannerScanRoute
   '/api/observer/live-model/history': typeof ApiObserverLiveModelHistoryRoute
   '/api/observer/live-model/signals': typeof ApiObserverLiveModelSignalsRoute
+  '/api/observer/trading/events': typeof ApiObserverTradingEventsRoute
+  '/api/observer/trading/exposure': typeof ApiObserverTradingExposureRoute
+  '/api/observer/trading/intents': typeof ApiObserverTradingIntentsRoute
+  '/api/observer/trading/status': typeof ApiObserverTradingStatusRoute
+  '/api/observer/trading/controls/live': typeof ApiObserverTradingControlsLiveRoute
+  '/api/observer/trading/reconciliation/status': typeof ApiObserverTradingReconciliationStatusRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -194,6 +254,12 @@ export interface FileRouteTypes {
     | '/api/scanner/scan'
     | '/api/observer/live-model/history'
     | '/api/observer/live-model/signals'
+    | '/api/observer/trading/events'
+    | '/api/observer/trading/exposure'
+    | '/api/observer/trading/intents'
+    | '/api/observer/trading/status'
+    | '/api/observer/trading/controls/live'
+    | '/api/observer/trading/reconciliation/status'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -213,6 +279,12 @@ export interface FileRouteTypes {
     | '/api/scanner/scan'
     | '/api/observer/live-model/history'
     | '/api/observer/live-model/signals'
+    | '/api/observer/trading/events'
+    | '/api/observer/trading/exposure'
+    | '/api/observer/trading/intents'
+    | '/api/observer/trading/status'
+    | '/api/observer/trading/controls/live'
+    | '/api/observer/trading/reconciliation/status'
   id:
     | '__root__'
     | '/'
@@ -232,6 +304,12 @@ export interface FileRouteTypes {
     | '/api/scanner/scan'
     | '/api/observer/live-model/history'
     | '/api/observer/live-model/signals'
+    | '/api/observer/trading/events'
+    | '/api/observer/trading/exposure'
+    | '/api/observer/trading/intents'
+    | '/api/observer/trading/status'
+    | '/api/observer/trading/controls/live'
+    | '/api/observer/trading/reconciliation/status'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -250,6 +328,12 @@ export interface RootRouteChildren {
   ApiPredictorPredictRoute: typeof ApiPredictorPredictRoute
   ApiScannerDefaultMarketRoute: typeof ApiScannerDefaultMarketRoute
   ApiScannerScanRoute: typeof ApiScannerScanRoute
+  ApiObserverTradingEventsRoute: typeof ApiObserverTradingEventsRoute
+  ApiObserverTradingExposureRoute: typeof ApiObserverTradingExposureRoute
+  ApiObserverTradingIntentsRoute: typeof ApiObserverTradingIntentsRoute
+  ApiObserverTradingStatusRoute: typeof ApiObserverTradingStatusRoute
+  ApiObserverTradingControlsLiveRoute: typeof ApiObserverTradingControlsLiveRoute
+  ApiObserverTradingReconciliationStatusRoute: typeof ApiObserverTradingReconciliationStatusRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -359,6 +443,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiObserverBallStateShadowRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/observer/trading/status': {
+      id: '/api/observer/trading/status'
+      path: '/api/observer/trading/status'
+      fullPath: '/api/observer/trading/status'
+      preLoaderRoute: typeof ApiObserverTradingStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/observer/trading/intents': {
+      id: '/api/observer/trading/intents'
+      path: '/api/observer/trading/intents'
+      fullPath: '/api/observer/trading/intents'
+      preLoaderRoute: typeof ApiObserverTradingIntentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/observer/trading/exposure': {
+      id: '/api/observer/trading/exposure'
+      path: '/api/observer/trading/exposure'
+      fullPath: '/api/observer/trading/exposure'
+      preLoaderRoute: typeof ApiObserverTradingExposureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/observer/trading/events': {
+      id: '/api/observer/trading/events'
+      path: '/api/observer/trading/events'
+      fullPath: '/api/observer/trading/events'
+      preLoaderRoute: typeof ApiObserverTradingEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/observer/live-model/signals': {
       id: '/api/observer/live-model/signals'
       path: '/signals'
@@ -372,6 +484,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/observer/live-model/history'
       preLoaderRoute: typeof ApiObserverLiveModelHistoryRouteImport
       parentRoute: typeof ApiObserverLiveModelRoute
+    }
+    '/api/observer/trading/reconciliation/status': {
+      id: '/api/observer/trading/reconciliation/status'
+      path: '/api/observer/trading/reconciliation/status'
+      fullPath: '/api/observer/trading/reconciliation/status'
+      preLoaderRoute: typeof ApiObserverTradingReconciliationStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/observer/trading/controls/live': {
+      id: '/api/observer/trading/controls/live'
+      path: '/api/observer/trading/controls/live'
+      fullPath: '/api/observer/trading/controls/live'
+      preLoaderRoute: typeof ApiObserverTradingControlsLiveRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -405,6 +531,13 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPredictorPredictRoute: ApiPredictorPredictRoute,
   ApiScannerDefaultMarketRoute: ApiScannerDefaultMarketRoute,
   ApiScannerScanRoute: ApiScannerScanRoute,
+  ApiObserverTradingEventsRoute: ApiObserverTradingEventsRoute,
+  ApiObserverTradingExposureRoute: ApiObserverTradingExposureRoute,
+  ApiObserverTradingIntentsRoute: ApiObserverTradingIntentsRoute,
+  ApiObserverTradingStatusRoute: ApiObserverTradingStatusRoute,
+  ApiObserverTradingControlsLiveRoute: ApiObserverTradingControlsLiveRoute,
+  ApiObserverTradingReconciliationStatusRoute:
+    ApiObserverTradingReconciliationStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
